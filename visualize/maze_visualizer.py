@@ -7,7 +7,7 @@ from enum import IntEnum
 
 from .collision import Collision
 from .ghost import Ghost
-from .gui import GUI
+from .gui import GUI, GUIStateEnum
 from .maze import Maze
 from .pacgums import Pacgums
 from .player import Player
@@ -18,9 +18,11 @@ from .visualizerutils import VisualizerUtils
 class KeyEnum(IntEnum):
     A = 97
     D = 100
+    P = 112
     R = 114
     S = 115
     W = 119
+    ENTER = 65293
     ESC = 65307
     LEFT = 65361
     UP = 65362
@@ -66,6 +68,7 @@ class MazeVisualizer:
         ]
         self.cm = 0
         self.closed = True
+        self.state: GUIStateEnum = GUIStateEnum.Home
         self.last_time = time.monotonic()
 
     def _draw(self, _param: object = None) -> None:
@@ -74,24 +77,42 @@ class MazeVisualizer:
         if self.closed:
             return
         self.canvas.clear_image()
-        if self.player.is_alive and len(self.pacgums) > 0:
+        if self.state == GUIStateEnum.Playing or self.state == GUIStateEnum.Pause:
             wall_color, landmark_color, _ = self.cmodes[self.cm]
             self.maze.draw(self.canvas, wall_color, landmark_color)
             self.pacgums.draw(self.canvas)
             for ghost in self.ghosts:
                 ghost.draw(self.canvas)
             self.player.draw(self.canvas)
+        if self.state == GUIStateEnum.Pause:
+            self.gui.background(
+                self.canvas,
+                self.width // 2 - 90,
+                self.height // 2 - 30,
+                180,
+                60,
+            )
         self.m.mlx_put_image_to_window(self.p, self.win, self.img, 0, 0)
-        if self.player.is_alive and len(self.pacgums) > 0:
-            self.gui.draw_score(
+
+        if self.state == GUIStateEnum.Home:
+            self.gui.home(
+                self.m,
+                self.p,
+                self.win,
+                self.width,
+                self.height,
+            )
+        elif self.state == GUIStateEnum.Playing or self.state == GUIStateEnum.Pause:
+            self.gui.draw_stats(
                 self.m,
                 self.p,
                 self.win,
                 20,
                 15,
                 self.player.score,
+                self.player.lives,
             )
-        if not self.player.is_alive:
+        if self.state == GUIStateEnum.GameOver:
             self.gui.gameover(
                 self.m,
                 self.p,
@@ -99,7 +120,15 @@ class MazeVisualizer:
                 self.width,
                 self.height,
             )
-        elif len(self.pacgums) == 0:
+        elif self.state == GUIStateEnum.Pause:
+            self.gui.pause(
+                self.m,
+                self.p,
+                self.win,
+                self.width,
+                self.height,
+            )
+        elif self.state == GUIStateEnum.Clear:
             self.gui.clear(
                 self.m,
                 self.p,
@@ -128,19 +157,27 @@ class MazeVisualizer:
         self.last_time = now
         if self.closed:
             return
-        if self.player.is_alive and len(self.pacgums) > 0:
+        if self.state == GUIStateEnum.Playing:
             self.player.update(elapsed, self.maze, self.canvas, self.pacgums)
-            for ghost in self.ghosts:
-                ghost.update(elapsed, self.maze, self.canvas, self.player.movement.cell)
-                if self.player.is_alive and self.judge.is_collision(self.player, ghost):
-                    print(f"YOU DIED BY {ghost.color}")
-                    self.player.lives -= 1
-                    if self.player.lives == 0:
-                        self.player.is_alive = False
-                    else:
-                        self._respawn()
-                    break
-            self.player.update_mouth(elapsed)
+            if len(self.pacgums) == 0:
+                self.state = GUIStateEnum.Clear
+            else:
+                for ghost in self.ghosts:
+                    ghost.update(
+                        elapsed, self.maze, self.canvas, self.player.movement.cell
+                    )
+                    if self.player.is_alive and self.judge.is_collision(
+                        self.player, ghost
+                    ):
+                        print(f"YOU DIED BY {ghost.color}")
+                        self.player.lives -= 1
+                        if self.player.lives == 0:
+                            self.player.is_alive = False
+                            self.state = GUIStateEnum.GameOver
+                        else:
+                            self._respawn()
+                        break
+                self.player.update_mouth(elapsed)
         self._draw()
 
     def _on_key(self, key: int, _param: object = None) -> None:
@@ -150,16 +187,30 @@ class MazeVisualizer:
         if key == KeyEnum.ESC:
             self._close()
             return
-        if key == KeyEnum.R and (not self.player.is_alive or len(self.pacgums) == 0):
+        if self.state == GUIStateEnum.Home:
+            if key == KeyEnum.ENTER:
+                self.state = GUIStateEnum.Playing
+            else:
+                return
+        if key == KeyEnum.P:
+            if self.state == GUIStateEnum.Playing:
+                self.state = GUIStateEnum.Pause
+            elif self.state == GUIStateEnum.Pause:
+                self.state = GUIStateEnum.Playing
+
+        if key == KeyEnum.R and (
+            self.state == GUIStateEnum.GameOver or self.state == GUIStateEnum.Clear
+        ):
             self.player.lives = 3
             self._respawn()
+            self.state = GUIStateEnum.Playing
             if len(self.pacgums) == 0:
                 self.pacgums.reset(
                     self.maze,
                     self.canvas,
                     self.player.movement.cell,
                 )
-        if self.player.is_alive and len(self.pacgums) > 0:
+        if self.state == GUIStateEnum.Playing:
             if key in (99, 67):
                 self.cm = (self.cm + 1) % len(self.cmodes)
                 self._draw()
