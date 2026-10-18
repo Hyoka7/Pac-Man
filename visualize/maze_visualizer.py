@@ -1,26 +1,55 @@
-"""Render a maze of wall bitmasks using MiniLibX."""
+"""Connect MLX lifecycle and events to the game components."""
 
 from __future__ import annotations
 
 import time
-from math import ceil, floor, hypot
+from enum import IntEnum
+
+from .collision import Collision
+from .ghost import Ghost
+from .gui import GUI
+from .maze import Maze
+from .pacgums import Pacgums
+from .player import Player
+from .strategy import BFSStrategy
+from .visualizerutils import VisualizerUtils
+
+
+class KeyEnum(IntEnum):
+    A = 97
+    D = 100
+    R = 114
+    S = 115
+    W = 119
+    ESC = 65307
+    LEFT = 65361
+    UP = 65362
+    RIGHT = 65363
+    DOWN = 65364
 
 
 class MazeVisualizer:
-    """Display walls and fill enclosed '42' cells (wall mask 15)."""
+    """Coordinate the window, input, updates and rendering."""
 
     def __init__(self, maze: list[list[int]]) -> None:
-        if not maze or not maze[0]:
-            raise ValueError("maze must not be empty")
-        self.rows = len(maze)
-        self.cols = len(maze[0])
-        if any(len(row) != self.cols for row in maze):
-            raise ValueError("maze must be rectangular")
-        if any(
-            type(cell) is not int or not 0 <= cell <= 15 for row in maze for cell in row
-        ):
-            raise ValueError("each cell must be an integer wall mask (0..15)")
-        self.maze = [row[:] for row in maze]
+        """Create game components before opening a graphics window."""
+        self.maze = Maze(maze)
+        self.player = Player()
+        self.pacgums = Pacgums()
+        self.judge = Collision()
+        self.gui = GUI()
+        self.ghosts: list[Ghost] = []
+        self.ghosts.append(Ghost((0, self.maze.rows - 1), BFSStrategy()))
+        self.ghosts.append(
+            Ghost((self.maze.cols - 1, 0), BFSStrategy(), color=(0, 255, 0)),
+        )
+        self.ghosts.append(
+            Ghost(
+                (self.maze.cols - 1, self.maze.rows - 1),
+                BFSStrategy(),
+                color=(0, 0, 255),
+            )
+        )
         self.cmodes = [
             ((126, 249, 255), (255, 92, 138), (145, 255, 174)),
             ((89, 196, 255), (255, 204, 92), (77, 255, 218)),
@@ -37,149 +66,47 @@ class MazeVisualizer:
         ]
         self.cm = 0
         self.closed = True
-        self.player_pos = (0, 0)
-        self.move_to = (0, 0)
-        self.move_to_cell = (0, 0)
-        self.player_dir = "E"
-        self.moving = False
-        self.ult = False
-        self.move_speed = 5
         self.last_time = time.monotonic()
 
-    def _color_bytes(self, color: tuple[int, int, int]) -> bytes:
-        """Encode an opaque RGB color in the image's byte order."""
-        r, g, b = color
-        if self.img_format == 0:
-            return bytes([b, g, r, 255])
-        return bytes([255, r, g, b])
-
-    def _cell_center(self, x: int, y: int) -> tuple[float, float]:
-        """Convert a maze cell to its center in screen pixels."""
-        center_x = self.margin + (x + 0.5) * self.cell_size
-        center_y = self.margin + (y + 0.5) * self.cell_size
-        return (center_x, center_y)
-
-    def _clear_image(self) -> None:
-        """Clear the image buffer to opaque black."""
-        row_blank = self._color_bytes((0, 0, 0)) * self.width
-        for y in range(self.height):
-            idx = y * self.line_size
-            self.img_data[idx : idx + len(row_blank)] = row_blank
-
-    def _fill_cell(
-        self,
-        x0: int,
-        y0: int,
-        x1: int,
-        y1: int,
-        color: tuple[int, int, int],
-    ) -> None:
-        """Fill a clipped rectangle, excluding its right and bottom edges."""
-        start_x = max(0, min(x0, self.width))
-        end_x = max(0, min(x1, self.width))
-        start_y = max(0, min(y0, self.height))
-        end_y = max(0, min(y1, self.height))
-        if start_x >= end_x or start_y >= end_y:
-            return
-        row_segment = self._color_bytes(color) * (end_x - start_x)
-        for y in range(start_y, end_y):
-            idx = y * self.line_size + start_x * self.bytes_per_pixel
-            self.img_data[idx : idx + len(row_segment)] = row_segment
-
-    def _line(self, x0: int, y0: int, x1: int, y1: int) -> None:
-        """Draw an inclusive horizontal or vertical wall into the buffer."""
-        self._fill_cell(x0, y0, x1 + 1, y1 + 1, self.cmodes[self.cm][0])
-
-    def _draw_player(self, center_x: float, center_y: float, dir: str) -> None:
-        """Draw the player inside a maze cell."""
-        radius = self.cell_size * 0.375
-
-        def _circle_coverage(x_pixel: float, y_pixel: float) -> float:
-            """Fade across a one-pixel band around the circle boundary."""
-            distance = hypot(x_pixel - center_x, y_pixel - center_y)
-            return max(0.0, min(1.0, radius + 0.5 - distance))
-
-        def _is_in_mouth_horizon(x_pixel: float, y_pixel: float, dir: str) -> bool:
-            dx = x_pixel - center_x
-            dy = y_pixel - center_y
-            return (
-                abs(dy) <= abs(dx) and dx > 0
-                if dir == "E"
-                else abs(dy) <= abs(dx) and dx < 0
-            )
-
-        def _is_in_mouth_vertical(x_pixel: float, y_pixel: float, dir: str) -> bool:
-            dx = x_pixel - center_x
-            dy = y_pixel - center_y
-            return (
-                abs(dx) <= abs(dy) and dy > 0
-                if dir == "S"
-                else abs(dx) <= abs(dy) and dy < 0
-            )
-
-        samples = (0.125, 0.375, 0.625, 0.875)
-        for y in range(
-            max(floor(center_y - radius - 0.5), 0),
-            min(ceil(center_y + radius + 0.5), self.height),
-        ):
-            for x in range(
-                max(0, floor(center_x - radius - 0.5)),
-                min(self.width, ceil(center_x + radius + 0.5)),
-            ):
-                circle_coverage = _circle_coverage(x + 0.5, y + 0.5)
-                if circle_coverage == 0:
-                    continue
-                if dir in ("E", "W"):
-                    body_count = sum(
-                        not _is_in_mouth_horizon(x + dx, y + dy, dir)
-                        for dx in samples
-                        for dy in samples
-                    )
-                else:
-                    body_count = sum(
-                        not _is_in_mouth_vertical(x + dx, y + dy, dir)
-                        for dx in samples
-                        for dy in samples
-                    )
-                coverage = circle_coverage * (body_count / 16)
-                if coverage == 0:
-                    continue
-                pixel_start = y * self.line_size + x * self.bytes_per_pixel
-                pixel_end = pixel_start + self.bytes_per_pixel
-                background = self.img_data[pixel_start:pixel_end]
-                if self.img_format == 0:
-                    b, g, r, _ = background
-                else:
-                    _, r, g, b = background
-                color = (
-                    round(r * (1 - coverage) + 255 * coverage),
-                    round(g * (1 - coverage) + 255 * coverage),
-                    round(b * (1 - coverage)),
-                )
-                self.img_data[pixel_start:pixel_end] = self._color_bytes(color)
-
     def _draw(self, _param: object = None) -> None:
+        """Compose the current game view into the image buffer."""
+        del _param
         if self.closed:
             return
-        self._clear_image()
-        for y, row in enumerate(self.maze):
-            for x, cell in enumerate(row):
-                x0 = self.margin + x * self.cell_size
-                y0 = self.margin + y * self.cell_size
-                x1 = x0 + self.cell_size
-                y1 = y0 + self.cell_size
-                if cell == 15:
-                    self._fill_cell(x0, y0, x1, y1, self.cmodes[self.cm][1])
-                if cell & 1:
-                    self._line(x0, y0, x1, y0)
-                if cell & 2:
-                    self._line(x1, y0, x1, y1)
-                if cell & 4:
-                    self._line(x0, y1, x1, y1)
-                if cell & 8:
-                    self._line(x0, y0, x0, y1)
-        self._draw_player(self.player_center_x, self.player_center_y, self.player_dir)
+        self.canvas.clear_image()
+        if self.player.is_alive and len(self.pacgums) > 0:
+            wall_color, landmark_color, _ = self.cmodes[self.cm]
+            self.maze.draw(self.canvas, wall_color, landmark_color)
+            self.pacgums.draw(self.canvas)
+            for ghost in self.ghosts:
+                ghost.draw(self.canvas)
+            self.player.draw(self.canvas)
         self.m.mlx_put_image_to_window(self.p, self.win, self.img, 0, 0)
+        if self.player.is_alive and len(self.pacgums) > 0:
+            self.gui.draw_score(
+                self.m,
+                self.p,
+                self.win,
+                20,
+                15,
+                self.player.score,
+            )
+        if not self.player.is_alive:
+            self.gui.gameover(
+                self.m,
+                self.p,
+                self.win,
+                self.width,
+                self.height,
+            )
+        elif len(self.pacgums) == 0:
+            self.gui.clear(
+                self.m,
+                self.p,
+                self.win,
+                self.width,
+                self.height,
+            )
 
     def _close(self, _param: object = None) -> None:
         if self.closed:
@@ -189,156 +116,66 @@ class MazeVisualizer:
         self.m.mlx_destroy_window(self.p, self.win)
         self.m.mlx_loop_exit(self.p)
 
-    def _on_loop(self, _param: object) -> None:
-        """Calculate the frame's movement distance and advance the player."""
-        del _param
-        prev_time = self.last_time
-        self.last_time = time.monotonic()
-        moving_pace = self.cell_size * self.move_speed * (self.last_time - prev_time)
-        self._move_player(moving_pace)
+    def _respawn(self) -> None:
+        self.player.reset(self.canvas)
+        for ghost in self.ghosts:
+            ghost.reset(self.canvas)
 
-    def _move_player(self, moving_pace: float) -> None:
-        """Advance toward the target by a distance measured in pixels."""
-        if self.moving:
-            if self.player_dir == "N":
-                self.player_center_y = max(
-                    self.move_to[1], self.player_center_y - moving_pace
-                )
-                self._draw()
-
-            elif self.player_dir == "S":
-                self.player_center_y = min(
-                    (self.move_to[1], self.player_center_y + moving_pace),
-                )
-                self._draw()
-            elif self.player_dir == "W":
-                self.player_center_x = max(
-                    self.player_center_x - moving_pace, self.move_to[0]
-                )
-                self._draw()
-            elif self.player_dir == "E":
-                self.player_center_x = min(
-                    (self.player_center_x + moving_pace, self.move_to[0]),
-                )
-                self._draw()
-            if (self.player_center_x, self.player_center_y) == self.move_to:
-                self.player_pos = self.move_to_cell
-                if self._can_move(*self.player_pos, self.player_dir):
-                    self.move_to_cell = self._next_cell(
-                        *self.player_pos, self.player_dir
-                    )
-                    self.move_to = self._cell_center(*self.move_to_cell)
-                    self.moving = True
-                else:
-                    self.moving = False
-
-    def _next_cell(self, x: int, y: int, direction: str) -> tuple[int, int]:
-        """Return the adjacent cell; walls and bounds are checked separately."""
-        offsets = {
-            "N": (0, -1),
-            "E": (1, 0),
-            "S": (0, 1),
-            "W": (-1, 0),
-        }
-        if direction not in offsets:
-            raise ValueError("direction must be N, E, S or W")
-        dx, dy = offsets[direction]
-        return x + dx, y + dy
-
-    def _can_move(self, x: int, y: int, direction: str) -> bool:
-        """Return whether a cell has an in-bounds passage in a direction."""
-        directions = {
-            "N": 1,
-            "E": 2,
-            "S": 4,
-            "W": 8,
-        }
-        if direction not in directions:
-            return False
-        if not (0 <= x < self.cols and 0 <= y < self.rows):
-            return False
-        next_x, next_y = self._next_cell(x, y, direction)
-        wall = directions[direction]
-        return (
-            0 <= next_x < self.cols
-            and 0 <= next_y < self.rows
-            and self.maze[y][x] & wall == 0
-        )
-
-    def _on_key(self, key: int, _param: object = None) -> None:
-        del _param
+    def _on_loop(self, _param: object = None) -> None:
+        """Update movement and mouth animation, then redraw the frame."""
+        now = time.monotonic()
+        elapsed = now - self.last_time
+        self.last_time = now
         if self.closed:
             return
-        if key == 65307:  # Escape (X11)
-            self._close()
-        if key == 117:
-            if self.ult:
-                self.move_speed = 5
-            else:
-                self.move_speed = 10
-            self.ult = not self.ult
-        elif key in (99, 67):  # C / Shift+C (X11)
-            self.cm = (self.cm + 1) % len(self.cmodes)
-            self._draw()
-        elif self.moving:
+        if self.player.is_alive and len(self.pacgums) > 0:
+            self.player.update(elapsed, self.maze, self.canvas, self.pacgums)
+            for ghost in self.ghosts:
+                ghost.update(elapsed, self.maze, self.canvas, self.player.movement.cell)
+                if self.player.is_alive and self.judge.is_collision(self.player, ghost):
+                    print(f"YOU DIED BY {ghost.color}")
+                    self.player.lives -= 1
+                    if self.player.lives == 0:
+                        self.player.is_alive = False
+                    else:
+                        self._respawn()
+                    break
+            self.player.update_mouth(elapsed)
+        self._draw()
+
+    def _on_key(self, key: int, _param: object = None) -> None:
+        """Dispatch controls to the owning component."""
+        if self.closed:
             return
-        elif key == 65361 or key == 97:
-            center_x, center_y = self.player_pos
-            if self._can_move(center_x, center_y, "W"):
-                self.player_dir = "W"
-                self.moving = True
-                self.move_to_cell = self._next_cell(center_x, center_y, "W")
-                self.player_center_x, self.player_center_y = self._cell_center(
-                    *self.player_pos
+        if key == KeyEnum.ESC:
+            self._close()
+            return
+        if key == KeyEnum.R and (not self.player.is_alive or len(self.pacgums) == 0):
+            self.player.lives = 3
+            self._respawn()
+            if len(self.pacgums) == 0:
+                self.pacgums.reset(
+                    self.maze,
+                    self.canvas,
+                    self.player.movement.cell,
                 )
-                self.move_to = self._cell_center(
-                    *self._next_cell(center_x, center_y, "W")
-                )
+        if self.player.is_alive and len(self.pacgums) > 0:
+            if key in (99, 67):
+                self.cm = (self.cm + 1) % len(self.cmodes)
                 self._draw()
-        elif key == 65362 or key == 119:
-            center_x, center_y = self.player_pos
-            if self._can_move(center_x, center_y, "N"):
-                self.moving = True
-                self.move_to = self._cell_center(
-                    *self._next_cell(center_x, center_y, "N")
-                )
-                self.move_to_cell = self._next_cell(center_x, center_y, "N")
-                self.player_dir = "N"
-                self.player_center_x, self.player_center_y = self._cell_center(
-                    *self.player_pos
-                )
-                self._draw()
-        elif key == 65363 or key == 100:
-            center_x, center_y = self.player_pos
-            if self._can_move(center_x, center_y, "E"):
-                self.moving = True
-                self.move_to = self._cell_center(
-                    *self._next_cell(center_x, center_y, "E")
-                )
-                self.player_dir = "E"
-                self.move_to_cell = self._next_cell(center_x, center_y, "E")
-                self.player_center_x, self.player_center_y = self._cell_center(
-                    *self.player_pos
-                )
-                self._draw()
-        elif key == 65364 or key == 115:
-            center_x, center_y = self.player_pos
-            if self._can_move(center_x, center_y, "S"):
-                self.moving = True
-                self.move_to = self._cell_center(
-                    *self._next_cell(center_x, center_y, "S")
-                )
-                self.player_dir = "S"
-                self.move_to_cell = self._next_cell(center_x, center_y, "S")
-                self.player_center_x, self.player_center_y = self._cell_center(
-                    *self.player_pos
-                )
-                self._draw()
-        print(key, self.player_pos)
-        # Left: 65361
-        # Up: 65362
-        # Right: 65363
-        # Down: 65364
+            else:
+                directions = {
+                    KeyEnum.LEFT: "W",
+                    KeyEnum.A: "W",
+                    KeyEnum.UP: "N",
+                    KeyEnum.W: "N",
+                    KeyEnum.RIGHT: "E",
+                    KeyEnum.D: "E",
+                    KeyEnum.DOWN: "S",
+                    KeyEnum.S: "S",
+                }
+                if key in directions:
+                    self.player.request_move(directions[key], self.maze, self.canvas)
 
     def run(self) -> None:
         """Open the window and display the maze until it is closed."""
@@ -350,18 +187,17 @@ class MazeVisualizer:
             raise RuntimeError("MLX initialization failed")
 
         _, screen_width, screen_height = self.m.mlx_get_screen_size(self.p)
-        self.margin = 20
+        self.margin = 100
         self.cell_size = min(
             32,
-            (screen_width - 100 - 2 * self.margin - 1) // self.cols,
-            (screen_height - 100 - 2 * self.margin - 1) // self.rows,
+            (screen_width - 100 - 2 * self.margin - 1) // self.maze.cols,
+            (screen_height - 100 - 2 * self.margin - 1) // self.maze.rows,
         )
 
         if self.cell_size < 1:
             raise ValueError("maze is too large for the screen")
-        self.player_center_x, self.player_center_y = self._cell_center(*self.player_pos)
-        self.width = self.cols * self.cell_size + 2 * self.margin + 1
-        self.height = self.rows * self.cell_size + 2 * self.margin + 1
+        self.width = self.maze.cols * self.cell_size + 2 * self.margin + 1
+        self.height = self.maze.rows * self.cell_size + 2 * self.margin + 1
         self.win = self.m.mlx_new_window(self.p, self.width, self.height, "Maze Viewer")
         if self.win is None:
             raise RuntimeError("MLX window creation failed")
@@ -377,11 +213,25 @@ class MazeVisualizer:
             self.bytes_per_pixel = bpp // 8
             if bpp != 32 or self.img_format not in (0, 1):
                 raise RuntimeError("Unsupported MLX image format")
+            self.canvas = VisualizerUtils(
+                self.width,
+                self.height,
+                self.cell_size,
+                self.margin,
+                self.img_data,
+                self.line_size,
+                self.img_format,
+            )
+            self.player.place(self.canvas)
+            for ghost in self.ghosts:
+                ghost.place(self.canvas)
+            self.pacgums.reset(self.maze, self.canvas, self.player.movement.cell)
             self.m.mlx_loop_hook(self.p, self._on_loop, None)
-            self.m.mlx_key_hook(self.win, self._on_key, None)
+            self.m.mlx_hook(self.win, 2, 1, self._on_key, None)
             self.m.mlx_expose_hook(self.win, self._draw, None)
             self.m.mlx_hook(self.win, 33, 0, self._close, None)
             self._draw()
+            self.last_time = time.monotonic()
             self.m.mlx_loop(self.p)
         finally:
             self._close()
