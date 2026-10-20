@@ -51,3 +51,23 @@ class BFSStrategy(Strategy):
                 best_distance = distance
                 chosen = direction
         return chosen
+
+
+class FleeBFSStrategy(Strategy):
+    """Choose shortest-path steps using the maze's precomputed distances."""
+
+    def choose_direction(
+        self, maze: Maze, ghost_pos: tuple[int, int], player_pos: tuple[int, int]
+    ) -> str | None:
+        """Look up distances without running BFS during gameplay."""
+        best_distance = -1
+        chosen: str | None = None
+        for direction in ("N", "E", "S", "W"):
+            if not maze.can_move(*ghost_pos, direction):
+                continue
+            neighbor = maze.next_cell(*ghost_pos, direction)
+            distance = maze.distances.get(neighbor, {}).get(player_pos)
+            if distance is not None and distance > best_distance:
+                best_distance = distance
+                chosen = direction
+        return chosen

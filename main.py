@@ -4,4 +4,4 @@ from visualize import MazeVisualizer
 
 m = MazeGenerator()
 m.generate()
-MazeVisualizer(m.maze).run()
+MazeVisualizer(m.maze, m).run()
