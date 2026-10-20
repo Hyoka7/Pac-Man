@@ -28,6 +28,22 @@ class Maze:
             if cell != 15
         }
 
+    def central_cell(self) -> tuple[int, int]:
+        """Return a passage nearest the center, breaking ties in row order."""
+        center_x, center_y = self.cols // 2, self.rows // 2
+        passages = [
+            (x, y)
+            for y, row in enumerate(self.maze)
+            for x, cell in enumerate(row)
+            if cell != 15
+        ]
+        if not passages:
+            raise ValueError("maze has no passage for the player")
+        return min(
+            passages,
+            key=lambda cell: abs(cell[0] - center_x) + abs(cell[1] - center_y),
+        )
+
     def _build_distances(
         self, start: tuple[int, int]
     ) -> dict[tuple[int, int], int]:

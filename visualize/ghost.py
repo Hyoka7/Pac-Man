@@ -4,7 +4,7 @@ from math import ceil, floor, hypot
 
 from .maze import Maze
 from .movement import Movement
-from .strategy import Strategy
+from .strategy import FleeBFSStrategy, Strategy
 from .visualizerutils import VisualizerUtils
 
 
@@ -45,15 +45,23 @@ class Ghost:
         maze: Maze,
         canvas: VisualizerUtils,
         player_cell: tuple[int, int],
+        eatable: bool,
     ) -> None:
         """Choose a direction at cell centers and animate the chosen move."""
         if not self.movement.moving:
-            if self.cell == player_cell:
-                return
-            direction = self.strategy.choose_direction(maze, self.cell, player_cell)
-            if direction is None:
-                return
-            self.movement.start(direction, maze, canvas)
+            if not eatable:
+                if self.cell == player_cell:
+                    return
+                direction = self.strategy.choose_direction(maze, self.cell, player_cell)
+                if direction is None:
+                    return
+                self.movement.start(direction, maze, canvas)
+            else:
+                flee = FleeBFSStrategy()
+                direction = flee.choose_direction(maze, self.cell, player_cell)
+                if direction is None:
+                    return
+                self.movement.start(direction, maze, canvas)
         self.movement.update(elapsed, canvas)
 
     def _in_body(
@@ -68,7 +76,7 @@ class Ghost:
     def reset(self, canvas: VisualizerUtils) -> None:
         return self.movement.reset(canvas)
 
-    def draw(self, canvas: VisualizerUtils) -> None:
+    def draw(self, canvas: VisualizerUtils, eatable: bool) -> None:
         """Draw four feet using elliptical cutouts and antialiased edges."""
         center_x, center_y = self.movement.center or canvas.cell_center(*self.cell)
         radius = self.radius
@@ -108,4 +116,7 @@ class Ghost:
                     )
                     distance = max(distance, cut_distance)
                 coverage = max(0.0, min(1.0, 0.5 - distance))
-                canvas.draw_pixel_aa(x, y, self.color, coverage)
+                if eatable:
+                    canvas.draw_pixel_aa(x, y, (0, 0, 128), coverage)
+                else:
+                    canvas.draw_pixel_aa(x, y, self.color, coverage)

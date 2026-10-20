@@ -4,7 +4,7 @@ from math import ceil, floor, hypot, radians, tan
 
 from .maze import Maze
 from .movement import Movement
-from .pacgums import Pacgums
+from .pacgums import PacgumEatenEnum, Pacgums
 from .visualizerutils import VisualizerUtils
 
 
@@ -19,6 +19,8 @@ class Player:
         self.reserved_move: str | None = None
         self.mouth_half_angle = 45.0  # Degrees; 45 means a 90-degree opening.
         self.mouth_period = 0.3  # Seconds for one open-close cycle.
+        self.is_invincible = False
+        self.invincible_remain: float = 0.0
         self._mouth_elapsed = self.mouth_period / 2
         self.lives = 3
         self.score = 0
@@ -49,10 +51,19 @@ class Player:
         pacgums: Pacgums,
     ) -> None:
         """Animate one frame and handle player-specific actions on arrival."""
+        if self.is_invincible:
+            self.invincible_remain = max(0.0, self.invincible_remain - elapsed)
+            if self.invincible_remain == 0.0:
+                self.is_invincible = False
         if not self.movement.update(elapsed, canvas):
             return
-        if pacgums.consume(canvas.cell_center(*self.movement.cell)):
+        eat_status = pacgums.consume(canvas.cell_center(*self.movement.cell))
+        if eat_status == PacgumEatenEnum.Normal:
             self.score += 10
+        elif eat_status == PacgumEatenEnum.Super:
+            self.score += 30
+            self.is_invincible = True
+            self.invincible_remain = 5.0
         if self.reserved_move is not None and self.movement.start(
             self.reserved_move, maze, canvas
         ):
@@ -64,6 +75,8 @@ class Player:
         self.movement.reset(canvas)
         self.reserved_move = None
         self.is_alive = True
+        self.invincible_remain = 0.0
+        self.is_invincible = False
 
     def _draw_player(
         self, canvas: VisualizerUtils, center_x: float, center_y: float, dir: str
