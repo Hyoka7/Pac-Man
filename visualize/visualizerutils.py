@@ -13,6 +13,8 @@ class VisualizerUtils:
         img_data: memoryview,
         line_size: int,
         img_format: int,
+        offset_x: int,
+        offset_y: int,
     ) -> None:
         """Attach a 32-bit MLX buffer to a screen layout."""
         self.width = width
@@ -22,6 +24,8 @@ class VisualizerUtils:
         self.img_data = img_data
         self.line_size = line_size
         self.img_format = img_format
+        self.offset_x = offset_x
+        self.offset_y = offset_y
         self.bytes_per_pixel = 4
 
     def color_bytes(self, color: tuple[int, int, int]) -> bytes:
@@ -74,8 +78,8 @@ class VisualizerUtils:
 
     def cell_center(self, x: int, y: int) -> tuple[float, float]:
         """Convert a maze cell to its center in screen pixels."""
-        center_x = self.margin + (x + 0.5) * self.cell_size
-        center_y = self.margin + (y + 0.5) * self.cell_size
+        center_x = self.offset_x + (x + 0.5) * self.cell_size
+        center_y = self.offset_y + (y + 0.5) * self.cell_size
         return (center_x, center_y)
 
     def clear_image(self) -> None:

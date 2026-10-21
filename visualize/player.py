@@ -11,7 +11,13 @@ from .visualizerutils import VisualizerUtils
 class Player:
     """Own the player independently of the MLX event loop."""
 
-    def __init__(self, pos: tuple[int, int] = (0, 0)) -> None:
+    def __init__(
+        self,
+        pos: tuple[int, int] = (0, 0),
+        initial_lives: int = 3,
+        score_normal_gum: int = 10,
+        score_super_gum: int = 30,
+    ) -> None:
         """Start stopped at a cell, facing east."""
         self.movement = Movement(pos, speed=8.0)
         self.radius: float = 0.0
@@ -22,8 +28,11 @@ class Player:
         self.is_invincible = False
         self.invincible_remain: float = 0.0
         self._mouth_elapsed = self.mouth_period / 2
-        self.lives = 3
+        self.initial_lives = initial_lives
+        self.lives = initial_lives
         self.score = 0
+        self.score_normal_gum = score_normal_gum
+        self.score_super_gum = score_super_gum
         self.is_alive: bool = True
 
     def update_mouth(self, elapsed: float) -> None:
@@ -59,9 +68,9 @@ class Player:
             return
         eat_status = pacgums.consume(canvas.cell_center(*self.movement.cell))
         if eat_status == PacgumEatenEnum.Normal:
-            self.score += 10
+            self.score += self.score_normal_gum
         elif eat_status == PacgumEatenEnum.Super:
-            self.score += 30
+            self.score += self.score_super_gum
             self.is_invincible = True
             self.invincible_remain = 5.0
         if self.reserved_move is not None and self.movement.start(

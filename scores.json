@@ -1,12 +1,60 @@
 {
   "scores": [
     {
-      "name": "bugged",
-      "score": -359000000000000000001222223400000000
+      "name": "vividstrike",
+      "score": 11100
+    },
+    {
+      "name": "lapriere",
+      "score": 9810
+    },
+    {
+      "name": "yonahaxbot",
+      "score": 3800
+    },
+    {
+      "name": "noppy",
+      "score": 3270
+    },
+    {
+      "name": "retsu",
+      "score": 3080
+    },
+    {
+      "name": "kyonaha",
+      "score": 2860
+    },
+    {
+      "name": "harnakam",
+      "score": 2760
+    },
+    {
+      "name": "bigmam",
+      "score": 2350
+    },
+    {
+      "name": "fuckoff",
+      "score": 2290
+    },
+    {
+      "name": "dedede",
+      "score": 2050
     },
     {
       "name": "jiji",
       "score": 1540
+    },
+    {
+      "name": "kyonaha",
+      "score": 270
+    },
+    {
+      "name": "kyonaha",
+      "score": 170
+    },
+    {
+      "name": "bugged",
+      "score": 1
     }
   ]
 }

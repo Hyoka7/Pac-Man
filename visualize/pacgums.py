@@ -33,6 +33,8 @@ class Pacgums:
         self, maze: Maze, canvas: VisualizerUtils, player_pos: tuple[int, int]
     ) -> None:
         """Replace the level's pacgums, excluding walls and the start cell."""
+        self.rows = maze.rows
+        self.cols = maze.cols
         self.remain_gums = {
             canvas.cell_center(x, y)
             for y, row in enumerate(maze.maze)
