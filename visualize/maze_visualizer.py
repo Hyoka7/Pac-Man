@@ -7,6 +7,8 @@ from enum import IntEnum
 
 from mazegenerator import MazeGenerator
 
+from models import Config
+
 from .collision import Collision
 from .ghost import Ghost
 from .gui import GUI, GUIStateEnum
@@ -21,6 +23,7 @@ from .visualizerutils import VisualizerUtils
 class KeyEnum(IntEnum):
     A = 97
     D = 100
+    H = 104
     N = 110
     P = 112
     R = 114
@@ -38,13 +41,24 @@ class KeyEnum(IntEnum):
 class MazeVisualizer:
     """Coordinate the window, input, updates and rendering."""
 
-    def __init__(self, maze: list[list[int]], generator: MazeGenerator) -> None:
+    def __init__(
+        self,
+        maze: list[list[int]],
+        generator: MazeGenerator,
+        config: Config,
+    ) -> None:
         """Create game components before opening a graphics window."""
+        self.config = config
         self.maze = Maze(maze)
-        self.player = Player(self.maze.central_cell())
+        self.player = Player(
+            self.maze.central_cell(),
+            self.config.lives,
+            self.config.points_per_pacgum,
+            self.config.points_per_super_pacgum,
+        )
         self.pacgums = Pacgums(self.maze.rows, self.maze.cols)
         self.judge = Collision()
-        self.score_manager = HighscoreManager()
+        self.score_manager = HighscoreManager(self.config.highscore_filename)
         self.gui = GUI()
         self.generator = generator
         self.ghosts: list[Ghost] = []
@@ -76,9 +90,10 @@ class MazeVisualizer:
         ]
         self.cm = 0
         self.level = 1
-        self.max_level = 10
-        self.remaining_time = 90.0
+        self.max_level = len(self.config.levels)
+        self.remaining_time = self.config.levels[0].max_time
         self.closed = True
+        self.needs_redraw = True
         self.state: GUIStateEnum = GUIStateEnum.Home
         self.last_time = time.monotonic()
         self.player_name = ""
@@ -184,6 +199,8 @@ class MazeVisualizer:
                 self.player_name,
             )
 
+        self.needs_redraw = False
+
     def _close(self, _param: object = None) -> None:
         del _param
         if self.closed:
@@ -213,10 +230,12 @@ class MazeVisualizer:
                     self.state = GUIStateEnum.Stage_Clear
                 else:
                     self.state = GUIStateEnum.All_Clear
+                    self.needs_redraw = True
             elif self.remaining_time == 0.0:
                 self.player.is_alive = False
                 self.player.lives = 0
                 self.state = GUIStateEnum.GameOver
+                self.needs_redraw = True
             else:
                 for ghost in self.ghosts:
                     ghost.update(
@@ -235,15 +254,26 @@ class MazeVisualizer:
                             if self.player.lives == 0:
                                 self.player.is_alive = False
                                 self.state = GUIStateEnum.GameOver
+                                self.needs_redraw = True
                             else:
                                 self._respawn()
                             break
                         else:
                             print(f"YOU EATEN {ghost.color}")
-                            self.player.score += 200
+                            self.player.score += self.config.points_per_ghost
                             ghost.reset(self.canvas)
                 self.player.update_mouth(elapsed)
-        self._draw()
+        if (
+            self.state
+            not in (
+                GUIStateEnum.Home,
+                GUIStateEnum.Pause,
+                GUIStateEnum.GameOver,
+                GUIStateEnum.All_Clear,
+            )
+            or self.needs_redraw
+        ):
+            self._draw()
 
     def _on_key(self, key: int, _param: object = None) -> None:
         """Dispatch controls to the owning component."""
@@ -258,11 +288,13 @@ class MazeVisualizer:
         elif self.state == GUIStateEnum.Playing:
             if key == KeyEnum.P:
                 self.state = GUIStateEnum.Pause
+                self.needs_redraw = True
             elif key in (99, 67):
                 self.cm = (self.cm + 1) % len(self.cmodes)
                 self._draw()
             elif key == KeyEnum.N:
                 self.next_level()
+
             else:
                 directions = {
                     KeyEnum.LEFT: "W",
@@ -280,26 +312,44 @@ class MazeVisualizer:
         elif self.state == GUIStateEnum.Pause:
             if key == KeyEnum.P:
                 self.state = GUIStateEnum.Playing
+                self.needs_redraw = True
+            elif key == KeyEnum.H:
+                self.state = GUIStateEnum.Home
+                self.needs_redraw = True
         elif self.state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
             if key == KeyEnum.ENTER:
                 self.score_manager += ScoreEntry(
-                    name=self.player_name, score=self.player.score
+                    name=self.player_name if len(self.player_name) else "kyonaha",
+                    score=self.player.score,
                 )
                 self.player_name = ""
                 self.state = GUIStateEnum.Home
+                self.needs_redraw = True
             elif key == KeyEnum.BACKSPACE:
                 self.player_name = self.player_name[:-1]
-            elif 0 <= key < 128 and chr(key).isalnum():
+                self.needs_redraw = True
+            elif 0 <= key < 128 and chr(key).isalnum() and len(self.player_name) < 12:
                 self.player_name += chr(key)
+                self.needs_redraw = True
         elif self.state == GUIStateEnum.Stage_Clear:
             self.next_level()
 
     def regenerate_maze(self) -> None:
-        self.generator.generate()
+        new_conf = self.config.levels[self.level - 1]
+        new_generator = MazeGenerator((new_conf.width, new_conf.height))
+        self.generator = new_generator
         self.maze = Maze(self.generator.maze)
+        self._update_layout()
+        self.canvas.cell_size = self.cell_size
+        self.canvas.offset_x = self.offset_x
+        self.canvas.offset_y = self.offset_y
         self.player.movement.initial_cell = self.maze.central_cell()
 
     def next_level(self) -> None:
+        if self.level >= self.max_level:
+            self.state = GUIStateEnum.All_Clear
+            self.needs_redraw = True
+            return
         self.level += 1
         self.regenerate_maze()
         self._respawn()
@@ -308,13 +358,13 @@ class MazeVisualizer:
             self.canvas,
             self.player.movement.cell,
         )
-        self.remaining_time = 90.0
+        self.remaining_time = self.config.levels[self.level - 1].max_time
         self.state = GUIStateEnum.Playing
 
     def restart_game(self) -> None:
         self.level = 1
         self.player.score = 0
-        self.player.lives = 3
+        self.player.lives = self.player.initial_lives
         self.regenerate_maze()
         self._respawn()
         self.pacgums.reset(
@@ -322,8 +372,21 @@ class MazeVisualizer:
             self.canvas,
             self.player.movement.cell,
         )
-        self.remaining_time = 90.0
+        self.remaining_time = self.config.levels[0].max_time
         self.state = GUIStateEnum.Playing
+
+    def _calc_cell_size(self) -> int:
+        fit_x = (self.width - 2 * self.margin - 1) // self.maze.cols
+        fit_y = (self.height - 2 * self.margin - 1) // self.maze.rows
+        return min(fit_x, fit_y)
+
+    def _update_layout(self) -> None:
+        """Calculate cell size and center the maze in the fixed window."""
+        self.cell_size = self._calc_cell_size()
+        if self.cell_size < 1:
+            raise ValueError("maze is too large for the screen")
+        self.offset_x = (self.width - (self.cell_size * self.maze.cols + 1)) // 2
+        self.offset_y = (self.height - (self.cell_size * self.maze.rows + 1)) // 2
 
     def run(self) -> None:
         """Open the window and display the maze until it is closed."""
@@ -336,16 +399,9 @@ class MazeVisualizer:
 
         _, screen_width, screen_height = self.m.mlx_get_screen_size(self.p)
         self.margin = 100
-        self.cell_size = min(
-            32,
-            (screen_width - 100 - 2 * self.margin - 1) // self.maze.cols,
-            (screen_height - 100 - 2 * self.margin - 1) // self.maze.rows,
-        )
-
-        if self.cell_size < 1:
-            raise ValueError("maze is too large for the screen")
-        self.width = self.maze.cols * self.cell_size + 2 * self.margin + 1
-        self.height = self.maze.rows * self.cell_size + 2 * self.margin + 1
+        self.width = screen_width - 100
+        self.height = screen_height - 100
+        self._update_layout()
         self.win = self.m.mlx_new_window(self.p, self.width, self.height, "Maze Viewer")
         if self.win is None:
             raise RuntimeError("MLX window creation failed")
@@ -369,6 +425,8 @@ class MazeVisualizer:
                 self.img_data,
                 self.line_size,
                 self.img_format,
+                self.offset_x,
+                self.offset_y,
             )
             self.player.place(self.canvas)
             for ghost in self.ghosts:

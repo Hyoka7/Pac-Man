@@ -1,12 +1,12 @@
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ValidationError
 
 
 class ScoreEntry(BaseModel):
-    name: str
-    score: int
+    name: str = Field(..., min_length=1, max_length=12)
+    score: int = Field(..., ge=0)
 
 
 class HighscoreData(BaseModel):
@@ -29,21 +29,31 @@ class HighscoreManager:
         return self
 
     def save(self) -> None:
-        json_data = self.scores.model_dump_json(indent=2)
-        with self.save_path.open("w", encoding="utf-8") as f:
-            f.write(json_data)
+        try:
+            json_data = self.scores.model_dump_json(indent=2)
+            with self.save_path.open("w", encoding="utf-8") as f:
+                f.write(json_data)
+        except OSError as err:
+            print(f"Highscore data save failed: {err}")
 
     def load(self) -> None:
         if not self.save_path.exists():
             return
-        with self.save_path.open("r", encoding="utf-8") as f:
-            json_data = f.read()
-        data = HighscoreData.model_validate_json(json_data)
-        self.scores = data
+        try:
+            with self.save_path.open("r", encoding="utf-8") as f:
+                json_data = f.read()
+            data = HighscoreData.model_validate_json(json_data)
+            self.scores = data
+            self._sort_scores()
+        except (OSError, ValidationError) as err:
+            print(f"Invalid JSON File : {err}")
 
-    def _add_new_entry(self, entry: ScoreEntry):
-        self.scores += entry
+    def _sort_scores(self):
         self.scores.scores.sort(
             key=lambda entry: entry.score,
             reverse=True,
         )
+
+    def _add_new_entry(self, entry: ScoreEntry):
+        self.scores += entry
+        self._sort_scores()

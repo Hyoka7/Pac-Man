@@ -109,8 +109,8 @@ class Maze:
 
         for y, row in enumerate(self.maze):
             for x, cell in enumerate(row):
-                x0 = canvas.margin + x * canvas.cell_size
-                y0 = canvas.margin + y * canvas.cell_size
+                x0 = canvas.offset_x + x * canvas.cell_size
+                y0 = canvas.offset_y + y * canvas.cell_size
                 x1 = x0 + canvas.cell_size
                 y1 = y0 + canvas.cell_size
                 if cell == 15:

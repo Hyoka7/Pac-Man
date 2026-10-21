@@ -6,6 +6,12 @@ class Strange:
         self.value -= item
         return self
 
+    def __
+
+    def __matmul__(self, item: int):
+        self.value += item
+        return self
+
     def __str__(self) -> str:
         return str(self.value)
 
@@ -13,3 +19,4 @@ class Strange:
 a = Strange(1)
 print(a)
 print(a + 1)
+print(a @ 100)

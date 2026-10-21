@@ -197,3 +197,19 @@ class GUI:
             0xFFFFFFFF,
             "PAUSED",
         )
+        m.mlx_string_put(
+            p,
+            win,
+            width // 2 - 18,
+            height // 2 + 20,
+            0xFFFFFFFF,
+            "P: Resume",
+        )
+        m.mlx_string_put(
+            p,
+            win,
+            width // 2 - 18,
+            height // 2 + 40,
+            0xFFFFFFFF,
+            "H: Back to home",
+        )
