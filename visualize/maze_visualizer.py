@@ -344,6 +344,13 @@ class MazeVisualizer:
         self.canvas.offset_x = self.offset_x
         self.canvas.offset_y = self.offset_y
         self.player.movement.initial_cell = self.maze.central_cell()
+        corners = []
+        corners.append((0, 0))
+        corners.append((0, self.maze.rows - 1))
+        corners.append((self.maze.cols - 1, 0))
+        corners.append((self.maze.cols - 1, self.maze.rows - 1))
+        for ghost, corner in zip(self.ghosts, corners):
+            ghost.movement.initial_cell = corner
 
     def next_level(self) -> None:
         if self.level >= self.max_level:
