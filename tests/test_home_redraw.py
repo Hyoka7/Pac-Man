@@ -7,8 +7,9 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, Mock
 
-from visualize.gui import GUIStateEnum
-from visualize.highscore import HighscoreManager
+from visualize.cheating import CheatHandler
+from visualize.gui import GUI, GUIStateEnum
+from visualize.highscore import HighscoreManager, ScoreEntry
 from visualize.maze_visualizer import KeyEnum, MazeVisualizer
 
 
@@ -19,6 +20,8 @@ class HomeRedrawTests(unittest.TestCase):
         self.viewer = MazeVisualizer.__new__(MazeVisualizer)
         v = self.viewer
         v.closed = False
+        v.cheathandler = CheatHandler(list(map(ord, 'harnakam')))
+        v.cheat_enabled = False
         v.state = GUIStateEnum.Home
         v.needs_redraw = True
         v.last_time = monotonic()
@@ -121,3 +124,74 @@ class HomeRedrawTests(unittest.TestCase):
         v._on_loop()
         self.assertEqual(v.player.update.call_count, 2)
         self.assertEqual(v.m.mlx_put_image_to_window.call_count, 2)
+
+    def test_instructions_draw_once_and_enter_returns_home(self) -> None:
+        v = self.viewer
+        v._draw()
+        v._on_key(KeyEnum.I)
+        self.assertEqual(v.state, GUIStateEnum.Instruction)
+        self.assertTrue(v.needs_redraw)
+        v._on_loop()
+        v._on_loop()
+        v.gui.instruction.assert_called_once()
+        v.player.update.assert_not_called()
+        self.assertEqual(v.remaining_time, 42.0)
+        v._on_key(KeyEnum.RIGHT)
+        self.assertFalse(v.needs_redraw)
+        v._on_key(KeyEnum.ENTER)
+        self.assertEqual(v.state, GUIStateEnum.Home)
+        self.assertTrue(v.needs_redraw)
+        v._on_loop()
+        self.assertEqual(v.gui.home.call_count, 2)
+
+    def test_instructions_can_redraw_on_expose(self) -> None:
+        v = self.viewer
+        v.state = GUIStateEnum.Instruction
+        v._draw()
+        self.assertFalse(v.needs_redraw)
+        v._draw()
+        self.assertEqual(v.gui.instruction.call_count, 2)
+
+    def test_ranking_draws_once_and_enter_returns_home(self) -> None:
+        v = self.viewer
+        v._draw()
+        v._on_key(KeyEnum.H)
+        self.assertEqual(v.state, GUIStateEnum.Ranking)
+        self.assertTrue(v.needs_redraw)
+        v._on_loop()
+        v._on_loop()
+        v.gui.ranking.assert_called_once_with(
+            v.m, v.p, v.win, v.width, v.height, v.score_manager.scores.scores,
+        )
+        v.player.update.assert_not_called()
+        self.assertEqual(v.remaining_time, 42.0)
+        v._on_key(KeyEnum.ENTER)
+        self.assertEqual(v.state, GUIStateEnum.Home)
+        self.assertTrue(v.needs_redraw)
+        v._on_loop()
+        self.assertEqual(v.gui.home.call_count, 2)
+
+    def test_ranking_can_redraw_on_expose(self) -> None:
+        v = self.viewer
+        v.state = GUIStateEnum.Ranking
+        v._draw()
+        self.assertFalse(v.needs_redraw)
+        v._draw()
+        self.assertEqual(v.gui.ranking.call_count, 2)
+
+    def test_ranking_renders_only_top_ten_and_handles_empty_list(self) -> None:
+        scores = [ScoreEntry(name=f'p{i}', score=100-i) for i in range(12)]
+        for entries in ([], scores):
+            with self.subTest(size=len(entries)):
+                m = Mock()
+                GUI().ranking(m, 1, 2, 800, 600, entries)
+                strings = [call.args[-1] for call in m.mlx_string_put.call_args_list]
+                self.assertEqual(strings[0], 'Highscore Ranking')
+                if entries:
+                    self.assertEqual(strings[1:-1], [
+                        f'{rank:>2}. {entry.name:<12} {entry.score:>7}'
+                        for rank, entry in enumerate(entries[:10], start=1)
+                    ])
+                else:
+                    self.assertIn('No scores yet', strings)
+                self.assertEqual(strings[-1], 'Enter: Back to Home')

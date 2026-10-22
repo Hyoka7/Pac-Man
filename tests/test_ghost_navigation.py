@@ -75,6 +75,53 @@ class GhostNavigationTests(unittest.TestCase):
         self.assertEqual(left.movement.target_cell, (1, 0))
         self.assertEqual(right.movement.target_cell, (1, 0))
 
+    def test_respawn_wait_keeps_corner_until_next_frame_after_expiry(self) -> None:
+        """Hidden ghosts count down without walking away from their spawn."""
+        maze = Maze([[13, 5, 7]])
+        canvas = make_canvas()
+        for eatable in (False, True):
+            with self.subTest(eatable=eatable):
+                ghost = Ghost((0, 0), BFSStrategy())
+                ghost.reset(canvas)
+                ghost.respawn_remaining = 5.0
+                center = ghost.movement.center
+                for elapsed, remaining in ((0.25, 4.75), (5.0, 0.0)):
+                    ghost.update(elapsed, maze, canvas, (2, 0), eatable=eatable)
+                    self.assertEqual(ghost.respawn_remaining, remaining)
+                    self.assertEqual(ghost.cell, (0, 0))
+                    self.assertEqual(ghost.movement.center, center)
+                    self.assertFalse(ghost.movement.moving)
+                ghost.update(0.05, maze, canvas, (2, 0), eatable=eatable)
+                self.assertGreater(ghost.movement.center[0], center[0])
+
+    def test_respawn_wait_is_hidden_then_reappears_at_corner(self) -> None:
+        """The image stays untouched during the wait and renders at expiry."""
+        maze = Maze([[13, 5, 7]])
+        canvas = make_canvas()
+        ghost = Ghost((0, 0), BFSStrategy())
+        ghost.reset(canvas)
+        ghost.respawn_remaining = 5.0
+        canvas.clear_image()
+        background = bytes(canvas.img_data)
+        ghost.draw(canvas, eatable=False)
+        self.assertEqual(bytes(canvas.img_data), background)
+        ghost.update(5.0, maze, canvas, (2, 0), eatable=False)
+        ghost.draw(canvas, eatable=False)
+        index = 36 * canvas.line_size + 36 * 4
+        self.assertEqual(bytes(canvas.img_data[index:index+4]),
+                         canvas.color_bytes(ghost.color))
+
+    def test_reset_cancels_respawn_wait_and_active_movement(self) -> None:
+        canvas = make_canvas()
+        ghost = Ghost((0, 0), BFSStrategy())
+        ghost.place(canvas)
+        ghost.update(0.1, Maze([[13, 5, 7]]), canvas, (2, 0), eatable=False)
+        ghost.respawn_remaining = 3.0
+        ghost.reset(canvas)
+        self.assertEqual(ghost.respawn_remaining, 0.0)
+        self.assertEqual(ghost.movement.center, canvas.cell_center(0, 0))
+        self.assertFalse(ghost.movement.moving)
+
 
 if __name__ == '__main__':
     unittest.main()

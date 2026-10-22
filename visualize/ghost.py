@@ -21,6 +21,7 @@ class Ghost:
         """Create a ghost with shared animation state and its own strategy."""
         self.movement = Movement(cell, speed=4.0, direction=direction)
         self.radius: float = 0.0
+        self.respawn_remaining = 0.0
         self.color = color
         self.strategy = strategy
 
@@ -48,6 +49,9 @@ class Ghost:
         eatable: bool,
     ) -> None:
         """Choose a direction at cell centers and animate the chosen move."""
+        if self.respawn_remaining > 0.0:
+            self.respawn_remaining = max(0.0, self.respawn_remaining - elapsed)
+            return
         if not self.movement.moving:
             if not eatable:
                 if self.cell == player_cell:
@@ -75,6 +79,7 @@ class Ghost:
 
     def reset(self, canvas: VisualizerUtils) -> None:
         self.radius = canvas.cell_size * 0.375
+        self.respawn_remaining = 0.0
         return self.movement.reset(canvas)
 
     def draw(self, canvas: VisualizerUtils, eatable: bool) -> None:
@@ -83,6 +88,8 @@ class Ghost:
         radius = self.radius
         notch_depth = radius / 3
         notch_half_width = radius / 6
+        if self.respawn_remaining > 0.0:
+            return
         for y in range(
             max(0, floor(center_y - radius - 0.5)),
             min(canvas.height, ceil(center_y + radius + 0.5)),

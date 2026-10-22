@@ -1,9 +1,12 @@
 """Level resizing keeps positions, radii and pickups in the fixed window."""
 
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
+from unittest.mock import Mock, patch
 
 from mazegenerator import MazeGenerator
 
@@ -49,6 +52,7 @@ class LevelLayoutTests(unittest.TestCase):
         for ghost, corner in zip(viewer.ghosts, corners):
             self.assertEqual(ghost.cell, corner)
             self.assertEqual(ghost.movement.center, canvas.cell_center(*corner))
+            self.assertEqual(ghost.respawn_remaining, 0.0)
         for character in [viewer.player, *viewer.ghosts]:
             self.assertAlmostEqual(character.radius, canvas.cell_size * 0.375)
             self.assertFalse(character.movement.moving)
@@ -76,6 +80,8 @@ class LevelLayoutTests(unittest.TestCase):
             with self.subTest(size=expected_size):
                 viewer.player.is_invincible = True
                 viewer.player.invincible_remain = 3
+                for ghost in viewer.ghosts:
+                    ghost.respawn_remaining = 3.0
                 viewer.next_level()
                 self.assertEqual((viewer.maze.cols, viewer.maze.rows), expected_size)
                 self.assert_placements_fit(viewer)
@@ -83,11 +89,38 @@ class LevelLayoutTests(unittest.TestCase):
                 self.assertEqual(viewer.remaining_time, expected_time)
                 self.assertFalse(viewer.player.is_invincible)
                 self.assertEqual([g.strategy for g in viewer.ghosts], strategies)
+        for ghost in viewer.ghosts:
+            ghost.respawn_remaining = 3.0
         viewer.restart_game()
         self.assertEqual((viewer.level, viewer.maze.cols, viewer.maze.rows), (1, 15, 15))
         self.assertEqual((viewer.player.score, viewer.player.lives), (0, 4))
         self.assertEqual(viewer.remaining_time, 90)
         self.assert_placements_fit(viewer)
+
+    def test_eaten_ghost_waits_after_reset_and_cannot_score_twice(self) -> None:
+        viewer = self.make_viewer()
+        viewer.closed = False
+        viewer.state = GUIStateEnum.Playing
+        viewer.last_time = 10.0
+        viewer._draw = Mock()
+        viewer.player.is_invincible = True
+        viewer.player.invincible_remain = 5.0
+        ghost = viewer.ghosts[0]
+        viewer.ghosts = [ghost]
+        ghost.movement.cell = viewer.player.movement.cell
+        ghost.movement.place(viewer.canvas)
+        with redirect_stdout(StringIO()), patch(
+            'visualize.maze_visualizer.time.monotonic', return_value=10.0
+        ):
+            viewer._on_loop()
+        self.assertEqual(viewer.player.score, viewer.config.points_per_ghost)
+        self.assertEqual(ghost.respawn_remaining, 5.0)
+        self.assertEqual(ghost.movement.center, viewer.canvas.cell_center(0, 0))
+        with patch('visualize.maze_visualizer.time.monotonic', return_value=10.1):
+            viewer._on_loop()
+        self.assertEqual(viewer.player.score, viewer.config.points_per_ghost)
+        self.assertAlmostEqual(ghost.respawn_remaining, 4.9)
+        self.assertEqual(ghost.movement.center, viewer.canvas.cell_center(0, 0))
 
     def test_skip_at_last_level_does_not_index_past_settings(self) -> None:
         viewer = self.make_viewer()
@@ -99,6 +132,11 @@ class LevelLayoutTests(unittest.TestCase):
         self.assertTrue(viewer.needs_redraw)
         self.assertEqual(viewer.level, viewer.max_level)
         self.assertIs(viewer.maze, original_maze)
+
+    def test_viewer_initializes_harnakam_command(self) -> None:
+        viewer = self.make_viewer()
+        results = [viewer.cheathandler.consume(ord(char)) for char in 'harnakam']
+        self.assertEqual(results, [False] * 7 + [True])
 
     def test_layout_centers_both_axes_and_rejects_unrenderable_cells(self) -> None:
         viewer = MazeVisualizer.__new__(MazeVisualizer)
