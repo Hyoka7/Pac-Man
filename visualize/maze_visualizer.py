@@ -9,6 +9,7 @@ from mazegenerator import MazeGenerator
 
 from models import Config
 
+from .cheating import CheatHandler
 from .collision import Collision
 from .ghost import Ghost
 from .gui import GUI, GUIStateEnum
@@ -23,7 +24,11 @@ from .visualizerutils import VisualizerUtils
 class KeyEnum(IntEnum):
     A = 97
     D = 100
+    F = 102
     H = 104
+    I = 105
+    K = 107
+    M = 109
     N = 110
     P = 112
     R = 114
@@ -36,6 +41,7 @@ class KeyEnum(IntEnum):
     UP = 65362
     RIGHT = 65363
     DOWN = 65364
+
 
 
 class MazeVisualizer:
@@ -60,6 +66,7 @@ class MazeVisualizer:
         self.judge = Collision()
         self.score_manager = HighscoreManager(self.config.highscore_filename)
         self.gui = GUI()
+        self.cheathandler = CheatHandler([ord(char) for char in "harnakam"])
         self.generator = generator
         self.ghosts: list[Ghost] = []
         self.ghosts.append(Ghost((0, 0), RandomStrategy(), (128, 128, 128)))
@@ -94,6 +101,8 @@ class MazeVisualizer:
         self.remaining_time = self.config.levels[0].max_time
         self.closed = True
         self.needs_redraw = True
+        self.cheat_enabled = False
+        self.ghost_frozen = False
         self.state: GUIStateEnum = GUIStateEnum.Home
         self.last_time = time.monotonic()
         self.player_name = ""
@@ -114,10 +123,10 @@ class MazeVisualizer:
         if self.state == GUIStateEnum.Pause:
             self.gui.background(
                 self.canvas,
-                self.width // 2 - 90,
-                self.height // 2 - 30,
-                180,
-                60,
+                self.width // 2 - 120,
+                self.height // 2 - 52,
+                240,
+                104,
             )
         if self.player.is_invincible:
             self.gui.draw_invincible_bar(
@@ -150,6 +159,14 @@ class MazeVisualizer:
                 self.height,
                 self.score_manager.scores.scores,
             )
+        elif self.state == GUIStateEnum.Instruction:
+            self.gui.instruction(
+                self.m,
+                self.p,
+                self.win,
+                self.width,
+                self.height,
+            )
         elif self.state == GUIStateEnum.Playing or self.state == GUIStateEnum.Pause:
             self.gui.draw_stats(
                 self.m,
@@ -161,6 +178,16 @@ class MazeVisualizer:
                 self.player.score,
                 self.player.lives,
                 self.remaining_time,
+                self.cheat_enabled,
+            )
+        elif self.state == GUIStateEnum.Ranking:
+            self.gui.ranking(
+                self.m,
+                self.p,
+                self.win,
+                self.width,
+                self.height,
+                self.score_manager.scores.scores,
             )
         if self.state == GUIStateEnum.GameOver:
             self.gui.gameover(
@@ -238,13 +265,16 @@ class MazeVisualizer:
                 self.needs_redraw = True
             else:
                 for ghost in self.ghosts:
-                    ghost.update(
-                        elapsed,
-                        self.maze,
-                        self.canvas,
-                        self.player.movement.cell,
-                        self.player.is_invincible,
-                    )
+                    if not self.ghost_frozen:
+                        ghost.update(
+                            elapsed,
+                            self.maze,
+                            self.canvas,
+                            self.player.movement.cell,
+                            self.player.is_invincible,
+                        )
+                    if ghost.respawn_remaining > 0.0:
+                        continue
                     if self.player.is_alive and self.judge.is_collision(
                         self.player, ghost
                     ):
@@ -262,14 +292,17 @@ class MazeVisualizer:
                             print(f"YOU EATEN {ghost.color}")
                             self.player.score += self.config.points_per_ghost
                             ghost.reset(self.canvas)
+                            ghost.respawn_remaining = 5.0
                 self.player.update_mouth(elapsed)
         if (
             self.state
             not in (
                 GUIStateEnum.Home,
                 GUIStateEnum.Pause,
+                GUIStateEnum.Ranking,
                 GUIStateEnum.GameOver,
                 GUIStateEnum.All_Clear,
+                GUIStateEnum.Instruction,
             )
             or self.needs_redraw
         ):
@@ -285,16 +318,37 @@ class MazeVisualizer:
         if self.state == GUIStateEnum.Home:
             if key == KeyEnum.ENTER:
                 self.restart_game()
+            elif key == KeyEnum.I:
+                self.state = GUIStateEnum.Instruction
+                self.needs_redraw = True
+            elif key == KeyEnum.H:
+                self.state = GUIStateEnum.Ranking
+                self.needs_redraw = True
+        elif self.state in (
+            GUIStateEnum.Instruction,
+            GUIStateEnum.Ranking,
+        ):
+            if key == KeyEnum.ENTER:
+                self.state = GUIStateEnum.Home
+                self.needs_redraw = True
         elif self.state == GUIStateEnum.Playing:
+            if self.cheathandler.consume(key):
+                self.cheat_enabled = not self.cheat_enabled
+                if not self.cheat_enabled:
+                    self.ghost_frozen = False
+                return
+            if self.cheathandler.index > 0:
+                return
             if key == KeyEnum.P:
                 self.state = GUIStateEnum.Pause
                 self.needs_redraw = True
             elif key in (99, 67):
                 self.cm = (self.cm + 1) % len(self.cmodes)
                 self._draw()
-            elif key == KeyEnum.N:
+            elif key == KeyEnum.N and self.cheat_enabled:
                 self.next_level()
-
+            elif key == KeyEnum.F and self.cheat_enabled:
+                self.ghost_frozen = not self.ghost_frozen
             else:
                 directions = {
                     KeyEnum.LEFT: "W",
