@@ -85,6 +85,7 @@ class Player:
         self.reserved_move = None
         self.is_alive = True
         self.invincible_remain = 0.0
+        self.radius = canvas.cell_size * 0.375
         self.is_invincible = False
 
     def _draw_player(

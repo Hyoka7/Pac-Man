@@ -74,6 +74,7 @@ class Ghost:
         return (left <= x <= right) and (lower <= y <= upper)
 
     def reset(self, canvas: VisualizerUtils) -> None:
+        self.radius = canvas.cell_size * 0.375
         return self.movement.reset(canvas)
 
     def draw(self, canvas: VisualizerUtils, eatable: bool) -> None:

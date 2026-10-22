@@ -15,11 +15,11 @@ class PlayerControlTests(unittest.TestCase):
         """Use a junction with a north exit and a corridor to the east."""
         self.maze = Maze([[15, 11, 15], [13, 4, 7]])
         self.canvas = VisualizerUtils(
-            137, 105, 32, 20, memoryview(bytearray(548 * 105)), 548, 0
+            137, 105, 32, 20, memoryview(bytearray(548 * 105)), 548, 0, 20, 20
         )
         self.player = Player((1, 1))
         self.player.place(self.canvas)
-        self.gums = Pacgums()
+        self.gums = Pacgums(self.maze.rows, self.maze.cols)
         self.gums.reset(self.maze, self.canvas, (1, 1))
 
     def test_turn_just_after_junction_is_applied_immediately(self) -> None:

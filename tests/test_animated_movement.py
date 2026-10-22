@@ -1,8 +1,12 @@
 """Shared frame-by-frame movement and character integration checks."""
 
 import unittest
-from types import SimpleNamespace
-from unittest.mock import patch
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import Mock, patch
+
+from models.models import Config, LevelConfig
+from visualize.gui import GUIStateEnum
 
 from visualize import MazeVisualizer
 from visualize.ghost import Ghost
@@ -16,7 +20,7 @@ from visualize.visualizerutils import VisualizerUtils
 
 def make_canvas() -> VisualizerUtils:
     """Create an image and layout without opening an MLX window."""
-    return VisualizerUtils(137, 137, 32, 20, memoryview(bytearray(548 * 137)), 548, 0)
+    return VisualizerUtils(137, 137, 32, 20, memoryview(bytearray(548 * 137)), 548, 0, 20, 20)
 
 
 class AnimatedMovementTests(unittest.TestCase):
@@ -75,38 +79,39 @@ class AnimatedMovementTests(unittest.TestCase):
         """A queued turn and pacgum consumption survive the extraction."""
         maze = Maze([[13, 3], [15, 14]])
         player = Player()
-        gums = Pacgums()
+        player.movement.speed = 5.0
+        gums = Pacgums(maze.rows, maze.cols)
         player.place(self.canvas)
         gums.reset(maze, self.canvas, (0, 0))
         player.request_move("E", maze, self.canvas)
         player.request_move("S", maze, self.canvas)
         player.update(0.1, maze, self.canvas, gums)
         self.assertEqual(player.movement.cell, (0, 0))
-        self.assertEqual(len(gums.remain_gums), 2)
+        self.assertEqual(len(gums), 2)
         player.update(0.1, maze, self.canvas, gums)
         self.assertEqual(player.movement.cell, (1, 0))
         self.assertEqual(player.movement.direction, "S")
         self.assertTrue(player.movement.moving)
-        self.assertEqual(len(gums.remain_gums), 1)
+        self.assertEqual(len(gums), 1)
 
     def test_ghost_uses_intermediate_pixel_positions(self) -> None:
         """A ghost uses the shared animation without eating pacgums."""
         ghost = Ghost((2, 0), BFSStrategy())
         ghost.place(self.canvas)
-        ghost.update(0.05, self.maze, self.canvas, (0, 0))
+        ghost.update(0.05, self.maze, self.canvas, (0, 0), eatable=False)
         self.assertEqual(ghost.cell, (2, 0))
         self.assertLess(ghost.movement.center[0], 100.0)
         self.assertGreater(ghost.movement.center[0], 68.0)
         self.canvas.clear_image()
-        ghost.draw(self.canvas)
+        ghost.draw(self.canvas, eatable=False)
         offset = 30 * self.canvas.line_size + 105 * 4
         self.assertEqual(
             bytes(self.canvas.img_data[offset : offset + 4]), bytes([0, 0, 0, 255])
         )
-        ghost.update(0.3, self.maze, self.canvas, (0, 0))
+        ghost.update(0.3, self.maze, self.canvas, (0, 0), eatable=False)
         self.assertEqual(ghost.cell, (1, 0))
         self.canvas.clear_image()
-        ghost.draw(self.canvas)
+        ghost.draw(self.canvas, eatable=False)
         offset = 36 * self.canvas.line_size + 68 * 4
         self.assertEqual(
             bytes(self.canvas.img_data[offset : offset + 4]), bytes([0, 0, 255, 255])
@@ -116,31 +121,39 @@ class AnimatedMovementTests(unittest.TestCase):
         """Direction selection may return None when there is no passage."""
         ghost = Ghost((0, 0), BFSStrategy())
         ghost.place(self.canvas)
-        ghost.update(1.0, Maze([[15]]), self.canvas, (1, 0))
+        ghost.update(1.0, Maze([[15]]), self.canvas, (1, 0), eatable=False)
         self.assertFalse(ghost.movement.moving)
         self.assertEqual(ghost.cell, (0, 0))
 
     def test_frame_loop_advances_both_characters(self) -> None:
         """The frame loop passes elapsed time to both animation owners."""
-        viewer = MazeVisualizer([[13, 5, 7]])
-        viewer.ghosts = [Ghost((2, 0), BFSStrategy())]
-        viewer.ghosts[0].movement.speed = 3.0
-        viewer.canvas = self.canvas
-        viewer.player.place(self.canvas)
-        for ghost in viewer.ghosts:
-            ghost.place(self.canvas)
-        viewer.pacgums.reset(viewer.maze, self.canvas, (0, 0))
-        viewer.m = SimpleNamespace(mlx_put_image_to_window=lambda *args: None)
-        viewer.p = viewer.win = viewer.img = None
-        viewer.closed = False
-        viewer.last_time = 10.0
-        viewer._on_key(65363)
-        with patch("visualize.maze_visualizer.time.monotonic", return_value=10.05):
-            viewer._on_loop()
-        self.assertAlmostEqual(viewer.player.movement.center[0], 44.0)
-        self.assertAlmostEqual(viewer.ghosts[0].movement.center[0], 95.2)
-        self.assertEqual(viewer.player.movement.cell, (0, 0))
-        self.assertEqual(viewer.ghosts[0].cell, (2, 0))
+        with TemporaryDirectory() as directory:
+            config = Config(
+                highscore_filename=str(Path(directory) / "scores.json"),
+                levels=[LevelConfig(width=5, height=1)],
+            )
+            viewer = MazeVisualizer([[13, 5, 5, 5, 7]], Mock(), config)
+            viewer.state = GUIStateEnum.Playing
+            viewer.ghosts = [Ghost((0, 0), BFSStrategy())]
+            viewer.player.movement.speed = 5.0
+            viewer.ghosts[0].movement.speed = 3.0
+            viewer.canvas = self.canvas
+            viewer.player.place(self.canvas)
+            viewer.ghosts[0].place(self.canvas)
+            viewer.pacgums.reset(viewer.maze, self.canvas, viewer.player.movement.cell)
+            viewer._draw = Mock()
+            viewer.closed = False
+            viewer.last_time = 10.0
+            viewer._on_key(65363)
+            with patch("visualize.maze_visualizer.time.monotonic", return_value=10.05):
+                viewer._on_loop()
+            self.assertAlmostEqual(viewer.player.movement.center[0], 108.0)
+            self.assertAlmostEqual(viewer.ghosts[0].movement.center[0], 40.8)
+            self.assertEqual(viewer.player.movement.cell, (2, 0))
+            self.assertEqual(viewer.ghosts[0].cell, (0, 0))
+            self.assertAlmostEqual(viewer.remaining_time, 89.95)
+            viewer._draw.assert_called_once()
+
 
 
 if __name__ == "__main__":

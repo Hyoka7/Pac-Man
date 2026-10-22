@@ -11,7 +11,7 @@ from visualize.visualizerutils import VisualizerUtils
 def make_canvas() -> VisualizerUtils:
     """Create the layout used by cell-to-cell movement tests."""
     return VisualizerUtils(
-        137, 137, 32, 20, memoryview(bytearray(548 * 137)), 548, 0
+        137, 137, 32, 20, memoryview(bytearray(548 * 137)), 548, 0, 20, 20
     )
 
 
@@ -24,7 +24,7 @@ class GhostNavigationTests(unittest.TestCase):
         canvas = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy())
         ghost.place(canvas)
-        ghost.update(0.1, maze, canvas, (2, 0))
+        ghost.update(0.1, maze, canvas, (2, 0), eatable=False)
         self.assertEqual(ghost.direction, 'S')
         self.assertEqual(ghost.movement.target_cell, (0, 1))
         self.assertEqual(ghost.cell, (0, 0))
@@ -38,7 +38,7 @@ class GhostNavigationTests(unittest.TestCase):
         ghost = Ghost((0, 0), BFSStrategy())
         ghost.movement.start('E', maze, canvas)
         ghost.movement.update(1 / ghost.movement.speed, canvas)
-        ghost.update(0.1, maze, canvas, (0, 0))
+        ghost.update(0.1, maze, canvas, (0, 0), eatable=False)
         self.assertEqual(ghost.direction, 'W')
         self.assertEqual(ghost.movement.target_cell, (0, 0))
 
@@ -47,7 +47,7 @@ class GhostNavigationTests(unittest.TestCase):
         canvas = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy())
         ghost.place(canvas)
-        ghost.update(0.1, Maze([[15, 15]]), canvas, (1, 0))
+        ghost.update(0.1, Maze([[15, 15]]), canvas, (1, 0), eatable=False)
         self.assertFalse(ghost.movement.moving)
         self.assertEqual(ghost.movement.center, (36.0, 36.0))
 
@@ -56,7 +56,7 @@ class GhostNavigationTests(unittest.TestCase):
         canvas = make_canvas()
         ghost = Ghost((0, 0), RandomStrategy())
         ghost.place(canvas)
-        ghost.update(0.1, Maze([[15]]), canvas, (1, 0))
+        ghost.update(0.1, Maze([[15]]), canvas, (1, 0), eatable=False)
         self.assertFalse(ghost.movement.moving)
 
     def test_two_ghosts_can_share_one_bfs_strategy(self) -> None:
@@ -68,7 +68,7 @@ class GhostNavigationTests(unittest.TestCase):
         right = Ghost((2, 0), strategy)
         for ghost in (left, right):
             ghost.place(canvas)
-            ghost.update(0.1, maze, canvas, (1, 0))
+            ghost.update(0.1, maze, canvas, (1, 0), eatable=False)
         self.assertIs(left.strategy, right.strategy)
         self.assertEqual(left.direction, 'E')
         self.assertEqual(right.direction, 'W')

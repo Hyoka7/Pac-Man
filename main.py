@@ -6,7 +6,12 @@ from visualize import MazeVisualizer
 
 config = Config(
     highscore_filename="scores.json",
-    levels=[LevelConfig(width=15, height=15) for _ in range(10)],
+    levels=[
+        LevelConfig(width=15, height=15),
+        LevelConfig(width=25, height=15),
+        LevelConfig(width=15, height=25),
+        *[LevelConfig(width=15, height=15) for _ in range(7)],
+    ],
     lives=3,
 )
 
