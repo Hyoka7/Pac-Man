@@ -1,59 +1,11 @@
-# class Strange:
-#     def __init__(self, value: int) -> None:
-#         self.value = value
+"""Standalone Pillow text preview; the game uses visualize.text.TextRenderer."""
 
-#     def __add__(self, item: int):
-#         self.value -= item
-#         return self
-
-#     def __
-
-#     def __matmul__(self, item: int):
-#         self.value += item
-#         return self
-
-#     def __str__(self) -> str:
-#         return str(self.value)
+from PIL import Image, ImageDraw, ImageFont
 
 
-# a = Strange(1)
-# print(a)
-# print(a + 1)
-# print(a @ 100)
-def compress(s: str):
-    prev = s[0]
-    streak = 1
-    ans = ""
-    for c in s[1:]:
-        if c != prev:
-            if streak > 1:
-                ans += f"{prev}{streak}"
-            else:
-                ans += prev
-            prev = c
-            streak = 1
-        else:
-            streak += 1
-    ans += f"{prev}{streak}"
-    return ans
-
-
-def decompress(s: str):
-    splited = []
-    key1 = "?"
-    key2 = 0
-    for c in s:
-        if c.isalpha():
-            splited.append((key1, key2))
-            key1 = c
-            key2 = 0
-        else:
-            key2 = key2 * 10 + int(c)
-    splited.append((key1, key2))
-    ans = ""
-    for c, v in splited[1:]:
-        if v != 0:
-            ans += c * v
-        else:
-            ans += c
-    return ans
+if __name__ == "__main__":
+    img = Image.new("RGBA", (400, 80), (0, 0, 0, 0))
+    drawn = ImageDraw.Draw(img)
+    font = ImageFont.load_default(size=32)
+    drawn.text((10, 10), "Pac-Man", fill=(255, 255, 0, 255), font=font)
+    img.show()

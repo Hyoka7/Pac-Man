@@ -1,8 +1,7 @@
 from enum import IntEnum, auto
 
-from mlx import Mlx
-
 from .highscore import ScoreEntry
+from .text import TextRenderer
 from .visualizerutils import VisualizerUtils
 
 
@@ -18,62 +17,51 @@ class GUIStateEnum(IntEnum):
 
 
 class GUI:
-    CHAR_WIDTH = 10
-    FONT_HEIGHT = 20
+    RANKING_PAGE_SIZE = 10
+    FONT_SIZE = 20
     LINE_SPACING = 28
-    TEXT_COLOR = 0xFFFFFFFF
-    ACCENT_COLOR = 0xFF4AD8FF  # MLX 2 text colors use ABGR byte order.
+    TEXT_COLOR = (255, 255, 255)
+    ACCENT_COLOR = (255, 216, 74)
     BACKGROUND_COLOR = (8, 13, 28)
     PANEL_COLOR = (16, 25, 48)
     BORDER_COLOR = (73, 194, 221)
     BAR_TRACK_COLOR = (31, 44, 67)
     BAR_COLOR = (255, 216, 74)
 
+    def __init__(self) -> None:
+        self.text_renderer = TextRenderer()
+
     def _put_string_center(
         self,
-        m: Mlx,
-        p: int,
-        win: int,
+        canvas: VisualizerUtils,
         window_width: int,
         y: int,
         text: str,
-        color: int = 0xFFFFFFFF,
+        color: tuple[int, int, int] = (255, 255, 255),
     ) -> None:
-        text_width = len(text) * self.CHAR_WIDTH
-        x_start = (window_width - text_width) // 2
-        m.mlx_string_put(
-            p,
-            win,
-            x_start,
-            y,
-            color,
-            text,
-        )
+        width, _ = self.text_renderer.text_size(text, self.FONT_SIZE)
+        self.text_renderer.draw_text(canvas, (window_width - width) // 2, y, text, color, self.FONT_SIZE)
 
     def _put_lines_center(
-        self, m: Mlx, p: int, win: int, width: int, height: int,
+        self, canvas: VisualizerUtils, width: int, height: int,
         lines: list[str],
-        colors: dict[int, int] | None = None,
+        colors: dict[int, tuple[int, int, int]] | None = None,
     ) -> None:
-        """Center an ASCII text block, reserving spacing for blank lines."""
+        """Center a text block using Pillow's actual glyph dimensions."""
         if not lines:
             return
-        top = self._block_top(height, len(lines))
+        last_height = self.text_renderer.text_size(lines[-1], self.FONT_SIZE)[1]
+        top = self._block_top(height, len(lines), last_height)
         line_colors = colors if colors is not None else {}
-        # Long static screens cross MLX's automatic 64-command flush. Complete
-        # each row explicitly to keep every batch visible on this backend.
-        wait_for_rows = 1 + sum(map(len, lines)) >= 64
         for row, text in enumerate(lines):
             if text:
                 self._put_string_center(
-                    m, p, win, width, top + row * self.LINE_SPACING, text,
+                    canvas, width, top + row * self.LINE_SPACING, text,
                     line_colors.get(row, self.TEXT_COLOR),
                 )
-                if wait_for_rows:
-                    m.mlx_sync(p, 3, win)  # MLX_SYNC_WIN_COMPLETED
 
-    def _block_top(self, height: int, line_count: int) -> int:
-        block_height = (line_count - 1) * self.LINE_SPACING + self.FONT_HEIGHT
+    def _block_top(self, height: int, line_count: int, last_height: int = 20) -> int:
+        block_height = (line_count - 1) * self.LINE_SPACING + last_height
         return (height - block_height) // 2
 
     def draw_backdrop(
@@ -117,9 +105,7 @@ class GUI:
 
     def home(
         self,
-        m: Mlx,
-        p: int,
-        win: int,
+        canvas: VisualizerUtils,
         width: int,
         height: int,
         scores: list[ScoreEntry],
@@ -127,84 +113,77 @@ class GUI:
     ) -> None:
         lines, menu_start = self._home_content(scores, focusing)
         self._put_lines_center(
-            m, p, win, width, height, lines,
-            {0: self.ACCENT_COLOR, menu_start + focusing: self.ACCENT_COLOR},
+            canvas,
+            width,
+            height,
+            lines,
+            {
+                0: self.ACCENT_COLOR,
+                menu_start + focusing: self.ACCENT_COLOR,
+            },
         )
 
     def _home_content(
         self, scores: list[ScoreEntry], focusing: int,
     ) -> tuple[list[str], int]:
-        """Share the home rows between full and menu-only rendering."""
-        ranking = [
-            f"{rank:>2}. {item.name:<12} {item.score:>7}"
-            for rank, item in enumerate(scores[:5], start=1)
-        ]
+        """Build the home title, menu and controls."""
         menu = [
-            "Game Start", "I: Instruction", "H: Highscore Ranking",
+            "Start",
+            "Instruction",
+            "Ranking",
         ]
         menu = [
             ("> " if index == focusing else "  ") + text
             for index, text in enumerate(menu)
         ]
-        lines = [
-            "PAC-MAN", "", *(ranking or ["No scores yet"]), "",
-        ]
+        lines = ["PAC-MAN", ""]
         menu_start = len(lines)
         lines.extend([*menu, "", "Up/Down: Select  Enter: OK"])
         return lines, menu_start
 
-    def home_menu(
-        self, m: Mlx, p: int, win: int, width: int, height: int,
-        scores: list[ScoreEntry], focusing: int,
-    ) -> None:
-        """Redraw only the three menu rows after a selection change."""
-        lines, menu_start = self._home_content(scores, focusing)
-        top = self._block_top(height, len(lines))
-        for index, text in enumerate(lines[menu_start:menu_start+3]):
-            color = self.ACCENT_COLOR if index == focusing else self.TEXT_COLOR
-            self._put_string_center(
-                m, p, win, width,
-                top + (menu_start + index) * self.LINE_SPACING, text, color,
-            )
-
-    def draw_home_menu_background(
-        self, canvas: VisualizerUtils, scores: list[ScoreEntry],
-    ) -> None:
-        """Erase the menu rows without touching the title, scores or border."""
-        lines, menu_start = self._home_content(scores, 0)
-        text_width = max(len(text) for text in lines[menu_start:menu_start+3])
-        width = min(text_width * self.CHAR_WIDTH + 16, 616,
-                    max(0, canvas.width - 52))
-        top = self._block_top(canvas.height, len(lines))
-        canvas.fill_rect(
-            (canvas.width - width) // 2, top + menu_start * self.LINE_SPACING,
-            width, 2 * self.LINE_SPACING + self.FONT_HEIGHT, self.PANEL_COLOR,
-        )
-
     def ranking(
-        self, m: Mlx, p: int, win: int, width: int, height: int,
-        scores: list[ScoreEntry],
+        self, canvas: VisualizerUtils, width: int, height: int,
+        scores: list[ScoreEntry], page: int = 0,
     ) -> None:
-        ranking = [
-            f"{rank:>2}. {item.name:<12} {item.score:>7}"
-            for rank, item in enumerate(scores[:10], start=1)
-        ]
+        pages = max(1, (len(scores) + self.RANKING_PAGE_SIZE - 1) // self.RANKING_PAGE_SIZE)
+        page = max(0, min(page, pages - 1))
+        start = page * self.RANKING_PAGE_SIZE
+        entries = scores[start:start+self.RANKING_PAGE_SIZE]
+        footer = f"Left/Right: Page {page+1}/{pages}  Enter: Home"
         lines = [
-            "Highscore Ranking", "", *(ranking or ["No scores yet"]), "",
-            "Enter: Back to Home",
+            "Highscore Ranking", "", *([""] * len(entries) if entries else ["No scores yet"]),
+            "", footer,
         ]
         self._put_lines_center(
-            m, p, win, width, height, lines, {0: self.ACCENT_COLOR},
+            canvas, width, height, lines, {0: self.ACCENT_COLOR},
         )
+        if not entries:
+            return
+        # Spaces cannot align columns in a proportional font. Position each cell.
+        rows = [(f"{rank}.", item.name, str(item.score))
+                for rank, item in enumerate(entries, start=start+1)]
+        column_widths = [max(self.text_renderer.text_size(row[col], self.FONT_SIZE)[0] for row in rows)
+                         for col in range(3)]
+        gap = 20
+        table_width = sum(column_widths) + gap * 2
+        left = (width - table_width) // 2
+        top = self._block_top(height, len(lines), self.text_renderer.text_size(footer, self.FONT_SIZE)[1])
+        for index, row in enumerate(rows):
+            x = left
+            y = top + (index + 2) * self.LINE_SPACING
+            for column, text in enumerate(row):
+                cell_x = x
+                if column != 1:
+                    cell_x += column_widths[column] - self.text_renderer.text_size(text, self.FONT_SIZE)[0]
+                self.text_renderer.draw_text(canvas, cell_x, y, text, self.TEXT_COLOR, self.FONT_SIZE)
+                x += column_widths[column] + gap
 
     def gameover(
-        self, m: Mlx, p: int, win: int, width: int, height: int,
+        self, canvas: VisualizerUtils, width: int, height: int,
         score: int, name: str,
     ) -> None:
         self._put_lines_center(
-            m,
-            p,
-            win,
+            canvas,
             width,
             height,
             [
@@ -217,13 +196,11 @@ class GUI:
         )
 
     def all_clear(
-        self, m: Mlx, p: int, win: int, width: int, height: int,
+        self, canvas: VisualizerUtils, width: int, height: int,
         score: int, name: str,
     ) -> None:
         self._put_lines_center(
-            m,
-            p,
-            win,
+            canvas,
             width,
             height,
             [
@@ -236,17 +213,15 @@ class GUI:
         )
 
     def stage_clear(
-        self, m: Mlx, p: int, win: int, width: int, height: int,
+        self, canvas: VisualizerUtils, width: int, height: int,
     ) -> None:
-        self._put_lines_center(m, p, win, width, height, [
+        self._put_lines_center(canvas, width, height, [
             "Stage Clear!!", "Press any key to continue",
         ], {0: self.ACCENT_COLOR})
 
     def draw_stats(
         self,
-        m: Mlx,
-        p: int,
-        win: int,
+        canvas: VisualizerUtils,
         x: int,
         y: int,
         level: int,
@@ -255,12 +230,10 @@ class GUI:
         time: float,
         cheat_enabled: bool,
     ):
-        # MLX queues a draw per character and presents after 64 commands.
-        # Keep room for the game image and the power timer in the same frame.
         text = f"Lv:{level} Score:{score} Life:{lives} Time:{time:.1f}"
         if cheat_enabled:
             text += " CHEAT ON"
-        m.mlx_string_put(p, win, x, y, 0xFFFFFFFF, text)
+        self.text_renderer.draw_text(canvas, x, y, text, self.TEXT_COLOR, self.FONT_SIZE)
 
     def draw_invincible_bar(
         self,
@@ -279,24 +252,24 @@ class GUI:
         canvas.fill_rect(left, y, remain_width, height, self.BAR_COLOR)
 
     def invinsible_time(
-        self, m: Mlx, p: int, win: int, width: int, height: int, time: float,
+        self, canvas: VisualizerUtils, width: int, height: int, time: float,
     ) -> None:
         self._put_string_center(
-            m, p, win, width, height - 70, f"Invincible {time:.1f}",
+            canvas, width, height - 70, f"Invincible {time:.1f}",
             self.ACCENT_COLOR,
         )
 
     def pause(
-        self, m: Mlx, p: int, win: int, width: int, height: int,
+        self, canvas: VisualizerUtils, width: int, height: int,
     ) -> None:
-        self._put_lines_center(m, p, win, width, height, [
+        self._put_lines_center(canvas, width, height, [
             "PAUSED", "P: Resume", "H: Back to home",
         ], {0: self.ACCENT_COLOR})
 
     def instruction(
-        self, m: Mlx, p: int, win: int, width: int, height: int,
+        self, canvas: VisualizerUtils, width: int, height: int,
     ) -> None:
-        self._put_lines_center(m, p, win, width, height, [
+        self._put_lines_center(canvas, width, height, [
             "Arrow keys or WASD: Move", "P: Pause/Resume", "H: Home while paused",
             "Eat all pacgums to clear the stage", "Enter: Back to home",
         ])
