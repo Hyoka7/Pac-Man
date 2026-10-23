@@ -82,12 +82,24 @@ class VisualizerUtils:
         center_y = self.offset_y + (y + 0.5) * self.cell_size
         return (center_x, center_y)
 
-    def clear_image(self) -> None:
-        """Clear the image buffer to opaque black."""
-        row_blank = self.color_bytes((0, 0, 0)) * self.width
+    def clear_image(self, *, transparent: bool = False) -> None:
+        """Clear visible pixels to opaque black or transparent RGBA zero."""
+        pixel = bytes(4) if transparent else self.color_bytes((0, 0, 0))
+        row_blank = pixel * self.width
         for y in range(self.height):
             idx = y * self.line_size
             self.img_data[idx : idx + len(row_blank)] = row_blank
+
+    def fill_rect(
+        self,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        color: tuple[int, int, int],
+    ) -> None:
+        """Fill a clipped rectangle using a contiguous slice per image row."""
+        self._fill_cell(x, y, x + width, y + height, color)
 
     def is_in_circle(
         self,

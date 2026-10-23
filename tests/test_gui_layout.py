@@ -48,7 +48,7 @@ class GUILayoutTests(unittest.TestCase):
             ScoreEntry(name="A", score=42),
         ]
         screens = [
-            (self.gui.home, (scores,)),
+            (self.gui.home, (scores, 0)),
             (self.gui.ranking, (scores * 5,)),
             (self.gui.ranking, ([],)),
             (self.gui.gameover, (1234567, "LONGEST_NAME")),
@@ -67,15 +67,35 @@ class GUILayoutTests(unittest.TestCase):
     def test_home_preserves_top_five_and_operation_prompts(self) -> None:
         scores = [ScoreEntry(name=f"p{i}", score=100-i) for i in range(8)]
         mlx = Mock()
-        self.gui.home(mlx, 1, 2, 800, 600, scores)
-        strings = [call[-1] for call in self.text_calls(mlx)]
-        self.assertIn("Home Demo", strings)
+        self.gui.home(mlx, 1, 2, 800, 600, scores, 0)
+        strings = [call[-1].lstrip("> ") for call in self.text_calls(mlx)]
+        self.assertIn("PAC-MAN", strings)
         self.assertIn("I: Instruction", strings)
         self.assertIn("H: Highscore Ranking", strings)
-        self.assertIn("Enter: Game Start!", strings)
+        self.assertIn("Game Start", strings)
+        self.assertIn("Up/Down: Select  Enter: OK", strings)
         for score in scores[:5]:
             self.assertTrue(any(score.name in text for text in strings))
         self.assertFalse(any("p5" in text for text in strings))
+
+    def test_home_marker_tracks_selected_menu_independently_of_score_count(self) -> None:
+        options = ("Game Start", "Instruction", "Highscore Ranking")
+        for count in (0, 2, 5, 8):
+            scores = [ScoreEntry(name=f"p{i}", score=100-i) for i in range(count)]
+            for focusing, expected in enumerate(options):
+                with self.subTest(scores=count, focusing=focusing):
+                    mlx = Mock()
+                    self.gui.home(mlx, 1, 2, 800, 600, scores, focusing)
+                    strings = [call[-1] for call in self.text_calls(mlx)]
+                    menu = [
+                        text for text in strings
+                        if any(option in text for option in options)
+                    ]
+                    marked = [text for text in strings if text.lstrip().startswith(">")]
+                    self.assertEqual(len(menu), 3)
+                    self.assertEqual(len(marked), 1)
+                    self.assertIn(marked[0], menu)
+                    self.assertIn(expected, marked[0])
 
     def test_ranking_columns_align_for_different_name_and_score_lengths(self) -> None:
         scores = [ScoreEntry(name="LONGEST_NAME", score=1234567)]

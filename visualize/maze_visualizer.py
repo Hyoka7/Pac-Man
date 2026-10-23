@@ -97,10 +97,13 @@ class MazeVisualizer:
         ]
         self.cm = 0
         self.level = 1
+        self.home_focusing = 0
         self.max_level = len(self.config.levels)
         self.remaining_time = self.config.levels[0].max_time
         self.closed = True
         self.needs_redraw = True
+        self._drawn_state: GUIStateEnum | None = None
+        self._home_menu_dirty = False
         self.cheat_enabled = False
         self.ghost_frozen = False
         self.state: GUIStateEnum = GUIStateEnum.Home
@@ -112,7 +115,12 @@ class MazeVisualizer:
         del _param
         if self.closed:
             return
+        show_invincible_status = (
+            self.state in (GUIStateEnum.Playing, GUIStateEnum.Pause)
+            and self.player.is_invincible
+        )
         self.canvas.clear_image()
+        self.gui.draw_backdrop(self.canvas, self.state)
         if self.state == GUIStateEnum.Playing or self.state == GUIStateEnum.Pause:
             wall_color, landmark_color, _ = self.cmodes[self.cm]
             self.maze.draw(self.canvas, wall_color, landmark_color)
@@ -128,7 +136,7 @@ class MazeVisualizer:
                 240,
                 104,
             )
-        if self.player.is_invincible:
+        if show_invincible_status:
             self.gui.draw_invincible_bar(
                 self.canvas,
                 self.width // 2 - 100,
@@ -140,7 +148,7 @@ class MazeVisualizer:
             )
         self.m.mlx_put_image_to_window(self.p, self.win, self.img, 0, 0)
 
-        if self.player.is_invincible:
+        if show_invincible_status:
             self.gui.invinsible_time(
                 self.m,
                 self.p,
@@ -158,6 +166,7 @@ class MazeVisualizer:
                 self.width,
                 self.height,
                 self.score_manager.scores.scores,
+                self.home_focusing,
             )
         elif self.state == GUIStateEnum.Instruction:
             self.gui.instruction(
@@ -227,6 +236,21 @@ class MazeVisualizer:
             )
 
         self.needs_redraw = False
+        self._drawn_state = self.state
+        self._home_menu_dirty = False
+
+    def _draw_home_menu(self) -> None:
+        """Update the menu over the retained frame within MLX's draw budget."""
+        scores = self.score_manager.scores.scores
+        self.canvas.clear_image(transparent=True)
+        self.gui.draw_home_menu_background(self.canvas, scores)
+        self.m.mlx_put_image_to_window(self.p, self.win, self.img, 0, 0)
+        self.gui.home_menu(
+            self.m, self.p, self.win, self.width, self.height,
+            scores, self.home_focusing,
+        )
+        self.needs_redraw = False
+        self._home_menu_dirty = False
 
     def _close(self, _param: object = None) -> None:
         del _param
@@ -255,6 +279,7 @@ class MazeVisualizer:
             if len(self.pacgums) == 0:
                 if self.level < self.max_level:
                     self.state = GUIStateEnum.Stage_Clear
+                    self.needs_redraw = True
                 else:
                     self.state = GUIStateEnum.All_Clear
                     self.needs_redraw = True
@@ -294,19 +319,15 @@ class MazeVisualizer:
                             ghost.reset(self.canvas)
                             ghost.respawn_remaining = 5.0
                 self.player.update_mouth(elapsed)
-        if (
-            self.state
-            not in (
-                GUIStateEnum.Home,
-                GUIStateEnum.Pause,
-                GUIStateEnum.Ranking,
-                GUIStateEnum.GameOver,
-                GUIStateEnum.All_Clear,
-                GUIStateEnum.Instruction,
-            )
-            or self.needs_redraw
-        ):
-            self._draw()
+        if self.state == GUIStateEnum.Playing or self.needs_redraw:
+            if (
+                self.state == GUIStateEnum.Home
+                and self._drawn_state == GUIStateEnum.Home
+                and self._home_menu_dirty
+            ):
+                self._draw_home_menu()
+            else:
+                self._draw()
 
     def _on_key(self, key: int, _param: object = None) -> None:
         """Dispatch controls to the owning component."""
@@ -317,12 +338,27 @@ class MazeVisualizer:
             return
         if self.state == GUIStateEnum.Home:
             if key == KeyEnum.ENTER:
-                self.restart_game()
+                if self.home_focusing == 0:
+                    self.restart_game()
+                elif self.home_focusing == 1:
+                    self.state = GUIStateEnum.Instruction
+                    self.needs_redraw = True
+                elif self.home_focusing == 2:
+                    self.state = GUIStateEnum.Ranking
+                    self.needs_redraw = True
             elif key == KeyEnum.I:
                 self.state = GUIStateEnum.Instruction
                 self.needs_redraw = True
             elif key == KeyEnum.H:
                 self.state = GUIStateEnum.Ranking
+                self.needs_redraw = True
+            elif key == KeyEnum.UP:
+                self.home_focusing = (self.home_focusing - 1) % 3
+                self._home_menu_dirty = True
+                self.needs_redraw = True
+            elif key == KeyEnum.DOWN:
+                self.home_focusing = (self.home_focusing + 1) % 3
+                self._home_menu_dirty = True
                 self.needs_redraw = True
         elif self.state in (
             GUIStateEnum.Instruction,
