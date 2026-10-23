@@ -1,7 +1,8 @@
 """The GUI palette and panels are rendered into the real image buffer."""
 
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+from PIL import ImageFont
 
 from visualize.gui import GUI, GUIStateEnum
 from visualize.highscore import ScoreEntry
@@ -71,99 +72,19 @@ class RectangleTests(unittest.TestCase):
 
 
 class GUIStyleTests(unittest.TestCase):
-    def test_long_static_screen_waits_for_each_text_row(self):
-        mlx = Mock()
-        scores = [ScoreEntry(name='ABCDEFGHIJKL', score=1234567)] * 10
-        GUI().ranking(mlx, 1, 2, 800, 600, scores)
-        calls = mlx.method_calls
-        self.assertTrue(calls)
-        for index in range(0, len(calls), 2):
-            self.assertEqual(calls[index][0], 'mlx_string_put')
-            self.assertEqual(calls[index+1][0], 'mlx_sync')
-            self.assertEqual(calls[index+1].args, (1, 3, 2))
-
-    def test_short_name_screen_keeps_text_in_one_batch(self):
-        mlx = Mock()
-        GUI().gameover(mlx, 1, 2, 800, 600, 9999999999, 'ABCDEFGHIJKL')
-        self.assertEqual(mlx.mlx_string_put.call_count, 4)
-        mlx.mlx_sync.assert_not_called()
-
-    def test_home_menu_partial_render_matches_full_layout_and_fits_native_batch(self):
-        gui = GUI()
-        self.assertTrue(callable(getattr(gui, "home_menu", None)))
-        options = ("Game Start", "Instruction", "Highscore Ranking")
-        for count in (0, 2, 5, 8):
-            scores = [ScoreEntry(name=f"p{i}", score=100-i) for i in range(count)]
-            positions = None
-            for focusing in range(3):
-                with self.subTest(scores=count, focusing=focusing):
-                    full, partial = Mock(), Mock()
-                    gui.home(full, 1, 2, 800, 600, scores, focusing)
-                    gui.home_menu(partial, 1, 2, 800, 600, scores, focusing)
-                    expected = [
-                        call.args for call in full.mlx_string_put.call_args_list
-                        if any(option in call.args[-1] for option in options)
-                    ]
-                    actual = [
-                        call.args for call in partial.mlx_string_put.call_args_list
-                    ]
-                    self.assertEqual(actual, expected)
-                    self.assertEqual(len(actual), 3)
-                    self.assertLess(1+sum(len(call[-1]) for call in actual), 64)
-                    current_positions = [(call[2], call[3]) for call in actual]
-                    if positions is None:
-                        positions = current_positions
-                    else:
-                        self.assertEqual(current_positions, positions)
-                    for index, call in enumerate(actual):
-                        prefix = "> " if index == focusing else "  "
-                        self.assertEqual(call[-1][:2], prefix)
-
-    def test_home_menu_background_only_erases_menu_rows_inside_panel(self):
-        gui = GUI()
-        self.assertTrue(callable(getattr(gui, "draw_home_menu_background", None)))
-        options = ("Game Start", "Instruction", "Highscore Ranking")
-        for count in (0, 2, 5, 8):
-            with self.subTest(scores=count):
-                scores = [ScoreEntry(name=f"p{i}", score=100-i) for i in range(count)]
-                canvas, mlx = make_canvas(800, 600), Mock()
-                canvas.fill_rect(0, 0, 800, 600, (12, 34, 56))
-                gui.draw_home_menu_background(canvas, scores)
-                gui.home(mlx, 1, 2, 800, 600, scores, 0)
-                for call in mlx.mlx_string_put.call_args_list:
-                    _, _, x, y, _, text = call.args
-                    if any(option in text for option in options):
-                        self.assertEqual(pixel(canvas, x, y), (16, 25, 48))
-                        self.assertEqual(pixel(canvas, x+len(text)*10-1, y+19),
-                                         (16, 25, 48))
-                    else:
-                        self.assertEqual(pixel(canvas, x, y), (12, 34, 56))
-                self.assertEqual(pixel(canvas, 90, 90), (12, 34, 56))
-                self.assertEqual(pixel(canvas, 709, 509), (12, 34, 56))
+    def setUp(self):
+        patcher = patch('visualize.text.TextRenderer.draw_text')
+        self.draw_text = patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_home_highlights_only_selected_item_and_title(self):
-        options = ("Game Start", "Instruction", "Highscore Ranking")
-        gui = GUI()
-        for focusing, selected in enumerate(options):
-            with self.subTest(focusing=focusing):
-                mlx = Mock()
-                gui.home(mlx, 1, 2, 800, 600, [ScoreEntry(name="A", score=1)],
-                         focusing)
-                calls = [call.args for call in mlx.mlx_string_put.call_args_list]
-                marked = [call for call in calls if call[-1].startswith("> ")]
-                self.assertEqual(len(marked), 1)
-                self.assertIn(selected, marked[0][-1])
-                yellow = marked[0][-2]
-                self.assertNotEqual(yellow, 0xFFFFFFFF)
-                # The installed MLX 2 text API interprets packed colors as ABGR.
-                self.assertGreater(yellow & 255, 200)
-                self.assertGreater((yellow >> 8) & 255, 150)
-                self.assertLess((yellow >> 16) & 255, 100)
-                for call in calls:
-                    if call[-1] == "PAC-MAN":
-                        self.assertEqual(call[-2], yellow)
-                    elif not call[-1].startswith("> "):
-                        self.assertEqual(call[-2], 0xFFFFFFFF)
+        for focusing, selected in enumerate(('Start', 'Instruction', 'Ranking')):
+            self.draw_text.reset_mock()
+            GUI().home(Mock(), 800, 600, [], focusing)
+            calls = [c.args for c in self.draw_text.call_args_list]
+            for _, _, _, text, color, _ in calls:
+                self.assertEqual(color, (255, 216, 74) if text in
+                    ('PAC-MAN', '> '+selected) else (255, 255, 255))
 
     def test_backdrop_covers_static_screen_and_centers_bordered_panel(self):
         gui = GUI()
@@ -192,11 +113,13 @@ class GUIStyleTests(unittest.TestCase):
             with self.subTest(state=state):
                 canvas, mlx = make_canvas(800, 600), Mock()
                 gui.draw_backdrop(canvas, state)
-                renderer(mlx, 1, 2, 800, 600, *args)
-                for call in mlx.mlx_string_put.call_args_list:
-                    _, _, x, y, _, text = call.args
+                self.draw_text.reset_mock()
+                renderer(canvas, 800, 600, *args)
+                for call in self.draw_text.call_args_list:
+                    _, x, y, text, _, size = call.args
+                    left, top, right, bottom = ImageFont.load_default(size=size).getbbox(text)
                     self.assertEqual(pixel(canvas, x, y), (16, 25, 48))
-                    self.assertEqual(pixel(canvas, x+len(text)*10-1, y+19),
+                    self.assertEqual(pixel(canvas, x+right-left-1, y+bottom-top-1),
                                      (16, 25, 48))
 
     def test_backdrop_leaves_live_maze_and_pause_buffer_unchanged(self):

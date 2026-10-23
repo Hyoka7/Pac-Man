@@ -111,6 +111,25 @@ class GhostNavigationTests(unittest.TestCase):
         self.assertEqual(bytes(canvas.img_data[index:index+4]),
                          canvas.color_bytes(ghost.color))
 
+    def test_cached_sprite_tracks_pixel_position_and_switches_flee_color(self) -> None:
+        target = make_canvas()
+        ghost = Ghost((0, 0), BFSStrategy(), color=(255, 0, 0))
+        ghost.place(target)
+        target.clear_image()
+        ghost.draw(target, eatable=False)
+        old_center = 36 * target.line_size + 36 * 4
+        new_center = 36 * target.line_size + 68 * 4
+        self.assertEqual(bytes(target.img_data[old_center:old_center+4]),
+                         bytes([0, 0, 255, 255]))
+        for eatable, expected in ((True, bytes([128, 0, 0, 255])),
+                                  (False, bytes([0, 0, 255, 255]))):
+            target.clear_image()
+            ghost.movement.center = (68.0, 36.0)
+            ghost.draw(target, eatable=eatable)
+            self.assertEqual(bytes(target.img_data[new_center:new_center+4]), expected)
+            self.assertEqual(bytes(target.img_data[old_center:old_center+4]),
+                             bytes([0, 0, 0, 255]))
+
     def test_reset_cancels_respawn_wait_and_active_movement(self) -> None:
         canvas = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy())

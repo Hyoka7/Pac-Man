@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 from time import monotonic
 from types import SimpleNamespace
 import unittest
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 from visualize.cheating import CheatHandler
 from visualize.gui import GUI, GUIStateEnum
@@ -15,6 +15,9 @@ from visualize.maze_visualizer import KeyEnum, MazeVisualizer
 
 class HomeRedrawTests(unittest.TestCase):
     def setUp(self) -> None:
+        patcher = patch('visualize.text.TextRenderer.draw_text')
+        self.draw_text = patcher.start()
+        self.addCleanup(patcher.stop)
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.viewer = MazeVisualizer.__new__(MazeVisualizer)
@@ -24,9 +27,8 @@ class HomeRedrawTests(unittest.TestCase):
         v.cheat_enabled = False
         v.state = GUIStateEnum.Home
         v.home_focusing = 0
+        v.ranking_page = 0
         v.needs_redraw = True
-        v._drawn_state = None
-        v._home_menu_dirty = False
         v.last_time = monotonic()
         v.canvas = Mock(width=600, height=600)
         v.m = Mock()
@@ -126,7 +128,7 @@ class HomeRedrawTests(unittest.TestCase):
                     self.assertEqual(v.state, expected)
                     self.assertTrue(v.needs_redraw)
 
-    def test_home_focus_change_updates_only_menu_within_one_batch(self) -> None:
+    def test_home_focus_change_rebuilds_complete_frame(self) -> None:
         v = self.viewer
         v.gui = Mock(wraps=GUI())
         v.score_manager.scores.scores = [
@@ -134,21 +136,19 @@ class HomeRedrawTests(unittest.TestCase):
         ]
         v._draw()
         v.m.reset_mock()
+        self.draw_text.reset_mock()
         v.gui.reset_mock()
         v.canvas.reset_mock()
         v._on_key(KeyEnum.DOWN)
         v._on_loop()
-        v.gui.home.assert_not_called()
-        v.gui.draw_backdrop.assert_not_called()
-        v.gui.home_menu.assert_called_once()
-        v.canvas.clear_image.assert_called_once_with(transparent=True)
-        strings = [call.args[-1] for call in v.m.mlx_string_put.call_args_list]
-        self.assertEqual(len(strings), 3)
+        v.gui.home.assert_called_once()
+        v.gui.draw_backdrop.assert_called_once()
+        v.canvas.clear_image.assert_called_once_with()
+        strings = [call.args[3] for call in self.draw_text.call_args_list]
+        self.assertGreater(len(strings), 3)
         self.assertTrue(any(
             text.startswith('> ') and 'Instruction' in text for text in strings
         ))
-        commands = v.m.mlx_put_image_to_window.call_count + sum(map(len, strings))
-        self.assertLess(commands, 64)
         v._on_loop()
         v.m.mlx_put_image_to_window.assert_called_once()
 
@@ -158,7 +158,6 @@ class HomeRedrawTests(unittest.TestCase):
         v._on_loop()
         v.gui.home.assert_called_once()
         self.assertEqual(v.gui.home.call_args.args[-1], 1)
-        v.gui.home_menu.assert_not_called()
         v.canvas.clear_image.assert_called_once_with()
 
     def test_expose_after_partial_update_restores_the_whole_screen(self) -> None:
@@ -166,14 +165,13 @@ class HomeRedrawTests(unittest.TestCase):
         v._draw()
         v._on_key(KeyEnum.DOWN)
         v._on_loop()
-        v.gui.home_menu.assert_called_once()
+        v.gui.home.assert_called()
         v.gui.reset_mock()
         v.canvas.reset_mock()
         v._draw()  # Expose must rebuild the full frame after transparent clearing.
         v.canvas.clear_image.assert_called_once_with()
         v.gui.draw_backdrop.assert_called_once_with(v.canvas, GUIStateEnum.Home)
         v.gui.home.assert_called_once()
-        v.gui.home_menu.assert_not_called()
 
     def test_stage_clear_transition_requests_a_draw(self) -> None:
         v = self.viewer
@@ -264,7 +262,7 @@ class HomeRedrawTests(unittest.TestCase):
         v._on_loop()
         v._on_loop()
         v.gui.ranking.assert_called_once_with(
-            v.m, v.p, v.win, v.width, v.height, v.score_manager.scores.scores,
+            v.canvas, v.width, v.height, v.score_manager.scores.scores, 0,
         )
         v.player.update.assert_not_called()
         self.assertEqual(v.remaining_time, 42.0)
@@ -282,25 +280,84 @@ class HomeRedrawTests(unittest.TestCase):
         v._draw()
         self.assertEqual(v.gui.ranking.call_count, 2)
 
+    def test_ranking_arrows_change_pages_and_stop_at_bounds(self) -> None:
+        v = self.viewer
+        v.state = GUIStateEnum.Ranking
+        v.ranking_page = 0
+        v.score_manager.scores.scores = [
+            ScoreEntry(name=f'p{i}', score=100-i) for i in range(23)
+        ]
+        for key, expected in (
+            (KeyEnum.LEFT, 0), (KeyEnum.RIGHT, 1), (KeyEnum.RIGHT, 2),
+            (KeyEnum.RIGHT, 2), (KeyEnum.LEFT, 1), (KeyEnum.LEFT, 0),
+        ):
+            with self.subTest(key=key, page=expected):
+                previous = v.ranking_page
+                v.needs_redraw = False
+                v._on_key(key)
+                self.assertEqual(v.ranking_page, expected)
+                self.assertEqual(v.needs_redraw, previous != expected)
+
+    def test_ranking_later_pages_keep_absolute_ranks(self) -> None:
+        scores = [ScoreEntry(name=f'p{i}', score=100-i) for i in range(23)]
+        for page, first, last, count in ((1, 11, 20, 10), (2, 21, 23, 3)):
+            with self.subTest(page=page):
+                mlx = Mock()
+                self.draw_text.reset_mock()
+                GUI().ranking(mlx, 800, 600, scores, page)
+                strings = [c.args[3] for c in self.draw_text.call_args_list]
+                ranks = [text for text in strings if text.endswith('.')]
+                self.assertEqual(len(ranks), count)
+                self.assertEqual(ranks[0], f'{first}.')
+                self.assertEqual(ranks[-1], f'{last}.')
+                self.assertTrue(any(f'{page+1}/3' in text for text in strings))
+
+    def test_empty_and_single_page_rankings_do_not_move(self) -> None:
+        v = self.viewer
+        v.state = GUIStateEnum.Ranking
+        for count in (0, 1, 10):
+            v.score_manager.scores.scores = [
+                ScoreEntry(name='Player', score=100) for _ in range(count)
+            ]
+            for key in (KeyEnum.LEFT, KeyEnum.RIGHT):
+                v.ranking_page = 0
+                v.needs_redraw = False
+                v._on_key(key)
+                self.assertEqual(v.ranking_page, 0)
+                self.assertFalse(v.needs_redraw)
+
+    def test_reopening_ranking_starts_at_first_page(self) -> None:
+        v = self.viewer
+        v.state = GUIStateEnum.Ranking
+        v.ranking_page = 2
+        v._on_key(KeyEnum.ENTER)
+        v.home_focusing = 2
+        v._on_key(KeyEnum.ENTER)
+        self.assertEqual(v.state, GUIStateEnum.Ranking)
+        self.assertEqual(v.ranking_page, 0)
+
     def test_ranking_renders_only_top_ten_and_handles_empty_list(self) -> None:
         scores = [ScoreEntry(name=f'p{i}', score=100-i) for i in range(12)]
         for entries in ([], scores):
             with self.subTest(size=len(entries)):
                 m = Mock()
-                GUI().ranking(m, 1, 2, 800, 600, entries)
-                strings = [call.args[-1] for call in m.mlx_string_put.call_args_list]
+                self.draw_text.reset_mock()
+                GUI().ranking(m, 800, 600, entries)
+                strings = [call.args[3] for call in self.draw_text.call_args_list]
                 self.assertEqual(strings[0], 'Highscore Ranking')
                 if entries:
-                    self.assertEqual(strings[1:-1], [
-                        f'{rank:>2}. {entry.name:<12} {entry.score:>7}'
-                        for rank, entry in enumerate(entries[:10], start=1)
-                    ])
+                    ranks = [text for text in strings if text.endswith('.')]
+                    self.assertEqual(ranks, [f'{rank}.' for rank in range(1, 11)])
+                    self.assertIn('p0', strings)
+                    self.assertIn('p9', strings)
+                    self.assertNotIn('p10', strings)
                 else:
                     self.assertIn('No scores yet', strings)
-                self.assertEqual(strings[-1], 'Enter: Back to Home')
+                self.assertTrue(any('Left/Right: Page' in text for text in strings))
+                self.assertTrue(any('Enter: Home' in text for text in strings))
 
-    def test_name_entry_frame_stays_below_mlx_draw_command_limit(self) -> None:
-        """The Enter Name prompt fits full names and scores up to ten digits."""
+    def test_name_entry_frame_uses_one_image_without_native_text(self) -> None:
+        """Name and score edits no longer add native text drawing commands."""
         v = self.viewer
         v.gui = GUI()
         v.player.invincible_remain = 3.25
@@ -317,24 +374,20 @@ class HomeRedrawTests(unittest.TestCase):
                             v.player.score = score
                             v.player.is_invincible = invincible
                             v.m.reset_mock()
+                            self.draw_text.reset_mock()
                             v.canvas.reset_mock()
                             v._draw()
                             strings = [
-                                call.args[-1]
-                                for call in v.m.mlx_string_put.call_args_list
+                                call.args[3]
+                                for call in self.draw_text.call_args_list
                             ]
                             self.assertTrue(any(str(score) in text for text in strings))
                             self.assertTrue(any('name' in text.lower() for text in strings))
                             if name:
                                 self.assertTrue(any(name in text for text in strings))
                             v.m.mlx_put_image_to_window.assert_called_once()
-                            # This MLX backend queues one draw for the image and
-                            # one per ASCII character, including spaces.
-                            commands = (
-                                v.m.mlx_put_image_to_window.call_count
-                                + sum(map(len, strings))
-                            )
-                            self.assertLess(commands, 64)
+                            v.m.mlx_string_put.assert_not_called()
+                            v.m.mlx_sync.assert_not_called()
 
     def test_name_edits_redraw_once_then_remain_idle(self) -> None:
         v = self.viewer
@@ -348,13 +401,14 @@ class HomeRedrawTests(unittest.TestCase):
                     v.player_name = 'Alice'
                     v.needs_redraw = False
                     v.m.reset_mock()
+                    self.draw_text.reset_mock()
                     v._on_key(key)
                     self.assertEqual(v.player_name, expected_name)
                     self.assertTrue(v.needs_redraw)
                     v._on_loop()
                     strings = [
-                        call.args[-1]
-                        for call in v.m.mlx_string_put.call_args_list
+                        call.args[3]
+                        for call in self.draw_text.call_args_list
                     ]
                     self.assertTrue(any(expected_name in text for text in strings))
                     self.assertFalse(v.needs_redraw)
@@ -372,6 +426,7 @@ class HomeRedrawTests(unittest.TestCase):
                     v.state = state
                     v.player.is_invincible = invincible
                     v.m.reset_mock()
+                    self.draw_text.reset_mock()
                     v.gui.reset_mock()
                     v.canvas.reset_mock()
                     v._draw()
@@ -380,8 +435,8 @@ class HomeRedrawTests(unittest.TestCase):
                         and state in (GUIStateEnum.Playing, GUIStateEnum.Pause)
                     )
                     strings = [
-                        call.args[-1]
-                        for call in v.m.mlx_string_put.call_args_list
+                        call.args[3]
+                        for call in self.draw_text.call_args_list
                     ]
                     self.assertEqual(
                         any(text.startswith('Invincible ') for text in strings),

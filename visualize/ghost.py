@@ -1,11 +1,56 @@
 """Ghost state, ready for future movement and rendering."""
 
-from math import ceil, floor, hypot
+from functools import cache
+from math import ceil, hypot
+
+from PIL import Image
 
 from .maze import Maze
 from .movement import Movement
 from .strategy import FleeBFSStrategy, Strategy
+from .text import TextRenderer
 from .visualizerutils import VisualizerUtils
+
+
+@cache
+def _ghost_image(radius: float, color: tuple[int, int, int]) -> Image.Image:
+    side = ceil(radius * 2) + 2
+    img = Image.new(
+        "RGBA",
+        (side, side),
+        (0, 0, 0, 0),
+    )
+    center_x, center_y = side / 2, side / 2
+    notch_depth = radius / 3
+    notch_half_width = radius / 6
+    for y in range(side):
+        for x in range(side):
+            dx = x + 0.5 - center_x
+            dy = y + 0.5 - center_y
+            if dy <= 0:
+                # Distance to the head's circular outline.
+                distance = hypot(dx, dy) - radius
+            else:
+                # Distance to the sides and bottom; the head-body join
+                # is inside the shape, so it must stay fully colored.
+                distance = max(abs(dx) - radius, dy - radius)
+            for notch_x in (-radius / 2, 0.0, radius / 2):
+                # Center each ellipse on the bottom edge so its upper
+                # half removes a rounded notch from the body.
+                ellipse_x = (dx - notch_x) / notch_half_width
+                ellipse_y = (dy - radius) / notch_depth
+                ellipse_radius = hypot(ellipse_x, ellipse_y)
+                gradient = hypot(ellipse_x / notch_half_width, ellipse_y / notch_depth)
+                # Approximate distance in pixels, positive inside the cut.
+                cut_distance = (
+                    ellipse_radius * (1.0 - ellipse_radius) / gradient
+                    if gradient > 0
+                    else min(notch_half_width, notch_depth)
+                )
+                distance = max(distance, cut_distance)
+            coverage = max(0.0, min(1.0, 0.5 - distance))
+            img.putpixel((x, y), (*color, round(coverage * 255)))
+    return img
 
 
 class Ghost:
@@ -24,6 +69,7 @@ class Ghost:
         self.respawn_remaining = 0.0
         self.color = color
         self.strategy = strategy
+        self.renderer = TextRenderer()
 
     @property
     def cell(self) -> tuple[int, int]:
@@ -84,47 +130,11 @@ class Ghost:
 
     def draw(self, canvas: VisualizerUtils, eatable: bool) -> None:
         """Draw four feet using elliptical cutouts and antialiased edges."""
-        center_x, center_y = self.movement.center or canvas.cell_center(*self.cell)
-        radius = self.radius
-        notch_depth = radius / 3
-        notch_half_width = radius / 6
         if self.respawn_remaining > 0.0:
             return
-        for y in range(
-            max(0, floor(center_y - radius - 0.5)),
-            min(canvas.height, ceil(center_y + radius + 0.5)),
-        ):
-            for x in range(
-                max(0, floor(center_x - radius - 0.5)),
-                min(canvas.width, ceil(center_x + radius + 0.5)),
-            ):
-                dx = x + 0.5 - center_x
-                dy = y + 0.5 - center_y
-                if dy <= 0:
-                    # Distance to the head's circular outline.
-                    distance = hypot(dx, dy) - radius
-                else:
-                    # Distance to the sides and bottom; the head-body join
-                    # is inside the shape, so it must stay fully colored.
-                    distance = max(abs(dx) - radius, dy - radius)
-                for notch_x in (-radius / 2, 0.0, radius / 2):
-                    # Center each ellipse on the bottom edge so its upper
-                    # half removes a rounded notch from the body.
-                    ellipse_x = (dx - notch_x) / notch_half_width
-                    ellipse_y = (dy - radius) / notch_depth
-                    ellipse_radius = hypot(ellipse_x, ellipse_y)
-                    gradient = hypot(
-                        ellipse_x / notch_half_width, ellipse_y / notch_depth
-                    )
-                    # Approximate distance in pixels, positive inside the cut.
-                    cut_distance = (
-                        ellipse_radius * (1.0 - ellipse_radius) / gradient
-                        if gradient > 0
-                        else min(notch_half_width, notch_depth)
-                    )
-                    distance = max(distance, cut_distance)
-                coverage = max(0.0, min(1.0, 0.5 - distance))
-                if eatable:
-                    canvas.draw_pixel_aa(x, y, (0, 0, 128), coverage)
-                else:
-                    canvas.draw_pixel_aa(x, y, self.color, coverage)
+        color = (0, 0, 128) if eatable else self.color
+        img = _ghost_image(self.radius, color)
+        center_x, center_y = self.movement.center
+        left = round(center_x - img.width / 2)
+        top = round(center_y - img.height / 2)
+        self.renderer.draw_image(canvas, left, top, img)

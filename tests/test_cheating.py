@@ -134,19 +134,9 @@ class CheatInputTests(unittest.TestCase):
 class CheatHudTests(unittest.TestCase):
     def test_cheat_label_is_only_shown_when_enabled(self) -> None:
         for enabled in (False, True):
-            with self.subTest(enabled=enabled):
-                m = Mock()
-                GUI().draw_stats(m, 1, 2, 20, 15, 3, 120, 2, 42.5, enabled)
-                m.mlx_string_put.assert_called_once()
-                text = m.mlx_string_put.call_args.args[-1]
+            with self.subTest(enabled=enabled), patch('visualize.text.TextRenderer.draw_text') as draw:
+                GUI().draw_stats(Mock(), 20, 15, 3, 120, 2, 42.5, enabled)
+                text = draw.call_args.args[3]
                 self.assertEqual('CHEAT ON' in text, enabled)
                 for value in ('Lv:3', 'Score:120', 'Life:2', 'Time:42.5'):
                     self.assertIn(value, text)
-
-    def test_full_hud_and_power_text_fit_native_draw_batch(self) -> None:
-        m = Mock()
-        gui = GUI()
-        gui.draw_stats(m, 1, 2, 20, 15, 10, 999999, 99, 90.0, True)
-        gui.invinsible_time(m, 1, 2, 1000, 800, 5.0)
-        text_commands = sum(len(c.args[-1]) for c in m.mlx_string_put.call_args_list)
-        self.assertLess(text_commands + 1, 64)  # One more command draws the game image.

@@ -98,12 +98,11 @@ class MazeVisualizer:
         self.cm = 0
         self.level = 1
         self.home_focusing = 0
+        self.ranking_page = 0
         self.max_level = len(self.config.levels)
         self.remaining_time = self.config.levels[0].max_time
         self.closed = True
         self.needs_redraw = True
-        self._drawn_state: GUIStateEnum | None = None
-        self._home_menu_dirty = False
         self.cheat_enabled = False
         self.ghost_frozen = False
         self.state: GUIStateEnum = GUIStateEnum.Home
@@ -146,13 +145,10 @@ class MazeVisualizer:
                 self.player.invincible_remain,
                 5.0,
             )
-        self.m.mlx_put_image_to_window(self.p, self.win, self.img, 0, 0)
 
         if show_invincible_status:
             self.gui.invinsible_time(
-                self.m,
-                self.p,
-                self.win,
+                self.canvas,
                 self.width,
                 self.height,
                 self.player.invincible_remain,
@@ -160,9 +156,7 @@ class MazeVisualizer:
 
         if self.state == GUIStateEnum.Home:
             self.gui.home(
-                self.m,
-                self.p,
-                self.win,
+                self.canvas,
                 self.width,
                 self.height,
                 self.score_manager.scores.scores,
@@ -170,17 +164,13 @@ class MazeVisualizer:
             )
         elif self.state == GUIStateEnum.Instruction:
             self.gui.instruction(
-                self.m,
-                self.p,
-                self.win,
+                self.canvas,
                 self.width,
                 self.height,
             )
         elif self.state == GUIStateEnum.Playing or self.state == GUIStateEnum.Pause:
             self.gui.draw_stats(
-                self.m,
-                self.p,
-                self.win,
+                self.canvas,
                 20,
                 15,
                 self.level,
@@ -191,18 +181,15 @@ class MazeVisualizer:
             )
         elif self.state == GUIStateEnum.Ranking:
             self.gui.ranking(
-                self.m,
-                self.p,
-                self.win,
+                self.canvas,
                 self.width,
                 self.height,
                 self.score_manager.scores.scores,
+                self.ranking_page,
             )
         if self.state == GUIStateEnum.GameOver:
             self.gui.gameover(
-                self.m,
-                self.p,
-                self.win,
+                self.canvas,
                 self.width,
                 self.height,
                 self.player.score,
@@ -210,47 +197,27 @@ class MazeVisualizer:
             )
         elif self.state == GUIStateEnum.Pause:
             self.gui.pause(
-                self.m,
-                self.p,
-                self.win,
+                self.canvas,
                 self.width,
                 self.height,
             )
         elif self.state == GUIStateEnum.Stage_Clear:
             self.gui.stage_clear(
-                self.m,
-                self.p,
-                self.win,
+                self.canvas,
                 self.width,
                 self.height,
             )
         elif self.state == GUIStateEnum.All_Clear:
             self.gui.all_clear(
-                self.m,
-                self.p,
-                self.win,
+                self.canvas,
                 self.width,
                 self.height,
                 self.player.score,
                 self.player_name,
             )
 
-        self.needs_redraw = False
-        self._drawn_state = self.state
-        self._home_menu_dirty = False
-
-    def _draw_home_menu(self) -> None:
-        """Update the menu over the retained frame within MLX's draw budget."""
-        scores = self.score_manager.scores.scores
-        self.canvas.clear_image(transparent=True)
-        self.gui.draw_home_menu_background(self.canvas, scores)
         self.m.mlx_put_image_to_window(self.p, self.win, self.img, 0, 0)
-        self.gui.home_menu(
-            self.m, self.p, self.win, self.width, self.height,
-            scores, self.home_focusing,
-        )
         self.needs_redraw = False
-        self._home_menu_dirty = False
 
     def _close(self, _param: object = None) -> None:
         del _param
@@ -320,14 +287,7 @@ class MazeVisualizer:
                             ghost.respawn_remaining = 5.0
                 self.player.update_mouth(elapsed)
         if self.state == GUIStateEnum.Playing or self.needs_redraw:
-            if (
-                self.state == GUIStateEnum.Home
-                and self._drawn_state == GUIStateEnum.Home
-                and self._home_menu_dirty
-            ):
-                self._draw_home_menu()
-            else:
-                self._draw()
+            self._draw()
 
     def _on_key(self, key: int, _param: object = None) -> None:
         """Dispatch controls to the owning component."""
@@ -344,26 +304,38 @@ class MazeVisualizer:
                     self.state = GUIStateEnum.Instruction
                     self.needs_redraw = True
                 elif self.home_focusing == 2:
+                    self.ranking_page = 0
                     self.state = GUIStateEnum.Ranking
                     self.needs_redraw = True
             elif key == KeyEnum.I:
                 self.state = GUIStateEnum.Instruction
                 self.needs_redraw = True
             elif key == KeyEnum.H:
+                self.ranking_page = 0
                 self.state = GUIStateEnum.Ranking
                 self.needs_redraw = True
             elif key == KeyEnum.UP:
                 self.home_focusing = (self.home_focusing - 1) % 3
-                self._home_menu_dirty = True
                 self.needs_redraw = True
             elif key == KeyEnum.DOWN:
                 self.home_focusing = (self.home_focusing + 1) % 3
-                self._home_menu_dirty = True
                 self.needs_redraw = True
-        elif self.state in (
-            GUIStateEnum.Instruction,
-            GUIStateEnum.Ranking,
-        ):
+        elif self.state == GUIStateEnum.Ranking:
+            if key == KeyEnum.ENTER:
+                self.state = GUIStateEnum.Home
+                self.needs_redraw = True
+            elif key in (KeyEnum.LEFT, KeyEnum.RIGHT):
+                last_page = max(
+                    0,
+                    (len(self.score_manager.scores.scores) - 1)
+                    // GUI.RANKING_PAGE_SIZE,
+                )
+                direction = -1 if key == KeyEnum.LEFT else 1
+                page = max(0, min(self.ranking_page + direction, last_page))
+                if page != self.ranking_page:
+                    self.ranking_page = page
+                    self.needs_redraw = True
+        elif self.state == GUIStateEnum.Instruction:
             if key == KeyEnum.ENTER:
                 self.state = GUIStateEnum.Home
                 self.needs_redraw = True
