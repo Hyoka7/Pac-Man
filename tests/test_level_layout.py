@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 from mazegenerator import MazeGenerator
 
 from models.models import Config, LevelConfig
-from visualize.gui import GUIStateEnum
+from visualize.gui import GUI, GUIStateEnum
 from visualize.maze import Maze
 from visualize.maze_visualizer import MazeVisualizer
 from visualize.visualizerutils import VisualizerUtils
@@ -140,6 +140,7 @@ class LevelLayoutTests(unittest.TestCase):
 
     def test_layout_centers_both_axes_and_rejects_unrenderable_cells(self) -> None:
         viewer = MazeVisualizer.__new__(MazeVisualizer)
+        viewer.gui = GUI()
         viewer.width, viewer.height, viewer.margin = 1000, 800, 100
         for cols, rows in ((15, 15), (25, 15), (15, 25)):
             viewer.maze = SimpleNamespace(cols=cols, rows=rows)
@@ -153,6 +154,22 @@ class LevelLayoutTests(unittest.TestCase):
         viewer.maze = SimpleNamespace(cols=2000, rows=2000)
         with self.assertRaises(ValueError):
             viewer._update_layout()
+
+    def test_large_window_reserves_space_for_invincible_label(self) -> None:
+        for width, height in ((800, 600), (2460, 1340), (4000, 2200)):
+            with self.subTest(size=(width, height)):
+                viewer = MazeVisualizer.__new__(MazeVisualizer)
+                viewer.gui = GUI()
+                viewer.width, viewer.height, viewer.margin = width, height, 100
+                viewer.maze = SimpleNamespace(cols=15, rows=15)
+                viewer._update_layout()
+                maze_bottom = viewer.offset_y + viewer.maze.rows * viewer.cell_size
+                bar_y = viewer.gui.bar_y
+                with patch('visualize.image_renderer.ImageRenderer.draw_text') as draw:
+                    viewer.gui.invinsible_time(Mock(), width, bar_y, 3.2)
+                text_y = draw.call_args.args[2]
+                self.assertGreater(text_y, maze_bottom)
+                self.assertLessEqual(text_y + viewer.gui.font_size, bar_y)
 
     def test_walls_and_cell_centers_use_offsets_instead_of_margin(self) -> None:
         canvas = VisualizerUtils(

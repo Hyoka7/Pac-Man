@@ -73,32 +73,50 @@ class RectangleTests(unittest.TestCase):
 
 class GUIStyleTests(unittest.TestCase):
     def setUp(self):
-        patcher = patch('visualize.text.TextRenderer.draw_text')
+        patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
 
     def test_home_highlights_only_selected_item_and_title(self):
         for focusing, selected in enumerate(('Start', 'Instruction', 'Ranking')):
             self.draw_text.reset_mock()
-            GUI().home(Mock(), 800, 600, [], focusing)
+            gui = GUI()
+            gui.update_layout(800, 600)
+            gui.home(Mock(), 800, 600, [], focusing)
             calls = [c.args for c in self.draw_text.call_args_list]
             for _, _, _, text, color, _ in calls:
                 self.assertEqual(color, (255, 216, 74) if text in
                     ('PAC-MAN', '> '+selected) else (255, 255, 255))
 
+    def test_panels_grow_with_text_and_remain_centered(self):
+        for size, edges in (((800, 600), (80, 90, 719, 509)),
+                            ((1600, 1200), (160, 180, 1439, 1019))):
+            with self.subTest(size=size):
+                gui = GUI()
+                gui.update_layout(*size)
+                canvas = make_canvas(*size)
+                gui.draw_backdrop(canvas, GUIStateEnum.Home)
+                left, top, right, bottom = edges
+                self.assertEqual(pixel(canvas, left, top), (73, 194, 221))
+                self.assertEqual(pixel(canvas, right, bottom), (73, 194, 221))
+                self.assertEqual(pixel(canvas, left+6, top+6), (16, 25, 48))
+                self.assertEqual(pixel(canvas, left, top-1), (8, 13, 28))
+
     def test_backdrop_covers_static_screen_and_centers_bordered_panel(self):
         gui = GUI()
+        gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
         canvas = make_canvas(800, 600)
         gui.draw_backdrop(canvas, GUIStateEnum.Home)
         self.assertEqual(pixel(canvas, 0, 0), (8, 13, 28))
-        self.assertEqual(pixel(canvas, 90, 90), (73, 194, 221))
-        self.assertEqual(pixel(canvas, 709, 509), (73, 194, 221))
+        self.assertEqual(pixel(canvas, 80, 90), (73, 194, 221))
+        self.assertEqual(pixel(canvas, 719, 509), (73, 194, 221))
         self.assertEqual(pixel(canvas, 400, 300), (16, 25, 48))
-        self.assertEqual(pixel(canvas, 710, 510), (8, 13, 28))
+        self.assertEqual(pixel(canvas, 720, 510), (8, 13, 28))
 
     def test_static_text_blocks_fit_inside_panels(self):
         gui = GUI()
+        gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
         scores = [ScoreEntry(name="LONGEST_NAME", score=1234567)] * 10
         screens = [
@@ -124,6 +142,7 @@ class GUIStyleTests(unittest.TestCase):
 
     def test_backdrop_leaves_live_maze_and_pause_buffer_unchanged(self):
         gui = GUI()
+        gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
         canvas = make_canvas(8, 6)
         canvas.img_data[:] = bytes([37]) * len(canvas.img_data)
@@ -133,6 +152,7 @@ class GUIStyleTests(unittest.TestCase):
 
     def test_small_backdrop_and_partial_pause_panel_clip_to_the_image(self):
         gui = GUI()
+        gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
         canvas = make_canvas(40, 30)
         gui.draw_backdrop(canvas, GUIStateEnum.Ranking)
@@ -145,6 +165,7 @@ class GUIStyleTests(unittest.TestCase):
 
     def test_power_bar_shrinks_toward_center_and_clamps_remaining_time(self):
         gui = GUI()
+        gui.update_layout(800, 600)
         canvas = make_canvas(40, 10)
         gui.draw_invincible_bar(canvas, 10, 3, 20, 4, 2.5, 5.0)
         self.assertEqual(pixel(canvas, 10, 3), (31, 44, 67))

@@ -7,6 +7,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
+from PIL import ImageFont
+
 from visualize.cheating import CheatHandler
 from visualize.gui import GUI, GUIStateEnum
 from visualize.highscore import HighscoreManager, ScoreEntry
@@ -15,7 +17,7 @@ from visualize.maze_visualizer import KeyEnum, MazeVisualizer
 
 class HomeRedrawTests(unittest.TestCase):
     def setUp(self) -> None:
-        patcher = patch('visualize.text.TextRenderer.draw_text')
+        patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
         self.directory = TemporaryDirectory()
@@ -23,6 +25,7 @@ class HomeRedrawTests(unittest.TestCase):
         self.viewer = MazeVisualizer.__new__(MazeVisualizer)
         v = self.viewer
         v.closed = False
+        v.shift_keys = set()
         v.cheathandler = CheatHandler(list(map(ord, 'harnakam')))
         v.cheat_enabled = False
         v.state = GUIStateEnum.Home
@@ -32,7 +35,7 @@ class HomeRedrawTests(unittest.TestCase):
         v.last_time = monotonic()
         v.canvas = Mock(width=600, height=600)
         v.m = Mock()
-        v.gui = Mock()
+        v.gui = Mock(bar_width=200, bar_height=10, bar_y=570, hud_x=20, hud_y=15)
         v.p = v.win = v.img = 1
         v.width = v.height = 600
         v.player = SimpleNamespace(
@@ -51,6 +54,56 @@ class HomeRedrawTests(unittest.TestCase):
         v.score_manager = HighscoreManager(
             str(Path(self.directory.name) / "scores.json")
         )
+
+    def test_invincible_bar_scales_and_keeps_its_center(self) -> None:
+        v = self.viewer
+        v.state = GUIStateEnum.Playing
+        v.player.is_invincible = True
+        v.player.invincible_remain = 2.5
+        v.gui = GUI()
+        for width, height, track, remaining in (
+            (800, 600, (300, 570, 200, 10), (350, 570, 100, 10)),
+            (1600, 1200, (600, 1140, 400, 20), (700, 1140, 200, 20)),
+        ):
+            with self.subTest(size=(width, height)):
+                v.width, v.height = width, height
+                v.canvas = Mock(width=width, height=height)
+                v.gui.update_layout(width, height)
+                v._draw()
+                calls = v.canvas.fill_rect.call_args_list
+                self.assertEqual(calls[0].args[:4], track)
+                self.assertEqual(calls[1].args[:4], remaining)
+
+    def test_scaled_footer_and_hud_fit_between_maze_and_window_edges(self) -> None:
+        v = self.viewer
+        v.gui = GUI()
+        v.state = GUIStateEnum.Playing
+        v.player.is_invincible = True
+        v.player.invincible_remain = 2.5
+        v.maze.cols = v.maze.rows = 15
+        for width, height in ((800, 600), (1280, 720), (2460, 1340),
+                              (4000, 2200), (720, 1280)):
+            with self.subTest(size=(width, height)):
+                v.width, v.height = width, height
+                v.canvas = Mock(width=width, height=height)
+                v._update_layout()
+                self.draw_text.reset_mock()
+                v._draw()
+                x, bar_y, bar_width, bar_height = v.canvas.fill_rect.call_args_list[0].args[:4]
+                padding = v.gui.font_size
+                self.assertGreaterEqual(x, padding)
+                self.assertLessEqual(x+bar_width, width-padding)
+                self.assertLessEqual(bar_y+bar_height, height-padding)
+                calls = [c.args for c in self.draw_text.call_args_list]
+                timer = next(c for c in calls if c[3].startswith('Invincible '))
+                hud = next(c for c in calls if c[3].startswith('Lv:'))
+                ascent, descent = ImageFont.load_default(size=v.gui.font_size).getmetrics()
+                line_height = ascent+descent
+                gap = max(1, round(padding/4))
+                maze_bottom = v.offset_y + v.maze.rows*v.cell_size
+                self.assertGreaterEqual(timer[2]-maze_bottom, padding)
+                self.assertLessEqual(timer[2]+line_height+gap, bar_y)
+                self.assertLessEqual(hud[2]+line_height+padding, v.offset_y)
 
     def test_initial_draw_is_not_repeated_by_idle_loops(self) -> None:
         v = self.viewer
@@ -130,7 +183,10 @@ class HomeRedrawTests(unittest.TestCase):
 
     def test_home_focus_change_rebuilds_complete_frame(self) -> None:
         v = self.viewer
-        v.gui = Mock(wraps=GUI())
+        gui = GUI()
+        gui.update_layout(800, 600)
+        v.gui = Mock(wraps=gui, bar_width=gui.bar_width, bar_height=gui.bar_height,
+                     hud_x=gui.hud_x, hud_y=gui.hud_y, bar_y=gui.bar_y)
         v.score_manager.scores.scores = [
             ScoreEntry(name=f'player{i}', score=100-i) for i in range(5)
         ]
@@ -304,7 +360,9 @@ class HomeRedrawTests(unittest.TestCase):
             with self.subTest(page=page):
                 mlx = Mock()
                 self.draw_text.reset_mock()
-                GUI().ranking(mlx, 800, 600, scores, page)
+                gui = GUI()
+                gui.update_layout(800, 600)
+                gui.ranking(mlx, 800, 600, scores, page)
                 strings = [c.args[3] for c in self.draw_text.call_args_list]
                 ranks = [text for text in strings if text.endswith('.')]
                 self.assertEqual(len(ranks), count)
@@ -342,7 +400,9 @@ class HomeRedrawTests(unittest.TestCase):
             with self.subTest(size=len(entries)):
                 m = Mock()
                 self.draw_text.reset_mock()
-                GUI().ranking(m, 800, 600, entries)
+                gui = GUI()
+                gui.update_layout(800, 600)
+                gui.ranking(m, 800, 600, entries)
                 strings = [call.args[3] for call in self.draw_text.call_args_list]
                 self.assertEqual(strings[0], 'Highscore Ranking')
                 if entries:
@@ -360,6 +420,7 @@ class HomeRedrawTests(unittest.TestCase):
         """Name and score edits no longer add native text drawing commands."""
         v = self.viewer
         v.gui = GUI()
+        v.gui.update_layout(v.width, v.height)
         v.player.invincible_remain = 3.25
         for state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
             for name in ('', 'A', 'ABCDEFGHIJKL'):
@@ -392,6 +453,7 @@ class HomeRedrawTests(unittest.TestCase):
     def test_name_edits_redraw_once_then_remain_idle(self) -> None:
         v = self.viewer
         v.gui = GUI()
+        v.gui.update_layout(v.width, v.height)
         for state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
             for key, expected_name in (
                 (ord('B'), 'AliceB'), (KeyEnum.BACKSPACE, 'Alic'),
@@ -418,7 +480,10 @@ class HomeRedrawTests(unittest.TestCase):
 
     def test_power_bar_and_timer_only_appear_during_play_or_pause(self) -> None:
         v = self.viewer
-        v.gui = Mock(wraps=GUI())
+        gui = GUI()
+        gui.update_layout(800, 600)
+        v.gui = Mock(wraps=gui, bar_width=gui.bar_width, bar_height=gui.bar_height,
+                     hud_x=gui.hud_x, hud_y=gui.hud_y, bar_y=gui.bar_y)
         v.player.invincible_remain = 3.25
         for state in GUIStateEnum:
             for invincible in (False, True):

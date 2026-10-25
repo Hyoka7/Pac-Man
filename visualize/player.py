@@ -1,11 +1,84 @@
 """Player state, movement, queued turns and rendering."""
 
-from math import ceil, floor, hypot, radians, tan
+from functools import cache
+from math import ceil, hypot, radians, tan
+
+from PIL import Image
 
 from .maze import Maze
 from .movement import Movement
 from .pacgums import PacgumEatenEnum, Pacgums
+from .image_renderer import ImageRenderer
 from .visualizerutils import VisualizerUtils
+
+
+@cache
+def _player_image(
+    radius: float,
+    direction: str,
+    mouth_step: int,
+) -> Image.Image:
+    side = ceil(radius * 2) + 2
+    img = Image.new(
+        "RGBA",
+        (side, side),
+        (0, 0, 0, 0),
+    )
+    center_x = side / 2
+    center_y = side / 2
+    mouth_half_angle = 45 * mouth_step / 10
+    mouth_slope = tan(radians(mouth_half_angle))
+
+    def _circle_coverage(x_pixel: float, y_pixel: float) -> float:
+        """Fade across a one-pixel band around the circle boundary."""
+        distance = hypot(x_pixel - center_x, y_pixel - center_y)
+        return max(0.0, min(1.0, radius + 0.5 - distance))
+
+    def _is_in_mouth_horizon(x_pixel: float, y_pixel: float, dir: str) -> bool:
+        if mouth_half_angle <= 0:
+            return False
+        dx = x_pixel - center_x
+        dy = y_pixel - center_y
+        return (
+            abs(dy) <= abs(dx) * mouth_slope and dx > 0
+            if dir == "E"
+            else abs(dy) <= abs(dx) * mouth_slope and dx < 0
+        )
+
+    def _is_in_mouth_vertical(x_pixel: float, y_pixel: float, dir: str) -> bool:
+        if mouth_half_angle <= 0:
+            return False
+        dx = x_pixel - center_x
+        dy = y_pixel - center_y
+        return (
+            abs(dx) <= abs(dy) * mouth_slope and dy > 0
+            if dir == "S"
+            else abs(dx) <= abs(dy) * mouth_slope and dy < 0
+        )
+
+    samples = (0.125, 0.375, 0.625, 0.875)
+    for y in range(side):
+        for x in range(side):
+            circle_coverage = _circle_coverage(x + 0.5, y + 0.5)
+            if circle_coverage == 0:
+                continue
+            if direction in ("E", "W"):
+                body_count = sum(
+                    not _is_in_mouth_horizon(x + dx, y + dy, direction)
+                    for dx in samples
+                    for dy in samples
+                )
+            else:
+                body_count = sum(
+                    not _is_in_mouth_vertical(x + dx, y + dy, direction)
+                    for dx in samples
+                    for dy in samples
+                )
+            coverage = circle_coverage * (body_count / 16)
+            if coverage == 0:
+                continue
+            img.putpixel((x, y), (255, 255, 0, round(coverage * 255)))
+    return img
 
 
 class Player:
@@ -20,6 +93,7 @@ class Player:
     ) -> None:
         """Start stopped at a cell, facing east."""
         self.movement = Movement(pos, speed=8.0)
+        self.renderer = ImageRenderer()
         self.radius: float = 0.0
         self.ult = False
         self.reserved_move: str | None = None
@@ -88,72 +162,13 @@ class Player:
         self.radius = canvas.cell_size * 0.375
         self.is_invincible = False
 
-    def _draw_player(
-        self, canvas: VisualizerUtils, center_x: float, center_y: float, dir: str
-    ) -> None:
-        """Draw the player inside a maze cell."""
-        radius = self.radius
-        mouth_slope = tan(radians(self.mouth_half_angle))
-
-        def _circle_coverage(x_pixel: float, y_pixel: float) -> float:
-            """Fade across a one-pixel band around the circle boundary."""
-            distance = hypot(x_pixel - center_x, y_pixel - center_y)
-            return max(0.0, min(1.0, radius + 0.5 - distance))
-
-        def _is_in_mouth_horizon(x_pixel: float, y_pixel: float, dir: str) -> bool:
-            if self.mouth_half_angle <= 0:
-                return False
-            dx = x_pixel - center_x
-            dy = y_pixel - center_y
-            return (
-                abs(dy) <= abs(dx) * mouth_slope and dx > 0
-                if dir == "E"
-                else abs(dy) <= abs(dx) * mouth_slope and dx < 0
-            )
-
-        def _is_in_mouth_vertical(x_pixel: float, y_pixel: float, dir: str) -> bool:
-            if self.mouth_half_angle <= 0:
-                return False
-            dx = x_pixel - center_x
-            dy = y_pixel - center_y
-            return (
-                abs(dx) <= abs(dy) * mouth_slope and dy > 0
-                if dir == "S"
-                else abs(dx) <= abs(dy) * mouth_slope and dy < 0
-            )
-
-        samples = (0.125, 0.375, 0.625, 0.875)
-        for y in range(
-            max(floor(center_y - radius - 0.5), 0),
-            min(ceil(center_y + radius + 0.5), canvas.height),
-        ):
-            for x in range(
-                max(0, floor(center_x - radius - 0.5)),
-                min(canvas.width, ceil(center_x + radius + 0.5)),
-            ):
-                circle_coverage = _circle_coverage(x + 0.5, y + 0.5)
-                if circle_coverage == 0:
-                    continue
-                if dir in ("E", "W"):
-                    body_count = sum(
-                        not _is_in_mouth_horizon(x + dx, y + dy, dir)
-                        for dx in samples
-                        for dy in samples
-                    )
-                else:
-                    body_count = sum(
-                        not _is_in_mouth_vertical(x + dx, y + dy, dir)
-                        for dx in samples
-                        for dy in samples
-                    )
-                coverage = circle_coverage * (body_count / 16)
-                if coverage == 0:
-                    continue
-                canvas.draw_pixel_aa(x, y, (255, 255, 0), coverage)
-
     def draw(self, canvas: VisualizerUtils) -> None:
         """Draw the player at its current interpolated center."""
         center_x, center_y = self.movement.center or canvas.cell_center(
             *self.movement.cell
         )
-        self._draw_player(canvas, center_x, center_y, self.movement.direction)
+        mouth_step = round(self.mouth_half_angle / 45 * 10)
+        img = _player_image(self.radius, self.movement.direction, mouth_step)
+        left = round(center_x - img.width / 2)
+        top = round(center_y - img.height / 2)
+        self.renderer.draw_image(canvas, left, top, img)

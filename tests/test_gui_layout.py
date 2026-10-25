@@ -10,14 +10,17 @@ from visualize.maze_visualizer import MazeVisualizer
 
 
 def dimensions(text, size=20):
-    left, top, right, bottom = ImageFont.load_default(size=size).getbbox(text)
-    return right-left, bottom-top
+    font = ImageFont.load_default(size=size)
+    left, _, right, _ = font.getbbox(text)
+    ascent, descent = font.getmetrics()
+    return right-left, ascent+descent
 
 
 class GUILayoutTests(unittest.TestCase):
     def setUp(self):
         self.gui = GUI()
-        patcher = patch('visualize.text.TextRenderer.draw_text')
+        self.gui.update_layout(800, 600)
+        patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -57,8 +60,46 @@ class GUILayoutTests(unittest.TestCase):
             for renderer, args in screens:
                 with self.subTest(screen=renderer.__name__, size=(width, height)):
                     self.draw_text.reset_mock()
+                    self.gui.update_layout(width, height)
                     renderer(Mock(), width, height, *args)
                     self.assert_centered_block(width, height)
+
+    def test_scaled_screens_keep_long_text_inside_their_panels(self):
+        scores = [ScoreEntry(name='WWWWWWWWWWWW', score=9999999999)] * 10
+        screens = [
+            (GUIStateEnum.Home, self.gui.home, (scores, 0)),
+            (GUIStateEnum.Ranking, self.gui.ranking, (scores,)),
+            (GUIStateEnum.Instruction, self.gui.instruction, ()),
+            (GUIStateEnum.GameOver, self.gui.gameover, (9999999999, 'WWWWWWWWWWWW')),
+            (GUIStateEnum.All_Clear, self.gui.all_clear, (9999999999, 'WWWWWWWWWWWW')),
+            (GUIStateEnum.Stage_Clear, self.gui.stage_clear, ()),
+            (GUIStateEnum.Pause, self.gui.pause, ()),
+        ]
+        for width, height in ((480, 320), (800, 600), (1280, 720),
+                              (2460, 1340), (720, 1280), (4000, 2200)):
+            self.gui.update_layout(width, height)
+            for state, renderer, args in screens:
+                with self.subTest(state=state, size=(width, height)):
+                    canvas = Mock(width=width, height=height)
+                    self.draw_text.reset_mock()
+                    with patch.object(self.gui, 'background', wraps=self.gui.background) as background:
+                        if state == GUIStateEnum.Pause:
+                            self.gui.draw_pause_background(canvas)
+                        else:
+                            self.gui.draw_backdrop(canvas, state)
+                    _, x, y, panel_width, panel_height = background.call_args.args
+                    self.assertGreaterEqual(x, 0)
+                    self.assertGreaterEqual(y, 0)
+                    self.assertLessEqual(x+panel_width, width)
+                    self.assertLessEqual(y+panel_height, height)
+                    renderer(canvas, width, height, *args)
+                    for call in self.draw_text.call_args_list:
+                        _, tx, ty, text, _, size = call.args
+                        tw, th = dimensions(text, size)
+                        self.assertGreaterEqual(tx, x+self.gui.border_width)
+                        self.assertGreaterEqual(ty, y+self.gui.border_width)
+                        self.assertLessEqual(tx+tw, x+panel_width-self.gui.border_width)
+                        self.assertLessEqual(ty+th, y+panel_height-self.gui.border_width)
 
     def test_home_shows_only_menu_with_one_selected_item(self):
         scores = [ScoreEntry(name=f'player{i}', score=i) for i in range(8)]
@@ -73,7 +114,7 @@ class GUILayoutTests(unittest.TestCase):
             self.assertFalse(any('player' in text for text in strings))
 
     def test_power_time_is_centered_above_bar(self):
-        self.gui.invinsible_time(Mock(), 801, 600, 3.25)
+        self.gui.invinsible_time(Mock(), 801, 560, 3.25)
         _, x, y, text, _, size = self.draw_text.call_args.args
         w, _ = dimensions(text, size)
         self.assertEqual((text, y), ('Invincible 3.2', 530))
@@ -83,10 +124,12 @@ class GUILayoutTests(unittest.TestCase):
         v = MazeVisualizer.__new__(MazeVisualizer)
         v.closed = False
         v.state = GUIStateEnum.Pause
-        v.canvas, v.m = Mock(), Mock()
-        v.gui = Mock(wraps=GUI())
+        v.canvas, v.m = Mock(width=1600, height=1200), Mock()
+        v.gui = GUI()
+        v.gui.update_layout(1600, 1200)
+        v.gui.background = Mock(wraps=v.gui.background)
         v.p = v.win = v.img = 1
-        v.width, v.height = 800, 600
+        v.width, v.height = 1600, 1200
         v.cmodes = [((255, 255, 255), (255, 0, 0), (0, 0, 0))]
         v.cm = 0
         v.maze, v.pacgums = Mock(), Mock()
@@ -95,6 +138,8 @@ class GUILayoutTests(unittest.TestCase):
         v.level, v.remaining_time, v.cheat_enabled = 1, 30, False
         v._draw()
         _, x, y, width, height = v.gui.background.call_args.args
+        self.assertLessEqual(abs(x-(v.width-x-width)), 1)
+        self.assertLessEqual(abs(y-(v.height-y-height)), 1)
         calls = [c.args for c in self.draw_text.call_args_list
                  if c.args[3] in {'PAUSED', 'P: Resume', 'H: Back to home'}]
         self.assertEqual(len(calls), 3)

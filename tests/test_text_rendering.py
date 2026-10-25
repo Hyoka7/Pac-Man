@@ -3,14 +3,14 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from PIL import Image
+from PIL import Image, ImageFont
 
 from visualize.gui import GUI, GUIStateEnum
 from visualize.maze_visualizer import MazeVisualizer
 from visualize.visualizerutils import VisualizerUtils
-from visualize.text import TextRenderer
+from visualize.image_renderer import ImageRenderer
 
-text_renderer = TextRenderer()
+text_renderer = ImageRenderer()
 
 
 def canvas(width=800, height=600, img_format=0):
@@ -19,6 +19,18 @@ def canvas(width=800, height=600, img_format=0):
 
 
 class TextRenderingTests(unittest.TestCase):
+    def test_lowercase_names_digits_and_capitals_share_one_baseline(self):
+        for size in (20, 40):
+            font = ImageFont.load_default(size=size)
+            ascent, descent = font.getmetrics()
+            images = [text_renderer._text_image(text, (255, 255, 255), size)
+                      for text in ('moae', 'ABC', '1234567', 'kyonaha')]
+            self.assertEqual([img.height for img in images], [ascent+descent]*4)
+            bottoms = [img.getbbox()[3] for img in images]
+            self.assertEqual(bottoms[0], bottoms[1])
+            self.assertEqual(bottoms[1], bottoms[2])
+            self.assertGreater(bottoms[3], bottoms[0])
+
     def test_text_preserves_background_and_blends_yellow_edges_in_both_formats(self):
         for fmt in (0, 1):
             target = canvas(200, 80, fmt)
@@ -37,7 +49,10 @@ class TextRenderingTests(unittest.TestCase):
     def test_long_text_is_not_cut_at_old_400_pixel_width_and_clips_offscreen(self):
         target = canvas(1000, 80)
         text_renderer.draw_text(target, 0, 0, 'W' * 30, size=32)
-        self.assertTrue(any(target.img_data[500*4:900*4]))
+        self.assertTrue(any(
+            any(target.img_data[y*target.line_size+500*4:y*target.line_size+900*4])
+            for y in range(80)
+        ))
         before = len(target.img_data)
         text_renderer.draw_text(target, -20, -5, 'edge', size=32)
         self.assertEqual(len(target.img_data), before)
@@ -81,6 +96,7 @@ class TextRenderingTests(unittest.TestCase):
         v.width, v.height = 800, 600
         v.canvas = canvas()
         v.gui = GUI()
+        v.gui.update_layout(v.width, v.height)
         v.p = v.win = v.img = 1
         v.cm = 0
         v.cmodes = [((0, 0, 0), (0, 0, 0), (0, 0, 0))]

@@ -41,6 +41,7 @@ class CheatInputTests(unittest.TestCase):
         self.viewer = MazeVisualizer.__new__(MazeVisualizer)
         v = self.viewer
         v.closed = False
+        v.shift_keys = set()
         v.state = GUIStateEnum.Playing
         v.cheat_enabled = False
         v.ghost_frozen = False
@@ -71,6 +72,39 @@ class CheatInputTests(unittest.TestCase):
         self.enter_command()
         v._on_key(KeyEnum.N)
         v.next_level.assert_called_once()
+
+    def test_life_and_time_keys_require_cheats_and_stop_after_disabling(self) -> None:
+        v = self.viewer
+        v.player.lives, v.remaining_time = 3, 12.5
+        v._on_key(KeyEnum.L)
+        v._on_key(KeyEnum.T)
+        self.assertEqual((v.player.lives, v.remaining_time), (3, 12.5))
+        self.enter_command()
+        for expected in ((4, 22.5), (5, 32.5)):
+            v._on_key(KeyEnum.L)
+            v._on_key(KeyEnum.T)
+            self.assertEqual((v.player.lives, v.remaining_time), expected)
+        self.enter_command()
+        v._on_key(KeyEnum.L)
+        v._on_key(KeyEnum.T)
+        self.assertEqual((v.player.lives, v.remaining_time), (5, 32.5))
+        v.player.request_move.assert_not_called()
+
+    def test_life_and_time_cheats_do_not_apply_outside_playing(self) -> None:
+        v = self.viewer
+        v.cheat_enabled = True
+        v.player.lives, v.remaining_time = 3, 12.5
+        for state in (GUIStateEnum.Home, GUIStateEnum.Instruction,
+                      GUIStateEnum.Ranking, GUIStateEnum.Pause,
+                      GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
+            with self.subTest(state=state):
+                v.state = state
+                v.player_name = ''
+                v._on_key(KeyEnum.L)
+                v._on_key(KeyEnum.T)
+                self.assertEqual((v.player.lives, v.remaining_time), (3, 12.5))
+                if state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
+                    self.assertEqual(v.player_name, 'lt')
 
     def test_wrong_key_resets_command_and_keeps_normal_controls(self) -> None:
         v = self.viewer
@@ -134,8 +168,10 @@ class CheatInputTests(unittest.TestCase):
 class CheatHudTests(unittest.TestCase):
     def test_cheat_label_is_only_shown_when_enabled(self) -> None:
         for enabled in (False, True):
-            with self.subTest(enabled=enabled), patch('visualize.text.TextRenderer.draw_text') as draw:
-                GUI().draw_stats(Mock(), 20, 15, 3, 120, 2, 42.5, enabled)
+            with self.subTest(enabled=enabled), patch('visualize.image_renderer.ImageRenderer.draw_text') as draw:
+                gui = GUI()
+                gui.update_layout(800, 600)
+                gui.draw_stats(Mock(), 20, 15, 3, 120, 2, 42.5, enabled)
                 text = draw.call_args.args[3]
                 self.assertEqual('CHEAT ON' in text, enabled)
                 for value in ('Lv:3', 'Score:120', 'Life:2', 'Time:42.5'):

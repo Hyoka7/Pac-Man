@@ -37,20 +37,19 @@ class BFSStrategy(Strategy):
     def choose_direction(
         self, maze: Maze, ghost_pos: tuple[int, int], player_pos: tuple[int, int]
     ) -> str | None:
-        """Look up distances without running BFS during gameplay."""
+        """Choose randomly among steps that reduce the shortest distance by one."""
         best_distance = maze.distances.get(ghost_pos, {}).get(player_pos)
         if best_distance is None or best_distance == 0:
             return None
-        chosen: str | None = None
+        candidates: list[str] = []
         for direction in ("N", "E", "S", "W"):
             if not maze.can_move(*ghost_pos, direction):
                 continue
             neighbor = maze.next_cell(*ghost_pos, direction)
             distance = maze.distances.get(neighbor, {}).get(player_pos)
-            if distance is not None and distance < best_distance:
-                best_distance = distance
-                chosen = direction
-        return chosen
+            if distance is not None and distance == best_distance - 1:
+                candidates.append(direction)
+        return random.choice(candidates) if candidates else None
 
 
 class FleeBFSStrategy(Strategy):
