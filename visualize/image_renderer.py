@@ -1,4 +1,4 @@
-"""Draw Pillow text into the same image buffer as the game."""
+"""Composite Pillow images and cached text into the game buffer."""
 
 from functools import cache
 
@@ -20,13 +20,14 @@ def _text_image(
 ) -> Image.Image:
     """Keep only the glyph bounds, including antialiased transparent edges."""
     font = _font(size)
-    left, top, right, bottom = font.getbbox(text)
-    image = Image.new("RGBA", (right - left, bottom - top), (0, 0, 0, 0))
-    ImageDraw.Draw(image).text((-left, -top), text, fill=(*color, 255), font=font)
+    ascent, descent = font.getmetrics()
+    left, _, right, _ = font.getbbox(text)
+    image = Image.new("RGBA", (right - left, ascent + descent), (0, 0, 0, 0))
+    ImageDraw.Draw(image).text((-left, 0), text, fill=(*color, 255), font=font)
     return image
 
 
-class TextRenderer:
+class ImageRenderer:
     """Generate, measure and composite cached text images onto a canvas."""
 
     def _font(self, size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:

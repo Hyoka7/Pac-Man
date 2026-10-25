@@ -28,11 +28,13 @@ class KeyEnum(IntEnum):
     H = 104
     I = 105
     K = 107
+    L = 108
     M = 109
     N = 110
     P = 112
     R = 114
     S = 115
+    T = 116
     W = 119
     BACKSPACE = 65288
     ENTER = 65293
@@ -41,6 +43,8 @@ class KeyEnum(IntEnum):
     UP = 65362
     RIGHT = 65363
     DOWN = 65364
+    SHIFT_L = 65505
+    SHIFT_R = 65506
 
 
 
@@ -108,6 +112,7 @@ class MazeVisualizer:
         self.state: GUIStateEnum = GUIStateEnum.Home
         self.last_time = time.monotonic()
         self.player_name = ""
+        self.shift_keys = set()
 
     def _draw(self, _param: object = None) -> None:
         """Compose the current game view into the image buffer."""
@@ -128,20 +133,15 @@ class MazeVisualizer:
                 ghost.draw(self.canvas, self.player.is_invincible)
             self.player.draw(self.canvas)
         if self.state == GUIStateEnum.Pause:
-            self.gui.background(
-                self.canvas,
-                self.width // 2 - 120,
-                self.height // 2 - 52,
-                240,
-                104,
-            )
+            self.gui.draw_pause_background(self.canvas)
+        bar_y = self.gui.bar_y
         if show_invincible_status:
             self.gui.draw_invincible_bar(
                 self.canvas,
-                self.width // 2 - 100,
-                self.height - 40,
-                200,
-                10,
+                (self.width - self.gui.bar_width) // 2,
+                bar_y,
+                self.gui.bar_width,
+                self.gui.bar_height,
                 self.player.invincible_remain,
                 5.0,
             )
@@ -150,7 +150,7 @@ class MazeVisualizer:
             self.gui.invinsible_time(
                 self.canvas,
                 self.width,
-                self.height,
+                bar_y,
                 self.player.invincible_remain,
             )
 
@@ -171,8 +171,8 @@ class MazeVisualizer:
         elif self.state == GUIStateEnum.Playing or self.state == GUIStateEnum.Pause:
             self.gui.draw_stats(
                 self.canvas,
-                20,
-                15,
+                self.gui.hud_x,
+                self.gui.hud_y,
                 self.level,
                 self.player.score,
                 self.player.lives,
@@ -293,6 +293,9 @@ class MazeVisualizer:
         """Dispatch controls to the owning component."""
         if self.closed:
             return
+        if key == KeyEnum.SHIFT_L or key == KeyEnum.SHIFT_R:
+            self.shift_keys.add(key)
+            return
         if key == KeyEnum.ESC:
             self._close()
             return
@@ -357,6 +360,10 @@ class MazeVisualizer:
                 self.next_level()
             elif key == KeyEnum.F and self.cheat_enabled:
                 self.ghost_frozen = not self.ghost_frozen
+            elif key == KeyEnum.L and self.cheat_enabled:
+                self.player.lives += 1
+            elif key == KeyEnum.T and self.cheat_enabled:
+                self.remaining_time += 10.0
             else:
                 directions = {
                     KeyEnum.LEFT: "W",
@@ -391,10 +398,18 @@ class MazeVisualizer:
                 self.player_name = self.player_name[:-1]
                 self.needs_redraw = True
             elif 0 <= key < 128 and chr(key).isalnum() and len(self.player_name) < 12:
-                self.player_name += chr(key)
+                char = chr(key)
+                if len(self.shift_keys):
+                    self.player_name += char.upper()
+                else:
+                    self.player_name += char
                 self.needs_redraw = True
         elif self.state == GUIStateEnum.Stage_Clear:
             self.next_level()
+
+    def _on_key_release(self, key: int, _param: object = None) -> None:
+        if key == KeyEnum.SHIFT_L or key == KeyEnum.SHIFT_R:
+            self.shift_keys.discard(key)
 
     def regenerate_maze(self) -> None:
         new_conf = self.config.levels[self.level - 1]
@@ -402,6 +417,7 @@ class MazeVisualizer:
         self.generator = new_generator
         self.maze = Maze(self.generator.maze)
         self._update_layout()
+        self.canvas.margin = self.margin
         self.canvas.cell_size = self.cell_size
         self.canvas.offset_x = self.offset_x
         self.canvas.offset_y = self.offset_y
@@ -451,6 +467,8 @@ class MazeVisualizer:
 
     def _update_layout(self) -> None:
         """Calculate cell size and center the maze in the fixed window."""
+        self.gui.update_layout(self.width, self.height)
+        self.margin = self.gui.maze_margin
         self.cell_size = self._calc_cell_size()
         if self.cell_size < 1:
             raise ValueError("maze is too large for the screen")
@@ -467,9 +485,9 @@ class MazeVisualizer:
             raise RuntimeError("MLX initialization failed")
 
         _, screen_width, screen_height = self.m.mlx_get_screen_size(self.p)
-        self.margin = 100
-        self.width = screen_width - 100
-        self.height = screen_height - 100
+        window_gap = max(1, round(min(screen_width, screen_height) / 15))
+        self.width = screen_width - window_gap
+        self.height = screen_height - window_gap
         self._update_layout()
         self.win = self.m.mlx_new_window(self.p, self.width, self.height, "Maze Viewer")
         if self.win is None:
@@ -503,6 +521,7 @@ class MazeVisualizer:
             self.pacgums.reset(self.maze, self.canvas, self.player.movement.cell)
             self.m.mlx_loop_hook(self.p, self._on_loop, None)
             self.m.mlx_hook(self.win, 2, 1, self._on_key, None)
+            self.m.mlx_hook(self.win, 3, 2, self._on_key_release, None)
             self.m.mlx_expose_hook(self.win, self._draw, None)
             self.m.mlx_hook(self.win, 33, 0, self._close, None)
             self._draw()

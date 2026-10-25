@@ -8,7 +8,7 @@ from PIL import Image
 from .maze import Maze
 from .movement import Movement
 from .strategy import FleeBFSStrategy, Strategy
-from .text import TextRenderer
+from .image_renderer import ImageRenderer
 from .visualizerutils import VisualizerUtils
 
 
@@ -69,7 +69,7 @@ class Ghost:
         self.respawn_remaining = 0.0
         self.color = color
         self.strategy = strategy
-        self.renderer = TextRenderer()
+        self.renderer = ImageRenderer()
 
     @property
     def cell(self) -> tuple[int, int]:

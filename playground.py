@@ -1,4 +1,4 @@
-"""Standalone Pillow text preview; the game uses visualize.text.TextRenderer."""
+"""Standalone Pillow text preview; the game uses visualize.image_renderer.ImageRenderer."""
 
 from PIL import Image, ImageDraw, ImageFont
 
