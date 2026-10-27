@@ -103,10 +103,10 @@ class GhostNavigationTests(unittest.TestCase):
         ghost.respawn_remaining = 5.0
         canvas.clear_image()
         background = bytes(canvas.img_data)
-        ghost.draw(canvas, eatable=False)
+        ghost.draw(canvas, eatable=False, eatable_remain=0.0)
         self.assertEqual(bytes(canvas.img_data), background)
         ghost.update(5.0, maze, canvas, (2, 0), eatable=False)
-        ghost.draw(canvas, eatable=False)
+        ghost.draw(canvas, eatable=False, eatable_remain=0.0)
         index = 36 * canvas.line_size + 36 * 4
         self.assertEqual(bytes(canvas.img_data[index:index+4]),
                          canvas.color_bytes(ghost.color))
@@ -116,7 +116,7 @@ class GhostNavigationTests(unittest.TestCase):
         ghost = Ghost((0, 0), BFSStrategy(), color=(255, 0, 0))
         ghost.place(target)
         target.clear_image()
-        ghost.draw(target, eatable=False)
+        ghost.draw(target, eatable=False, eatable_remain=0.0)
         old_center = 36 * target.line_size + 36 * 4
         new_center = 36 * target.line_size + 68 * 4
         self.assertEqual(bytes(target.img_data[old_center:old_center+4]),
@@ -125,10 +125,44 @@ class GhostNavigationTests(unittest.TestCase):
                                   (False, bytes([0, 0, 255, 255]))):
             target.clear_image()
             ghost.movement.center = (68.0, 36.0)
-            ghost.draw(target, eatable=eatable)
+            ghost.draw(target, eatable=eatable, eatable_remain=5.0 if eatable else 0.0)
             self.assertEqual(bytes(target.img_data[new_center:new_center+4]), expected)
             self.assertEqual(bytes(target.img_data[old_center:old_center+4]),
                              bytes([0, 0, 0, 255]))
+
+    def test_invincible_color_flashes_only_during_last_one_and_half_seconds(self) -> None:
+        target = make_canvas()
+        ghost = Ghost((0, 0), BFSStrategy())
+        ghost.place(target)
+        for eatable, remaining, expected in (
+            (False, 0.0, ghost.color),
+            (True, 4.9, (0, 0, 128)),
+            (True, 1.51, (0, 0, 128)),
+            (True, 1.5, ghost.color),
+            (True, 0.3, ghost.color),
+            (True, 0.1, (0, 0, 128)),
+        ):
+            with self.subTest(eatable=eatable, remaining=remaining):
+                target.clear_image()
+                ghost.draw(target, eatable, remaining)
+                offset = 36 * target.line_size + 36 * 4
+                self.assertEqual(bytes(target.img_data[offset:offset+4]),
+                                 target.color_bytes(expected))
+
+    def test_respawn_flashes_during_last_one_and_half_seconds(self) -> None:
+        target = make_canvas()
+        ghost = Ghost((0, 0), BFSStrategy())
+        ghost.place(target)
+        for remaining, visible in ((1.51, False), (1.1, True),
+                                   (1.3, False), (0.3, True), (0.1, False)):
+            with self.subTest(remaining=remaining):
+                target.clear_image()
+                ghost.respawn_remaining = remaining
+                ghost.draw(target, False, 0.0)
+                offset = 36 * target.line_size + 36 * 4
+                expected = ghost.color if visible else (0, 0, 0)
+                self.assertEqual(bytes(target.img_data[offset:offset+4]),
+                                 target.color_bytes(expected))
 
     def test_reset_cancels_respawn_wait_and_active_movement(self) -> None:
         canvas = make_canvas()

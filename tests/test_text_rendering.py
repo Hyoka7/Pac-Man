@@ -1,7 +1,9 @@
 """Pillow text blends into the image before the single native presentation."""
+
+from typing import Any, cast
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from PIL import Image, ImageFont
 
@@ -13,25 +15,124 @@ from visualize.image_renderer import ImageRenderer
 text_renderer = ImageRenderer()
 
 
-def canvas(width=800, height=600, img_format=0):
+def canvas(width: int = 800, height: int = 600, img_format: int = 0) -> VisualizerUtils:
     return VisualizerUtils(width, height, 20, 0,
         memoryview(bytearray(width * height * 4)), width * 4, img_format, 0, 0)
 
 
 class TextRenderingTests(unittest.TestCase):
-    def test_lowercase_names_digits_and_capitals_share_one_baseline(self):
+    def test_numeric_text_reuses_image_but_redraws_on_a_cleared_canvas(self) -> None:
+        renderer = ImageRenderer()
+        target = canvas()
+        label = 'Lv:1 Score:120 Life:3 Time:89.9 CHEAT ON'
+        renderer.draw_numeric_text(target, 10, 10, label)
+        cached = renderer.numeric_cache['hud'][3]
+        pixels = bytes(target.img_data)
+        target.img_data[:] = bytes(len(target.img_data))
+        with patch.object(renderer, '_split', wraps=renderer._split) as split:
+            renderer.draw_numeric_text(target, 10, 10, label)
+        split.assert_not_called()
+        self.assertIs(renderer.numeric_cache['hud'][3], cached)
+        self.assertEqual(bytes(target.img_data), pixels)
+        self.assertTrue(any(pixels))
+
+    def test_numeric_text_rebuilds_when_text_color_or_size_changes(self) -> None:
+        renderer = ImageRenderer()
+        target = canvas()
+        for text, color, size in (
+            ('Time:89.9', (255, 255, 255), 20),
+            ('Time:89.8', (255, 255, 255), 20),
+            ('Time:89.8', (255, 216, 74), 20),
+            ('Time:89.8', (255, 216, 74), 40),
+        ):
+            previous = renderer.numeric_cache.get('hud')
+            renderer.draw_numeric_text(target, 10, 10, text, color, size)
+            self.assertIn('hud', renderer.numeric_cache)
+            self.assertIsNot(
+                renderer.numeric_cache['hud'][3],
+                previous[3] if previous is not None else None,
+            )
+
+    def test_numeric_slots_reuse_independently_and_replace_only_changed_slot(self) -> None:
+        renderer = ImageRenderer()
+        target = canvas()
+        renderer.draw_numeric_text(target, 0, 0, 'Time:89.9', slot='hud')
+        renderer.draw_numeric_text(target, 0, 40, 'Invincible 4.9', slot='invincible')
+        hud = renderer.numeric_cache['hud'][3]
+        invincible = renderer.numeric_cache['invincible'][3]
+        with patch.object(renderer, '_split', wraps=renderer._split) as split:
+            renderer.draw_numeric_text(target, 0, 0, 'Time:89.9', slot='hud')
+            renderer.draw_numeric_text(target, 0, 40, 'Invincible 4.9', slot='invincible')
+        split.assert_not_called()
+        renderer.draw_numeric_text(target, 0, 0, 'Time:89.8', slot='hud')
+        self.assertIsNot(renderer.numeric_cache['hud'][3], hud)
+        self.assertIs(renderer.numeric_cache['invincible'][3], invincible)
+        self.assertEqual(len(renderer.numeric_cache), 2)
+
+    def test_invincible_timer_is_centered_and_reuses_its_own_slot(self) -> None:
+        gui = GUI()
+        gui.update_layout(800, 600)
+        renderer = gui.text_renderer
+        target = canvas()
+        gui.draw_stats(target, 20, 15, 1, 0, 3, 89.9, False)
+        hud = renderer.numeric_cache['hud'][3]
+        with patch.object(renderer, 'text_size', side_effect=AssertionError(
+            'Timer measurement must not cache a whole changing string'
+        )):
+            gui.invinsible_time(target, 800, gui.bar_y, 4.9)
+        timer = renderer.numeric_cache['invincible'][3]
+        with patch.object(renderer, 'draw_image') as draw:
+            gui.invinsible_time(target, 800, gui.bar_y, 4.9)
+        draw.assert_called_once_with(
+            target, (800 - timer.width) // 2,
+            gui.bar_y - gui.text_height - gui.text_gap, timer,
+        )
+        self.assertIs(renderer.numeric_cache['hud'][3], hud)
+        self.assertIs(renderer.numeric_cache['invincible'][3], timer)
+
+    def test_numeric_image_is_shared_between_measurement_and_drawing(self) -> None:
+        renderer = ImageRenderer()
+        for text in ('', 'Invincible 4.9', 'Lv:1 Score:120 Time:89.9'):
+            with self.subTest(text=text):
+                image = renderer.numeric_text_image(text, size=20)
+                if not text:
+                    self.assertEqual(image.width, 0)
+                    continue
+                with patch.object(renderer, '_split', wraps=renderer._split) as split:
+                    renderer.draw_numeric_text(canvas(), 0, 0, text)
+                split.assert_not_called()
+                self.assertIs(image, renderer.numeric_cache['hud'][3])
+
+    def test_centered_timer_splits_once_on_change_and_never_on_reuse(self) -> None:
+        gui = GUI()
+        gui.update_layout(800, 600)
+        renderer = gui.text_renderer
+        with patch.object(renderer, '_split', wraps=renderer._split) as split:
+            gui.invinsible_time(canvas(), 800, gui.bar_y, 4.9)
+            split.assert_called_once_with('Invincible 4.9')
+            split.reset_mock()
+            gui.invinsible_time(canvas(), 800, gui.bar_y, 4.9)
+            split.assert_not_called()
+            gui.invinsible_time(canvas(), 800, gui.bar_y, 4.8)
+            split.assert_called_once_with('Invincible 4.8')
+
+    def test_lowercase_names_digits_and_capitals_share_one_baseline(self) -> None:
         for size in (20, 40):
-            font = ImageFont.load_default(size=size)
+            font = cast(ImageFont.FreeTypeFont, ImageFont.load_default(size=size))
             ascent, descent = font.getmetrics()
             images = [text_renderer._text_image(text, (255, 255, 255), size)
                       for text in ('moae', 'ABC', '1234567', 'kyonaha')]
             self.assertEqual([img.height for img in images], [ascent+descent]*4)
-            bottoms = [img.getbbox()[3] for img in images]
+            bottoms: list[int] = []
+            for img in images:
+                bounds = img.getbbox()
+                assert bounds is not None
+                bottoms.append(bounds[3])
             self.assertEqual(bottoms[0], bottoms[1])
             self.assertEqual(bottoms[1], bottoms[2])
             self.assertGreater(bottoms[3], bottoms[0])
 
-    def test_text_preserves_background_and_blends_yellow_edges_in_both_formats(self):
+    def test_text_preserves_background_and_blends_yellow_edges_in_both_formats(self) -> None:
         for fmt in (0, 1):
             target = canvas(200, 80, fmt)
             target.fill_rect(0, 0, 200, 80, (16, 25, 48))
@@ -46,7 +147,7 @@ class TextRenderingTests(unittest.TestCase):
             self.assertIn((255, 216, 74), colors)
             self.assertTrue(any(16 < r < 255 for r, _, _ in colors))
 
-    def test_long_text_is_not_cut_at_old_400_pixel_width_and_clips_offscreen(self):
+    def test_long_text_is_not_cut_at_old_400_pixel_width_and_clips_offscreen(self) -> None:
         target = canvas(1000, 80)
         text_renderer.draw_text(target, 0, 0, 'W' * 30, size=32)
         self.assertTrue(any(
@@ -57,7 +158,7 @@ class TextRenderingTests(unittest.TestCase):
         text_renderer.draw_text(target, -20, -5, 'edge', size=32)
         self.assertEqual(len(target.img_data), before)
 
-    def test_image_composition_blends_rgba_and_preserves_row_padding(self):
+    def test_image_composition_blends_rgba_and_preserves_row_padding(self) -> None:
         overlay = Image.new('RGBA', (2, 2))
         overlay.putpixel((0, 0), (255, 0, 0, 255))
         overlay.putpixel((1, 0), (255, 255, 0, 0))
@@ -77,7 +178,7 @@ class TextRenderingTests(unittest.TestCase):
                 self.assertEqual(data[8:12], bytes([37]*4))
                 self.assertEqual(data[20:24], bytes([37]*4))
 
-    def test_image_clipping_keeps_the_correct_source_pixels(self):
+    def test_image_clipping_keeps_the_correct_source_pixels(self) -> None:
         overlay = Image.new('RGBA', (2, 2), (255, 0, 0, 255))
         overlay.putpixel((1, 1), (0, 0, 255, 255))
         target = canvas(2, 2)
@@ -90,8 +191,8 @@ class TextRenderingTests(unittest.TestCase):
             text_renderer.draw_image(target, x, y, overlay)
             self.assertEqual(bytes(target.img_data), before)
 
-    def test_every_screen_presents_completed_text_once_without_native_strings_or_sync(self):
-        v = MazeVisualizer.__new__(MazeVisualizer)
+    def test_every_screen_presents_completed_text_once_without_native_strings_or_sync(self) -> None:
+        v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
         v.closed = False
         v.width, v.height = 800, 600
         v.canvas = canvas()
@@ -107,7 +208,7 @@ class TextRenderingTests(unittest.TestCase):
         v.level, v.remaining_time = 1, 30
         v.cheat_enabled = True
         v.player_name = 'Player'
-        v.home_focusing = v.ranking_page = 0
+        v.home_focusing = 0
         v.score_manager = SimpleNamespace(scores=SimpleNamespace(scores=[]))
         for state in GUIStateEnum:
             with self.subTest(state=state):

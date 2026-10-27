@@ -103,7 +103,7 @@ class AnimatedMovementTests(unittest.TestCase):
         self.assertLess(ghost.movement.center[0], 100.0)
         self.assertGreater(ghost.movement.center[0], 68.0)
         self.canvas.clear_image()
-        ghost.draw(self.canvas, eatable=False)
+        ghost.draw(self.canvas, eatable=False, eatable_remain=0.0)
         offset = 30 * self.canvas.line_size + 105 * 4
         self.assertEqual(
             bytes(self.canvas.img_data[offset : offset + 4]), bytes([0, 0, 0, 255])
@@ -111,7 +111,7 @@ class AnimatedMovementTests(unittest.TestCase):
         ghost.update(0.3, self.maze, self.canvas, (0, 0), eatable=False)
         self.assertEqual(ghost.cell, (1, 0))
         self.canvas.clear_image()
-        ghost.draw(self.canvas, eatable=False)
+        ghost.draw(self.canvas, eatable=False, eatable_remain=0.0)
         offset = 36 * self.canvas.line_size + 68 * 4
         self.assertEqual(
             bytes(self.canvas.img_data[offset : offset + 4]), bytes([0, 0, 255, 255])
@@ -141,7 +141,7 @@ class AnimatedMovementTests(unittest.TestCase):
             viewer.player.place(self.canvas)
             viewer.ghosts[0].place(self.canvas)
             viewer.pacgums.reset(viewer.maze, self.canvas, viewer.player.movement.cell)
-            viewer._draw = Mock()
+            draw: Mock = self.enterContext(patch.object(viewer, "_draw"))
             viewer.closed = False
             viewer.last_time = 10.0
             viewer._on_key(65363)
@@ -152,7 +152,7 @@ class AnimatedMovementTests(unittest.TestCase):
             self.assertEqual(viewer.player.movement.cell, (2, 0))
             self.assertEqual(viewer.ghosts[0].cell, (0, 0))
             self.assertAlmostEqual(viewer.remaining_time, 89.95)
-            viewer._draw.assert_called_once()
+            draw.assert_called_once()
 
 
 

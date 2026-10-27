@@ -89,7 +89,7 @@ class Movement:
         self.cell = self.initial_cell
         self.place(canvas)
 
-    def _cell_distance(self, p1: float, p2: float):
+    def _cell_distance(self, p1: float, p2: float) -> float:
         return abs(p1 - p2)
 
     def redirect(self, req_dir: str, maze: Maze, canvas: VisualizerUtils) -> bool:

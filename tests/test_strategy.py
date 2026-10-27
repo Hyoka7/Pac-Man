@@ -38,7 +38,7 @@ class BFSStrategyTests(unittest.TestCase):
         route = [cell]
         for _ in range(4):
             direction = strategy.choose_direction(maze, cell, (2, 0))
-            self.assertIsNotNone(direction)
+            assert direction is not None
             self.assertTrue(maze.can_move(*cell, direction))
             cell = maze.next_cell(*cell, direction)
             route.append(cell)
@@ -53,13 +53,14 @@ class BFSStrategyTests(unittest.TestCase):
             ):
                 direction = strategy.choose_direction(maze, (0, 0), (1, 1))
                 self.assertEqual(direction, expected)
+                assert direction is not None
                 neighbor = maze.next_cell(0, 0, direction)
                 self.assertEqual(maze.distances[neighbor][(1, 1)], 1)
 
     def test_longer_open_directions_are_excluded_from_random_selection(self) -> None:
         maze = Maze([[9, 1, 3], [8, 0, 2], [12, 4, 6]])
 
-        def select_last_shortest(choices):
+        def select_last_shortest(choices: list[str]) -> str:
             # S and W are open too, but move farther from the target.
             self.assertEqual(set(choices), {'N', 'E'})
             return choices[-1]
@@ -67,6 +68,7 @@ class BFSStrategyTests(unittest.TestCase):
         with patch('visualize.strategy.random.choice', side_effect=select_last_shortest):
             direction = BFSStrategy().choose_direction(maze, (1, 1), (2, 0))
         self.assertEqual(direction, 'E')
+        assert direction is not None
         self.assertEqual(maze.distances[maze.next_cell(1, 1, direction)][(2, 0)], 1)
 
     def test_returns_none_when_already_at_player(self) -> None:

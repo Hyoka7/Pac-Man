@@ -1,5 +1,7 @@
 """Cheat commands require a complete ordered sequence and reset on mistakes."""
 
+from typing import Any, cast
+
 from contextlib import redirect_stdout
 from io import StringIO
 from types import SimpleNamespace
@@ -38,7 +40,7 @@ class CheatHandlerTests(unittest.TestCase):
 
 class CheatInputTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.viewer = MazeVisualizer.__new__(MazeVisualizer)
+        self.viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
         v = self.viewer
         v.closed = False
         v.shift_keys = set()
@@ -168,7 +170,7 @@ class CheatInputTests(unittest.TestCase):
 class CheatHudTests(unittest.TestCase):
     def test_cheat_label_is_only_shown_when_enabled(self) -> None:
         for enabled in (False, True):
-            with self.subTest(enabled=enabled), patch('visualize.image_renderer.ImageRenderer.draw_text') as draw:
+            with self.subTest(enabled=enabled), patch('visualize.image_renderer.ImageRenderer.draw_numeric_text') as draw:
                 gui = GUI()
                 gui.update_layout(800, 600)
                 gui.draw_stats(Mock(), 20, 15, 3, 120, 2, 42.5, enabled)

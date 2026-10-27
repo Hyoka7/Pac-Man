@@ -1,5 +1,7 @@
 """Level resizing keeps positions, radii and pickups in the fixed window."""
 
+from typing import Any, cast
+
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
@@ -11,6 +13,8 @@ from unittest.mock import Mock, patch
 from mazegenerator import MazeGenerator
 
 from models.models import Config, LevelConfig
+from visualize.ghost import Ghost
+from visualize.player import Player
 from visualize.gui import GUI, GUIStateEnum
 from visualize.maze import Maze
 from visualize.maze_visualizer import MazeVisualizer
@@ -53,7 +57,8 @@ class LevelLayoutTests(unittest.TestCase):
             self.assertEqual(ghost.cell, corner)
             self.assertEqual(ghost.movement.center, canvas.cell_center(*corner))
             self.assertEqual(ghost.respawn_remaining, 0.0)
-        for character in [viewer.player, *viewer.ghosts]:
+        characters: list[Player | Ghost] = [viewer.player, *viewer.ghosts]
+        for character in characters:
             self.assertAlmostEqual(character.radius, canvas.cell_size * 0.375)
             self.assertFalse(character.movement.moving)
             x, y = character.movement.center
@@ -102,7 +107,7 @@ class LevelLayoutTests(unittest.TestCase):
         viewer.closed = False
         viewer.state = GUIStateEnum.Playing
         viewer.last_time = 10.0
-        viewer._draw = Mock()
+        self.enterContext(patch.object(viewer, "_draw", Mock()))
         viewer.player.is_invincible = True
         viewer.player.invincible_remain = 5.0
         ghost = viewer.ghosts[0]
@@ -139,7 +144,7 @@ class LevelLayoutTests(unittest.TestCase):
         self.assertEqual(results, [False] * 7 + [True])
 
     def test_layout_centers_both_axes_and_rejects_unrenderable_cells(self) -> None:
-        viewer = MazeVisualizer.__new__(MazeVisualizer)
+        viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
         viewer.gui = GUI()
         viewer.width, viewer.height, viewer.margin = 1000, 800, 100
         for cols, rows in ((15, 15), (25, 15), (15, 25)):
@@ -158,14 +163,14 @@ class LevelLayoutTests(unittest.TestCase):
     def test_large_window_reserves_space_for_invincible_label(self) -> None:
         for width, height in ((800, 600), (2460, 1340), (4000, 2200)):
             with self.subTest(size=(width, height)):
-                viewer = MazeVisualizer.__new__(MazeVisualizer)
+                viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
                 viewer.gui = GUI()
                 viewer.width, viewer.height, viewer.margin = width, height, 100
                 viewer.maze = SimpleNamespace(cols=15, rows=15)
                 viewer._update_layout()
                 maze_bottom = viewer.offset_y + viewer.maze.rows * viewer.cell_size
                 bar_y = viewer.gui.bar_y
-                with patch('visualize.image_renderer.ImageRenderer.draw_text') as draw:
+                with patch('visualize.image_renderer.ImageRenderer.draw_numeric_text') as draw:
                     viewer.gui.invinsible_time(Mock(), width, bar_y, 3.2)
                 text_y = draw.call_args.args[2]
                 self.assertGreater(text_y, maze_bottom)
@@ -178,7 +183,7 @@ class LevelLayoutTests(unittest.TestCase):
         canvas.clear_image()
         Maze([[15]]).draw(canvas, (255, 255, 255), (255, 0, 0))
         self.assertEqual(canvas.cell_center(0, 0), (40.0, 35.0))
-        def pixel(x, y):
+        def pixel(x: int, y: int) -> bytes:
             index = y*canvas.line_size+x*4
             return bytes(canvas.img_data[index:index+4])
         self.assertEqual(pixel(30, 25), canvas.color_bytes((255, 255, 255)))

@@ -1,5 +1,7 @@
 """Home rendering should persist until its content needs refreshing."""
 
+from typing import Any, cast
+
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
@@ -20,9 +22,15 @@ class HomeRedrawTests(unittest.TestCase):
         patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
+        hud_patcher = patch(
+            'visualize.image_renderer.ImageRenderer.draw_numeric_text',
+            new=self.draw_text,
+        )
+        hud_patcher.start()
+        self.addCleanup(hud_patcher.stop)
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
-        self.viewer = MazeVisualizer.__new__(MazeVisualizer)
+        self.viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
         v = self.viewer
         v.closed = False
         v.shift_keys = set()
@@ -30,7 +38,6 @@ class HomeRedrawTests(unittest.TestCase):
         v.cheat_enabled = False
         v.state = GUIStateEnum.Home
         v.home_focusing = 0
-        v.ranking_page = 0
         v.needs_redraw = True
         v.last_time = monotonic()
         v.canvas = Mock(width=600, height=600)
@@ -97,7 +104,7 @@ class HomeRedrawTests(unittest.TestCase):
                 calls = [c.args for c in self.draw_text.call_args_list]
                 timer = next(c for c in calls if c[3].startswith('Invincible '))
                 hud = next(c for c in calls if c[3].startswith('Lv:'))
-                ascent, descent = ImageFont.load_default(size=v.gui.font_size).getmetrics()
+                ascent, descent = cast(ImageFont.FreeTypeFont, ImageFont.load_default(size=v.gui.font_size)).getmetrics()
                 line_height = ascent+descent
                 gap = max(1, round(padding/4))
                 maze_bottom = v.offset_y + v.maze.rows*v.cell_size
@@ -118,12 +125,14 @@ class HomeRedrawTests(unittest.TestCase):
     def test_home_arrows_cycle_selection_and_request_redraw(self) -> None:
         v = self.viewer
         for initial, key, expected in (
-            (0, KeyEnum.UP, 2),
+            (0, KeyEnum.UP, 3),
             (1, KeyEnum.UP, 0),
             (2, KeyEnum.UP, 1),
+            (3, KeyEnum.UP, 2),
             (0, KeyEnum.DOWN, 1),
             (1, KeyEnum.DOWN, 2),
-            (2, KeyEnum.DOWN, 0),
+            (2, KeyEnum.DOWN, 3),
+            (3, KeyEnum.DOWN, 0),
         ):
             with self.subTest(initial=initial, key=key):
                 v.home_focusing = initial
@@ -180,6 +189,20 @@ class HomeRedrawTests(unittest.TestCase):
                     v.restart_game.assert_not_called()
                     self.assertEqual(v.state, expected)
                     self.assertTrue(v.needs_redraw)
+
+    def test_exit_menu_closes_resources_once_and_stops_redrawing(self) -> None:
+        v = self.viewer
+        v.home_focusing = 3
+        v._on_key(KeyEnum.ENTER)
+        self.assertTrue(v.closed)
+        v._close()
+        v._on_loop()
+        v._draw()
+        v.m.mlx_destroy_image.assert_called_once_with(v.p, v.img)
+        v.m.mlx_destroy_window.assert_called_once_with(v.p, v.win)
+        v.m.mlx_loop_exit.assert_called_once_with(v.p)
+        v.m.mlx_put_image_to_window.assert_not_called()
+        v.player.update.assert_not_called()
 
     def test_home_focus_change_rebuilds_complete_frame(self) -> None:
         v = self.viewer
@@ -318,7 +341,7 @@ class HomeRedrawTests(unittest.TestCase):
         v._on_loop()
         v._on_loop()
         v.gui.ranking.assert_called_once_with(
-            v.canvas, v.width, v.height, v.score_manager.scores.scores, 0,
+            v.canvas, v.width, v.height, v.score_manager.scores.scores,
         )
         v.player.update.assert_not_called()
         self.assertEqual(v.remaining_time, 42.0)
@@ -336,63 +359,18 @@ class HomeRedrawTests(unittest.TestCase):
         v._draw()
         self.assertEqual(v.gui.ranking.call_count, 2)
 
-    def test_ranking_arrows_change_pages_and_stop_at_bounds(self) -> None:
+    def test_ranking_arrows_do_not_change_the_screen_or_request_redraw(self) -> None:
         v = self.viewer
         v.state = GUIStateEnum.Ranking
-        v.ranking_page = 0
         v.score_manager.scores.scores = [
             ScoreEntry(name=f'p{i}', score=100-i) for i in range(23)
         ]
-        for key, expected in (
-            (KeyEnum.LEFT, 0), (KeyEnum.RIGHT, 1), (KeyEnum.RIGHT, 2),
-            (KeyEnum.RIGHT, 2), (KeyEnum.LEFT, 1), (KeyEnum.LEFT, 0),
-        ):
-            with self.subTest(key=key, page=expected):
-                previous = v.ranking_page
+        for key in (KeyEnum.LEFT, KeyEnum.RIGHT):
+            with self.subTest(key=key):
                 v.needs_redraw = False
                 v._on_key(key)
-                self.assertEqual(v.ranking_page, expected)
-                self.assertEqual(v.needs_redraw, previous != expected)
-
-    def test_ranking_later_pages_keep_absolute_ranks(self) -> None:
-        scores = [ScoreEntry(name=f'p{i}', score=100-i) for i in range(23)]
-        for page, first, last, count in ((1, 11, 20, 10), (2, 21, 23, 3)):
-            with self.subTest(page=page):
-                mlx = Mock()
-                self.draw_text.reset_mock()
-                gui = GUI()
-                gui.update_layout(800, 600)
-                gui.ranking(mlx, 800, 600, scores, page)
-                strings = [c.args[3] for c in self.draw_text.call_args_list]
-                ranks = [text for text in strings if text.endswith('.')]
-                self.assertEqual(len(ranks), count)
-                self.assertEqual(ranks[0], f'{first}.')
-                self.assertEqual(ranks[-1], f'{last}.')
-                self.assertTrue(any(f'{page+1}/3' in text for text in strings))
-
-    def test_empty_and_single_page_rankings_do_not_move(self) -> None:
-        v = self.viewer
-        v.state = GUIStateEnum.Ranking
-        for count in (0, 1, 10):
-            v.score_manager.scores.scores = [
-                ScoreEntry(name='Player', score=100) for _ in range(count)
-            ]
-            for key in (KeyEnum.LEFT, KeyEnum.RIGHT):
-                v.ranking_page = 0
-                v.needs_redraw = False
-                v._on_key(key)
-                self.assertEqual(v.ranking_page, 0)
+                self.assertEqual(v.state, GUIStateEnum.Ranking)
                 self.assertFalse(v.needs_redraw)
-
-    def test_reopening_ranking_starts_at_first_page(self) -> None:
-        v = self.viewer
-        v.state = GUIStateEnum.Ranking
-        v.ranking_page = 2
-        v._on_key(KeyEnum.ENTER)
-        v.home_focusing = 2
-        v._on_key(KeyEnum.ENTER)
-        self.assertEqual(v.state, GUIStateEnum.Ranking)
-        self.assertEqual(v.ranking_page, 0)
 
     def test_ranking_renders_only_top_ten_and_handles_empty_list(self) -> None:
         scores = [ScoreEntry(name=f'p{i}', score=100-i) for i in range(12)]
@@ -413,8 +391,8 @@ class HomeRedrawTests(unittest.TestCase):
                     self.assertNotIn('p10', strings)
                 else:
                     self.assertIn('No scores yet', strings)
-                self.assertTrue(any('Left/Right: Page' in text for text in strings))
-                self.assertTrue(any('Enter: Home' in text for text in strings))
+                self.assertIn('C: Clear  Enter: Home', strings)
+                self.assertFalse(any('Page' in text or 'Left/Right' in text for text in strings))
 
     def test_name_entry_frame_uses_one_image_without_native_text(self) -> None:
         """Name and score edits no longer add native text drawing commands."""
@@ -423,7 +401,7 @@ class HomeRedrawTests(unittest.TestCase):
         v.gui.update_layout(v.width, v.height)
         v.player.invincible_remain = 3.25
         for state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
-            for name in ('', 'A', 'ABCDEFGHIJKL'):
+            for name in ('', 'A', 'ABCDEFGHIJ'):
                 for score in (0, 1234567, 9999999999):
                     for invincible in (False, True):
                         with self.subTest(

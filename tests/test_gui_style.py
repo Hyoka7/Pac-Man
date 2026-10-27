@@ -1,5 +1,7 @@
 """The GUI palette and panels are rendered into the real image buffer."""
 
+from typing import Any, Callable
+
 import unittest
 from unittest.mock import Mock, patch
 from PIL import ImageFont
@@ -27,7 +29,7 @@ def pixel(canvas: VisualizerUtils, x: int, y: int) -> tuple[int, int, int]:
 
 
 class RectangleTests(unittest.TestCase):
-    def test_clear_can_make_visible_pixels_transparent_without_touching_padding(self):
+    def test_clear_can_make_visible_pixels_transparent_without_touching_padding(self) -> None:
         for img_format in (0, 1):
             with self.subTest(img_format=img_format):
                 image = bytearray([37] * 24 * 4)
@@ -44,7 +46,7 @@ class RectangleTests(unittest.TestCase):
                     alpha = image[y*24+(3 if img_format == 0 else 0)]
                     self.assertEqual(alpha, 255)
 
-    def test_rectangle_clips_edges_and_preserves_row_padding_in_both_formats(self):
+    def test_rectangle_clips_edges_and_preserves_row_padding_in_both_formats(self) -> None:
         cases = [
             ((-2, -1, 4, 3), {(0, 0), (1, 0), (0, 1), (1, 1)}),
             ((3, 2, 9, 9), {(3, 2), (4, 2), (3, 3), (4, 3)}),
@@ -72,13 +74,13 @@ class RectangleTests(unittest.TestCase):
 
 
 class GUIStyleTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
 
-    def test_home_highlights_only_selected_item_and_title(self):
-        for focusing, selected in enumerate(('Start', 'Instruction', 'Ranking')):
+    def test_home_highlights_only_selected_item_and_title(self) -> None:
+        for focusing, selected in enumerate(('Start', 'Instruction', 'Ranking', 'Exit')):
             self.draw_text.reset_mock()
             gui = GUI()
             gui.update_layout(800, 600)
@@ -88,7 +90,7 @@ class GUIStyleTests(unittest.TestCase):
                 self.assertEqual(color, (255, 216, 74) if text in
                     ('PAC-MAN', '> '+selected) else (255, 255, 255))
 
-    def test_panels_grow_with_text_and_remain_centered(self):
+    def test_panels_grow_with_text_and_remain_centered(self) -> None:
         for size, edges in (((800, 600), (80, 90, 719, 509)),
                             ((1600, 1200), (160, 180, 1439, 1019))):
             with self.subTest(size=size):
@@ -102,7 +104,7 @@ class GUIStyleTests(unittest.TestCase):
                 self.assertEqual(pixel(canvas, left+6, top+6), (16, 25, 48))
                 self.assertEqual(pixel(canvas, left, top-1), (8, 13, 28))
 
-    def test_backdrop_covers_static_screen_and_centers_bordered_panel(self):
+    def test_backdrop_covers_static_screen_and_centers_bordered_panel(self) -> None:
         gui = GUI()
         gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
@@ -114,17 +116,17 @@ class GUIStyleTests(unittest.TestCase):
         self.assertEqual(pixel(canvas, 400, 300), (16, 25, 48))
         self.assertEqual(pixel(canvas, 720, 510), (8, 13, 28))
 
-    def test_static_text_blocks_fit_inside_panels(self):
+    def test_static_text_blocks_fit_inside_panels(self) -> None:
         gui = GUI()
         gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
-        scores = [ScoreEntry(name="LONGEST_NAME", score=1234567)] * 10
-        screens = [
+        scores = [ScoreEntry(name="LONGESTNAM", score=1234567)] * 10
+        screens: list[tuple[GUIStateEnum, Callable[..., None], tuple[Any, ...]]] = [
             (GUIStateEnum.Home, gui.home, (scores, 0)),
             (GUIStateEnum.Ranking, gui.ranking, (scores,)),
             (GUIStateEnum.Instruction, gui.instruction, ()),
-            (GUIStateEnum.GameOver, gui.gameover, (1234567, "LONGEST_NAME")),
-            (GUIStateEnum.All_Clear, gui.all_clear, (1234567, "LONGEST_NAME")),
+            (GUIStateEnum.GameOver, gui.gameover, (1234567, "LONGESTNAM")),
+            (GUIStateEnum.All_Clear, gui.all_clear, (1234567, "LONGESTNAM")),
             (GUIStateEnum.Stage_Clear, gui.stage_clear, ()),
         ]
         for state, renderer, args in screens:
@@ -135,12 +137,12 @@ class GUIStyleTests(unittest.TestCase):
                 renderer(canvas, 800, 600, *args)
                 for call in self.draw_text.call_args_list:
                     _, x, y, text, _, size = call.args
-                    left, top, right, bottom = ImageFont.load_default(size=size).getbbox(text)
+                    left, top, right, bottom = map(int, ImageFont.load_default(size=size).getbbox(text))
                     self.assertEqual(pixel(canvas, x, y), (16, 25, 48))
                     self.assertEqual(pixel(canvas, x+right-left-1, y+bottom-top-1),
                                      (16, 25, 48))
 
-    def test_backdrop_leaves_live_maze_and_pause_buffer_unchanged(self):
+    def test_backdrop_leaves_live_maze_and_pause_buffer_unchanged(self) -> None:
         gui = GUI()
         gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
@@ -150,7 +152,7 @@ class GUIStyleTests(unittest.TestCase):
             gui.draw_backdrop(canvas, state)
             self.assertEqual(bytes(canvas.img_data), bytes([37]) * 8 * 6 * 4)
 
-    def test_small_backdrop_and_partial_pause_panel_clip_to_the_image(self):
+    def test_small_backdrop_and_partial_pause_panel_clip_to_the_image(self) -> None:
         gui = GUI()
         gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
@@ -163,7 +165,7 @@ class GUIStyleTests(unittest.TestCase):
         self.assertEqual(pixel(canvas, 14, 14), (73, 194, 221))
         self.assertEqual(pixel(canvas, 15, 15), (0, 0, 0))
 
-    def test_power_bar_shrinks_toward_center_and_clamps_remaining_time(self):
+    def test_power_bar_shrinks_toward_center_and_clamps_remaining_time(self) -> None:
         gui = GUI()
         gui.update_layout(800, 600)
         canvas = make_canvas(40, 10)

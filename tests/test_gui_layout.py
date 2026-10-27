@@ -1,4 +1,6 @@
 """Pillow metrics keep text blocks and pause labels inside their panels."""
+
+from typing import Any, Callable, cast
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
@@ -9,23 +11,29 @@ from visualize.highscore import ScoreEntry
 from visualize.maze_visualizer import MazeVisualizer
 
 
-def dimensions(text, size=20):
-    font = ImageFont.load_default(size=size)
+def dimensions(text: str, size: int = 20) -> tuple[int, int]:
+    font = cast(ImageFont.FreeTypeFont, ImageFont.load_default(size=size))
     left, _, right, _ = font.getbbox(text)
     ascent, descent = font.getmetrics()
-    return right-left, ascent+descent
+    return int(right-left), ascent+descent
 
 
 class GUILayoutTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.gui = GUI()
         self.gui.update_layout(800, 600)
         patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
+        hud_patcher = patch(
+            'visualize.image_renderer.ImageRenderer.draw_numeric_text',
+            new=self.draw_text,
+        )
+        hud_patcher.start()
+        self.addCleanup(hud_patcher.stop)
 
-    def assert_centered_block(self, width, height):
-        bounds = []
+    def assert_centered_block(self, width: int, height: int) -> None:
+        bounds: list[tuple[int, int]] = []
         for call in self.draw_text.call_args_list:
             _, x, y, text, _, size = call.args
             w, h = dimensions(text, size)
@@ -38,7 +46,7 @@ class GUILayoutTests(unittest.TestCase):
         top, bottom = min(b[0] for b in bounds), max(b[1] for b in bounds)
         self.assertLessEqual(abs(top-(height-bottom)), 1)
 
-    def test_single_line_centers_actual_glyph_width(self):
+    def test_single_line_centers_actual_glyph_width(self) -> None:
         for width in (600, 801):
             for text in ('Home Demo', 'I', 'WWWiii'):
                 self.draw_text.reset_mock()
@@ -48,12 +56,12 @@ class GUILayoutTests(unittest.TestCase):
                 self.assertLessEqual(abs(x-(width-x-w)), 1)
                 self.assertEqual((y, drawn, color), (123, text, (255, 255, 255)))
 
-    def test_static_screens_center_the_complete_block(self):
-        scores = [ScoreEntry(name='LONGEST_NAME', score=1234567)] * 10
-        screens = [
+    def test_static_screens_center_the_complete_block(self) -> None:
+        scores = [ScoreEntry(name='LONGESTNAM', score=1234567)] * 10
+        screens: list[tuple[Callable[..., None], tuple[Any, ...]]] = [
             (self.gui.home, (scores, 0)),
-            (self.gui.ranking, ([],)), (self.gui.gameover, (1234567, 'LONGEST_NAME')),
-            (self.gui.all_clear, (1234567, 'LONGEST_NAME')),
+            (self.gui.ranking, ([],)), (self.gui.gameover, (1234567, 'LONGESTNAM')),
+            (self.gui.all_clear, (1234567, 'LONGESTNAM')),
             (self.gui.stage_clear, ()), (self.gui.pause, ()), (self.gui.instruction, ()),
         ]
         for width, height in ((800, 600), (1001, 801)):
@@ -64,14 +72,14 @@ class GUILayoutTests(unittest.TestCase):
                     renderer(Mock(), width, height, *args)
                     self.assert_centered_block(width, height)
 
-    def test_scaled_screens_keep_long_text_inside_their_panels(self):
-        scores = [ScoreEntry(name='WWWWWWWWWWWW', score=9999999999)] * 10
-        screens = [
+    def test_scaled_screens_keep_long_text_inside_their_panels(self) -> None:
+        scores = [ScoreEntry(name='WWWWWWWWWW', score=9999999999)] * 10
+        screens: list[tuple[GUIStateEnum, Callable[..., None], tuple[Any, ...]]] = [
             (GUIStateEnum.Home, self.gui.home, (scores, 0)),
             (GUIStateEnum.Ranking, self.gui.ranking, (scores,)),
             (GUIStateEnum.Instruction, self.gui.instruction, ()),
-            (GUIStateEnum.GameOver, self.gui.gameover, (9999999999, 'WWWWWWWWWWWW')),
-            (GUIStateEnum.All_Clear, self.gui.all_clear, (9999999999, 'WWWWWWWWWWWW')),
+            (GUIStateEnum.GameOver, self.gui.gameover, (9999999999, 'WWWWWWWWWW')),
+            (GUIStateEnum.All_Clear, self.gui.all_clear, (9999999999, 'WWWWWWWWWW')),
             (GUIStateEnum.Stage_Clear, self.gui.stage_clear, ()),
             (GUIStateEnum.Pause, self.gui.pause, ()),
         ]
@@ -101,9 +109,9 @@ class GUILayoutTests(unittest.TestCase):
                         self.assertLessEqual(tx+tw, x+panel_width-self.gui.border_width)
                         self.assertLessEqual(ty+th, y+panel_height-self.gui.border_width)
 
-    def test_home_shows_only_menu_with_one_selected_item(self):
+    def test_home_shows_only_menu_with_one_selected_item(self) -> None:
         scores = [ScoreEntry(name=f'player{i}', score=i) for i in range(8)]
-        for focusing, selected in enumerate(('Start', 'Instruction', 'Ranking')):
+        for focusing, selected in enumerate(('Start', 'Instruction', 'Ranking', 'Exit')):
             self.draw_text.reset_mock()
             self.gui.home(Mock(), 800, 600, scores, focusing)
             strings = [c.args[3] for c in self.draw_text.call_args_list]
@@ -113,15 +121,15 @@ class GUILayoutTests(unittest.TestCase):
             self.assertEqual(marked, ['> '+selected])
             self.assertFalse(any('player' in text for text in strings))
 
-    def test_power_time_is_centered_above_bar(self):
+    def test_power_time_is_centered_above_bar(self) -> None:
         self.gui.invinsible_time(Mock(), 801, 560, 3.25)
         _, x, y, text, _, size = self.draw_text.call_args.args
         w, _ = dimensions(text, size)
         self.assertEqual((text, y), ('Invincible 3.2', 530))
         self.assertLessEqual(abs(x-(801-x-w)), 1)
 
-    def test_pause_background_contains_pause_labels(self):
-        v = MazeVisualizer.__new__(MazeVisualizer)
+    def test_pause_background_contains_pause_labels(self) -> None:
+        v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
         v.closed = False
         v.state = GUIStateEnum.Pause
         v.canvas, v.m = Mock(width=1600, height=1200), Mock()
@@ -150,7 +158,7 @@ class GUILayoutTests(unittest.TestCase):
             self.assertGreaterEqual(ty, y)
             self.assertLessEqual(ty+h, y+height)
 
-    def test_ranking_columns_align_with_proportional_font(self):
+    def test_ranking_columns_align_with_proportional_font(self) -> None:
         scores = [ScoreEntry(name='iii', score=8), ScoreEntry(name='WWW', score=1234567)]
         self.gui.ranking(Mock(), 800, 600, scores)
         positions = {c.args[3]: c.args[1] for c in self.draw_text.call_args_list}

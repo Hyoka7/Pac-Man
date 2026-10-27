@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from enum import IntEnum
+from typing import TYPE_CHECKING
 
 from mazegenerator import MazeGenerator
 
@@ -20,9 +21,13 @@ from .player import Player
 from .strategy import BFSStrategy, RandomStrategy
 from .visualizerutils import VisualizerUtils
 
+if TYPE_CHECKING:
+    from mlx import Mlx
+
 
 class KeyEnum(IntEnum):
     A = 97
+    C = 99
     D = 100
     F = 102
     H = 104
@@ -36,6 +41,7 @@ class KeyEnum(IntEnum):
     S = 115
     T = 116
     W = 119
+    Y = 121
     BACKSPACE = 65288
     ENTER = 65293
     ESC = 65307
@@ -50,6 +56,17 @@ class KeyEnum(IntEnum):
 
 class MazeVisualizer:
     """Coordinate the window, input, updates and rendering."""
+
+    m: Mlx
+    p: int
+    win: int
+    img: int
+    width: int
+    height: int
+    img_data: memoryview
+    line_size: int
+    img_format: int
+    bytes_per_pixel: int
 
     def __init__(
         self,
@@ -102,7 +119,6 @@ class MazeVisualizer:
         self.cm = 0
         self.level = 1
         self.home_focusing = 0
-        self.ranking_page = 0
         self.max_level = len(self.config.levels)
         self.remaining_time = self.config.levels[0].max_time
         self.closed = True
@@ -112,7 +128,7 @@ class MazeVisualizer:
         self.state: GUIStateEnum = GUIStateEnum.Home
         self.last_time = time.monotonic()
         self.player_name = ""
-        self.shift_keys = set()
+        self.shift_keys: set[int] = set()
 
     def _draw(self, _param: object = None) -> None:
         """Compose the current game view into the image buffer."""
@@ -130,7 +146,11 @@ class MazeVisualizer:
             self.maze.draw(self.canvas, wall_color, landmark_color)
             self.pacgums.draw(self.canvas)
             for ghost in self.ghosts:
-                ghost.draw(self.canvas, self.player.is_invincible)
+                ghost.draw(
+                    self.canvas,
+                    self.player.is_invincible,
+                    self.player.invincible_remain,
+                )
             self.player.draw(self.canvas)
         if self.state == GUIStateEnum.Pause:
             self.gui.draw_pause_background(self.canvas)
@@ -185,8 +205,9 @@ class MazeVisualizer:
                 self.width,
                 self.height,
                 self.score_manager.scores.scores,
-                self.ranking_page,
             )
+        elif self.state == GUIStateEnum.Confirm_Clear:
+            self.gui.confirm_clear(self.canvas, self.width, self.height)
         if self.state == GUIStateEnum.GameOver:
             self.gui.gameover(
                 self.canvas,
@@ -307,40 +328,40 @@ class MazeVisualizer:
                     self.state = GUIStateEnum.Instruction
                     self.needs_redraw = True
                 elif self.home_focusing == 2:
-                    self.ranking_page = 0
                     self.state = GUIStateEnum.Ranking
                     self.needs_redraw = True
+                elif self.home_focusing == 3:
+                    self._close()
             elif key == KeyEnum.I:
                 self.state = GUIStateEnum.Instruction
                 self.needs_redraw = True
             elif key == KeyEnum.H:
-                self.ranking_page = 0
                 self.state = GUIStateEnum.Ranking
                 self.needs_redraw = True
             elif key == KeyEnum.UP:
-                self.home_focusing = (self.home_focusing - 1) % 3
+                self.home_focusing = (self.home_focusing - 1) % 4
                 self.needs_redraw = True
             elif key == KeyEnum.DOWN:
-                self.home_focusing = (self.home_focusing + 1) % 3
+                self.home_focusing = (self.home_focusing + 1) % 4
                 self.needs_redraw = True
         elif self.state == GUIStateEnum.Ranking:
             if key == KeyEnum.ENTER:
                 self.state = GUIStateEnum.Home
                 self.needs_redraw = True
-            elif key in (KeyEnum.LEFT, KeyEnum.RIGHT):
-                last_page = max(
-                    0,
-                    (len(self.score_manager.scores.scores) - 1)
-                    // GUI.RANKING_PAGE_SIZE,
-                )
-                direction = -1 if key == KeyEnum.LEFT else 1
-                page = max(0, min(self.ranking_page + direction, last_page))
-                if page != self.ranking_page:
-                    self.ranking_page = page
-                    self.needs_redraw = True
+            elif key == KeyEnum.C:
+                self.state = GUIStateEnum.Confirm_Clear
+                self.needs_redraw = True
         elif self.state == GUIStateEnum.Instruction:
             if key == KeyEnum.ENTER:
                 self.state = GUIStateEnum.Home
+                self.needs_redraw = True
+        elif self.state == GUIStateEnum.Confirm_Clear:
+            if key == KeyEnum.Y:
+                self.score_manager.clear()
+                self.state = GUIStateEnum.Ranking
+                self.needs_redraw = True
+            elif key == KeyEnum.N:
+                self.state = GUIStateEnum.Ranking
                 self.needs_redraw = True
         elif self.state == GUIStateEnum.Playing:
             if self.cheathandler.consume(key):
@@ -365,7 +386,7 @@ class MazeVisualizer:
             elif key == KeyEnum.T and self.cheat_enabled:
                 self.remaining_time += 10.0
             else:
-                directions = {
+                directions: dict[int, str] = {
                     KeyEnum.LEFT: "W",
                     KeyEnum.A: "W",
                     KeyEnum.UP: "N",
@@ -397,7 +418,11 @@ class MazeVisualizer:
             elif key == KeyEnum.BACKSPACE:
                 self.player_name = self.player_name[:-1]
                 self.needs_redraw = True
-            elif 0 <= key < 128 and chr(key).isalnum() and len(self.player_name) < 12:
+            elif (
+                0 <= key <= 128
+                and (chr(key).isalnum() or chr(key) == " ")
+                and len(self.player_name) < 10
+            ):
                 char = chr(key)
                 if len(self.shift_keys):
                     self.player_name += char.upper()

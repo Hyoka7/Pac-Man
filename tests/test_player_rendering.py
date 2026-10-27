@@ -13,14 +13,14 @@ def make_canvas() -> VisualizerUtils:
     return target
 
 
-def rgb(target, x, y):
+def rgb(target: VisualizerUtils, x: int, y: int) -> tuple[int, int, int]:
     start = y * target.line_size + x * 4
     b, g, r, _ = target.img_data[start:start+4]
     return r, g, b
 
 
 class PlayerRenderingTests(unittest.TestCase):
-    def test_open_mouth_faces_each_direction(self):
+    def test_open_mouth_faces_each_direction(self) -> None:
         cardinal = {'E': (6, 0), 'W': (-6, 0), 'N': (0, -6), 'S': (0, 6)}
         for direction in cardinal:
             with self.subTest(direction=direction):
@@ -34,7 +34,7 @@ class PlayerRenderingTests(unittest.TestCase):
                     self.assertEqual(rgb(target, 48+dx, 48+dy),
                         (0, 0, 0) if point_direction == direction else (255, 255, 0))
 
-    def test_closed_sprite_keeps_round_antialiased_edges_and_transparent_corners(self):
+    def test_closed_sprite_keeps_round_antialiased_edges_and_transparent_corners(self) -> None:
         target = make_canvas()
         target.fill_rect(0, 0, 160, 120, (0, 0, 80))
         player = Player((1, 1))
@@ -47,7 +47,7 @@ class PlayerRenderingTests(unittest.TestCase):
         self.assertTrue(any(0 < rgb(target, x, y)[0] < 255
                             for y in range(35, 62) for x in range(35, 62)))
 
-    def test_stopped_player_still_animates_mouth(self):
+    def test_stopped_player_still_animates_mouth(self) -> None:
         target = make_canvas()
         player = Player((1, 1))
         player.place(target)
@@ -58,7 +58,7 @@ class PlayerRenderingTests(unittest.TestCase):
             self.assertFalse(player.movement.moving)
             self.assertEqual(rgb(target, 54, 48), expected)
 
-    def test_sprite_follows_interpolated_center_and_new_cell_size(self):
+    def test_sprite_follows_interpolated_center_and_new_cell_size(self) -> None:
         target = make_canvas()
         player = Player((1, 1))
         player.place(target)
