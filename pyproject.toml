@@ -9,3 +9,12 @@ dependencies = [
     "pillow>=13.0.0",
     "pydantic>=2.14.0",
 ]
+
+[dependency-groups]
+dev = [
+    "flake8>=7.4.1",
+    "mypy>=2.4.0",
+]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]

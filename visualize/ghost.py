@@ -5,10 +5,10 @@ from math import ceil, hypot
 
 from PIL import Image
 
+from .image_renderer import ImageRenderer
 from .maze import Maze
 from .movement import Movement
 from .strategy import FleeBFSStrategy, Strategy
-from .image_renderer import ImageRenderer
 from .visualizerutils import VisualizerUtils
 
 
@@ -128,11 +128,28 @@ class Ghost:
         self.respawn_remaining = 0.0
         return self.movement.reset(canvas)
 
-    def draw(self, canvas: VisualizerUtils, eatable: bool) -> None:
+    def draw(
+        self,
+        canvas: VisualizerUtils,
+        eatable: bool,
+        eatable_remain: float,
+    ) -> None:
         """Draw four feet using elliptical cutouts and antialiased edges."""
-        if self.respawn_remaining > 0.0:
+        if self.respawn_remaining > 1.5:
             return
-        color = (0, 0, 128) if eatable else self.color
+        elif self.respawn_remaining > 0.0:
+            is_visible = int(self.respawn_remaining / 0.20 % 2)
+            if not is_visible:
+                return
+        if eatable:
+            if eatable_remain > 1.5:
+                color = (0, 0, 128)
+            elif int(eatable_remain / 0.20) % 2:
+                color = self.color
+            else:
+                color = (0, 0, 128)
+        else:
+            color = self.color
         img = _ghost_image(self.radius, color)
         center_x, center_y = self.movement.center
         left = round(center_x - img.width / 2)

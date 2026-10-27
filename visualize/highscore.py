@@ -5,7 +5,12 @@ from pydantic import BaseModel, Field, ValidationError
 
 
 class ScoreEntry(BaseModel):
-    name: str = Field(..., min_length=1, max_length=12)
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=10,
+        pattern=r"^[A-Za-z0-9 ]+$",
+    )
     score: int = Field(..., ge=0)
 
 
@@ -28,6 +33,11 @@ class HighscoreManager:
         self.save()
         return self
 
+    def clear(self) -> Self:
+        self.scores.scores.clear()
+        self.save()
+        return self
+
     def save(self) -> None:
         try:
             json_data = self.scores.model_dump_json(indent=2)
@@ -45,15 +55,18 @@ class HighscoreManager:
             data = HighscoreData.model_validate_json(json_data)
             self.scores = data
             self._sort_scores()
-        except (OSError, ValidationError) as err:
-            print(f"Invalid JSON File : {err}")
+        except ValidationError as err:
+            print(f"Invalid JSON File loaded: {err.errors()[0]['msg']}")
+        except (OSError, ValueError) as err:
+            print(f"Invalid JSON File loaded: {err}")
 
-    def _sort_scores(self):
+    def _sort_scores(self) -> None:
         self.scores.scores.sort(
             key=lambda entry: entry.score,
             reverse=True,
         )
+        self.scores.scores = self.scores.scores[:10]
 
-    def _add_new_entry(self, entry: ScoreEntry):
+    def _add_new_entry(self, entry: ScoreEntry) -> None:
         self.scores += entry
         self._sort_scores()

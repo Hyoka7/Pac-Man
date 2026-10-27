@@ -14,10 +14,11 @@ class GUIStateEnum(IntEnum):
     GameOver = auto()
     Stage_Clear = auto()
     All_Clear = auto()
+    Confirm_Clear = auto()
 
 
 class GUI:
-    RANKING_PAGE_SIZE = 10
+    RANKING_LIMIT = 10
     TEXT_COLOR = (255, 255, 255)
     ACCENT_COLOR = (255, 216, 74)
     BACKGROUND_COLOR = (8, 13, 28)
@@ -118,6 +119,7 @@ class GUI:
         panel_heights = {
             GUIStateEnum.Home: self.line_spacing * 15,
             GUIStateEnum.Ranking: self.line_spacing * 16,
+            GUIStateEnum.Confirm_Clear: self.line_spacing * 5,
             GUIStateEnum.Instruction: self.line_spacing * 7,
             GUIStateEnum.GameOver: self.line_spacing * 6,
             GUIStateEnum.All_Clear: self.line_spacing * 6,
@@ -178,6 +180,7 @@ class GUI:
             "Start",
             "Instruction",
             "Ranking",
+            "Exit",
         ]
         menu = [
             ("> " if index == focusing else "  ") + text
@@ -189,14 +192,14 @@ class GUI:
         return lines, menu_start
 
     def ranking(
-        self, canvas: VisualizerUtils, width: int, height: int,
-        scores: list[ScoreEntry], page: int = 0,
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        height: int,
+        scores: list[ScoreEntry],
     ) -> None:
-        pages = max(1, (len(scores) + self.RANKING_PAGE_SIZE - 1) // self.RANKING_PAGE_SIZE)
-        page = max(0, min(page, pages - 1))
-        start = page * self.RANKING_PAGE_SIZE
-        entries = scores[start:start+self.RANKING_PAGE_SIZE]
-        footer = f"Left/Right: Page {page+1}/{pages}  Enter: Home"
+        entries = scores[: self.RANKING_LIMIT]
+        footer = "C: Clear  Enter: Home"
         lines = [
             "Highscore Ranking", "", *([""] * len(entries) if entries else ["No scores yet"]),
             "", footer,
@@ -207,8 +210,10 @@ class GUI:
         if not entries:
             return
         # Spaces cannot align columns in a proportional font. Position each cell.
-        rows = [(f"{rank}.", item.name, str(item.score))
-                for rank, item in enumerate(entries, start=start+1)]
+        rows = [
+            (f"{rank}.", item.name, str(item.score))
+            for rank, item in enumerate(entries, start=1)
+        ]
         column_widths = [
             max(
                 self.text_renderer.text_size(row[col], self.font_size)[0]
@@ -288,12 +293,12 @@ class GUI:
         lives: int,
         time: float,
         cheat_enabled: bool,
-    ):
+    ) -> None:
         text = f"Lv:{level} Score:{score} Life:{lives} Time:{time:.1f}"
         if cheat_enabled:
             text += " CHEAT ON"
-        self.text_renderer.draw_text(
-            canvas, x, y, text, self.TEXT_COLOR, self.font_size
+        self.text_renderer.draw_numeric_text(
+            canvas, x, y, text, self.TEXT_COLOR, self.font_size, slot="hud"
         )
 
     def draw_invincible_bar(
@@ -305,7 +310,7 @@ class GUI:
         height: int,
         remaining: float,
         max_time: float,
-    ):
+    ) -> None:
         canvas.fill_rect(x, y, width, height, self.BAR_TRACK_COLOR)
         fraction = max(0.0, min(1.0, remaining / max_time)) if max_time > 0 else 0.0
         remain_width = int(width * fraction)
@@ -315,12 +320,23 @@ class GUI:
     def invinsible_time(
         self, canvas: VisualizerUtils, width: int, bar_y: int, time: float,
     ) -> None:
-        self._put_string_center(
-            canvas,
-            width,
-            bar_y - self.text_height - self.text_gap,
-            f"Invincible {time:.1f}",
+        text = f"Invincible {time:.1f}"
+        image = self.text_renderer.numeric_text_image(
+            text,
             self.ACCENT_COLOR,
+            self.font_size,
+            slot="invincible",
+        )
+        x = (width - image.width) // 2
+        y = bar_y - self.text_height - self.text_gap
+        self.text_renderer.draw_numeric_text(
+            canvas,
+            x,
+            y,
+            text,
+            self.ACCENT_COLOR,
+            self.font_size,
+            slot="invincible",
         )
 
     def pause(
@@ -337,3 +353,20 @@ class GUI:
             "Arrow keys or WASD: Move", "P: Pause/Resume", "H: Home while paused",
             "Eat all pacgums to clear the stage", "Enter: Back to home",
         ])
+
+    def confirm_clear(
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        height: int,
+    ) -> None:
+        self._put_lines_center(
+            canvas,
+            width,
+            height,
+            [
+                "Clear Rankings?",
+                "Y: Yes",
+                "N: No",
+            ],
+        )
