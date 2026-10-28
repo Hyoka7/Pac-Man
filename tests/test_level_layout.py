@@ -138,10 +138,10 @@ class LevelLayoutTests(unittest.TestCase):
         self.assertEqual(viewer.level, viewer.max_level)
         self.assertIs(viewer.maze, original_maze)
 
-    def test_viewer_initializes_harnakam_command(self) -> None:
+    def test_viewer_initializes_numeric_cheat_command(self) -> None:
         viewer = self.make_viewer()
-        results = [viewer.cheathandler.consume(ord(char)) for char in 'harnakam']
-        self.assertEqual(results, [False] * 7 + [True])
+        results = [viewer.cheathandler.consume(ord(char)) for char in '3111696']
+        self.assertEqual(results, [False] * 6 + [True])
 
     def test_layout_centers_both_axes_and_rejects_unrenderable_cells(self) -> None:
         viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))

@@ -24,6 +24,7 @@ class Movement:
         self.direction = direction
         self.speed = speed
         self.moving = False
+        self.wallhack = False
 
     @staticmethod
     def move_towards(
@@ -62,7 +63,7 @@ class Movement:
 
     def start(self, direction: str, maze: Maze, canvas: VisualizerUtils) -> bool:
         """Begin an allowed neighboring-cell animation when stopped."""
-        if self.moving or not maze.can_move(*self.cell, direction):
+        if self.moving or not maze.can_move(*self.cell, direction, self.wallhack):
             return False
         self.center = canvas.cell_center(*self.cell)
         self.target_cell = maze.next_cell(*self.cell, direction)
@@ -124,7 +125,7 @@ class Movement:
             if (
                 diff_x <= allowed_distance
                 and diff_y <= allowed_distance
-                and maze.can_move(*self.cell, req_dir)
+                and maze.can_move(*self.cell, req_dir, self.wallhack)
             ):
                 self.moving = False
                 return self.start(req_dir, maze, canvas)

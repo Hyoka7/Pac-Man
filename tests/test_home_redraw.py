@@ -16,12 +16,17 @@ from visualize.gui import GUI, GUIStateEnum
 from visualize.highscore import HighscoreManager, ScoreEntry
 from visualize.maze_visualizer import KeyEnum, MazeVisualizer
 
+FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
+
 
 class HomeRedrawTests(unittest.TestCase):
     def setUp(self) -> None:
         patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
+        image_patcher = patch('visualize.image_renderer.ImageRenderer.draw_image')
+        self.draw_image = image_patcher.start()
+        self.addCleanup(image_patcher.stop)
         hud_patcher = patch(
             'visualize.image_renderer.ImageRenderer.draw_numeric_text',
             new=self.draw_text,
@@ -34,8 +39,11 @@ class HomeRedrawTests(unittest.TestCase):
         v = self.viewer
         v.closed = False
         v.shift_keys = set()
-        v.cheathandler = CheatHandler(list(map(ord, 'harnakam')))
+        v.cheathandler = CheatHandler(list(map(ord, '3111696')))
         v.cheat_enabled = False
+        v.auto_enabled = False
+        v.score_multiplier = 1
+        v.pacgum_points = {}
         v.state = GUIStateEnum.Home
         v.home_focusing = 0
         v.needs_redraw = True
@@ -104,7 +112,7 @@ class HomeRedrawTests(unittest.TestCase):
                 calls = [c.args for c in self.draw_text.call_args_list]
                 timer = next(c for c in calls if c[3].startswith('Invincible '))
                 hud = next(c for c in calls if c[3].startswith('Lv:'))
-                ascent, descent = cast(ImageFont.FreeTypeFont, ImageFont.load_default(size=v.gui.font_size)).getmetrics()
+                ascent, descent = ImageFont.truetype(FONT_PATH, size=v.gui.font_size).getmetrics()
                 line_height = ascent+descent
                 gap = max(1, round(padding/4))
                 maze_bottom = v.offset_y + v.maze.rows*v.cell_size
@@ -225,9 +233,14 @@ class HomeRedrawTests(unittest.TestCase):
         v.canvas.clear_image.assert_called_once_with()
         strings = [call.args[3] for call in self.draw_text.call_args_list]
         self.assertGreater(len(strings), 3)
-        self.assertTrue(any(
-            text.startswith('> ') and 'Instruction' in text for text in strings
-        ))
+        self.assertIn('Instruction', strings)
+        self.assertIn('>', strings)
+        selected = next(call.args for call in self.draw_text.call_args_list
+                        if call.args[3] == 'Instruction')
+        marker = next(call.args for call in self.draw_text.call_args_list
+                      if call.args[3] == '>')
+        self.assertEqual(selected[2], marker[2])
+        self.assertEqual(selected[4], gui.ACCENT_COLOR)
         v._on_loop()
         v.m.mlx_put_image_to_window.assert_called_once()
 

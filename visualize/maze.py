@@ -76,7 +76,13 @@ class Maze:
         dx, dy = offsets[direction]
         return x + dx, y + dy
 
-    def can_move(self, x: int, y: int, direction: str) -> bool:
+    def can_move(
+        self,
+        x: int,
+        y: int,
+        direction: str,
+        wallhack: bool = False,
+    ) -> bool:
         """Return whether a cell has an in-bounds passage in a direction."""
         directions = {
             "N": 1,
@@ -93,7 +99,7 @@ class Maze:
         return (
             0 <= next_x < self.cols
             and 0 <= next_y < self.rows
-            and self.maze[y][x] & wall == 0
+            and (wallhack or self.maze[y][x] & wall == 0)
         )
 
     def draw(

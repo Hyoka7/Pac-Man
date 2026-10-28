@@ -4,11 +4,14 @@ from typing import Any, Callable
 
 import unittest
 from unittest.mock import Mock, patch
+from pathlib import Path
 from PIL import ImageFont
 
 from visualize.gui import GUI, GUIStateEnum
 from visualize.highscore import ScoreEntry
 from visualize.visualizerutils import VisualizerUtils
+
+FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 
 
 def make_canvas(width: int, height: int, img_format: int = 0) -> VisualizerUtils:
@@ -78,6 +81,9 @@ class GUIStyleTests(unittest.TestCase):
         patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
+        image_patcher = patch('visualize.image_renderer.ImageRenderer.draw_image')
+        self.draw_image = image_patcher.start()
+        self.addCleanup(image_patcher.stop)
 
     def test_home_highlights_only_selected_item_and_title(self) -> None:
         for focusing, selected in enumerate(('Start', 'Instruction', 'Ranking', 'Exit')):
@@ -88,7 +94,7 @@ class GUIStyleTests(unittest.TestCase):
             calls = [c.args for c in self.draw_text.call_args_list]
             for _, _, _, text, color, _ in calls:
                 self.assertEqual(color, (255, 216, 74) if text in
-                    ('PAC-MAN', '> '+selected) else (255, 255, 255))
+                    ('>', selected) else (255, 255, 255))
 
     def test_panels_grow_with_text_and_remain_centered(self) -> None:
         for size, edges in (((800, 600), (80, 90, 719, 509)),
@@ -137,7 +143,7 @@ class GUIStyleTests(unittest.TestCase):
                 renderer(canvas, 800, 600, *args)
                 for call in self.draw_text.call_args_list:
                     _, x, y, text, _, size = call.args
-                    left, top, right, bottom = map(int, ImageFont.load_default(size=size).getbbox(text))
+                    left, top, right, bottom = map(int, ImageFont.truetype(FONT_PATH, size=size).getbbox(text))
                     self.assertEqual(pixel(canvas, x, y), (16, 25, 48))
                     self.assertEqual(pixel(canvas, x+right-left-1, y+bottom-top-1),
                                      (16, 25, 48))

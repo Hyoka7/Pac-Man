@@ -4,15 +4,18 @@ from typing import Any, Callable, cast
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
+from pathlib import Path
 from PIL import ImageFont
 
 from visualize.gui import GUI, GUIStateEnum
 from visualize.highscore import ScoreEntry
 from visualize.maze_visualizer import MazeVisualizer
 
+FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
+
 
 def dimensions(text: str, size: int = 20) -> tuple[int, int]:
-    font = cast(ImageFont.FreeTypeFont, ImageFont.load_default(size=size))
+    font = ImageFont.truetype(FONT_PATH, size=size)
     left, _, right, _ = font.getbbox(text)
     ascent, descent = font.getmetrics()
     return int(right-left), ascent+descent
@@ -25,6 +28,9 @@ class GUILayoutTests(unittest.TestCase):
         patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
+        image_patcher = patch('visualize.image_renderer.ImageRenderer.draw_image')
+        self.draw_image = image_patcher.start()
+        self.addCleanup(image_patcher.stop)
         hud_patcher = patch(
             'visualize.image_renderer.ImageRenderer.draw_numeric_text',
             new=self.draw_text,
@@ -59,7 +65,6 @@ class GUILayoutTests(unittest.TestCase):
     def test_static_screens_center_the_complete_block(self) -> None:
         scores = [ScoreEntry(name='LONGESTNAM', score=1234567)] * 10
         screens: list[tuple[Callable[..., None], tuple[Any, ...]]] = [
-            (self.gui.home, (scores, 0)),
             (self.gui.ranking, ([],)), (self.gui.gameover, (1234567, 'LONGESTNAM')),
             (self.gui.all_clear, (1234567, 'LONGESTNAM')),
             (self.gui.stage_clear, ()), (self.gui.pause, ()), (self.gui.instruction, ()),
@@ -115,17 +120,22 @@ class GUILayoutTests(unittest.TestCase):
             self.draw_text.reset_mock()
             self.gui.home(Mock(), 800, 600, scores, focusing)
             strings = [c.args[3] for c in self.draw_text.call_args_list]
-            self.assertIn('PAC-MAN', strings)
+            self.assertNotIn('PAC-MAN', strings)
             self.assertIn('Up/Down: Select  Enter: OK', strings)
-            marked = [text for text in strings if text.startswith('> ')]
-            self.assertEqual(marked, ['> '+selected])
+            calls = [call.args for call in self.draw_text.call_args_list]
+            marker = next(call for call in calls if call[3] == '>')
+            label = next(call for call in calls if call[3] == selected)
+            self.assertEqual(marker[2], label[2])
+            self.assertEqual(marker[1] + dimensions('>', marker[5])[0] + self.gui.text_gap,
+                             label[1])
             self.assertFalse(any('player' in text for text in strings))
 
     def test_power_time_is_centered_above_bar(self) -> None:
         self.gui.invinsible_time(Mock(), 801, 560, 3.25)
         _, x, y, text, _, size = self.draw_text.call_args.args
         w, _ = dimensions(text, size)
-        self.assertEqual((text, y), ('Invincible 3.2', 530))
+        self.assertEqual(text, 'Invincible 3.2')
+        self.assertEqual(y, 560 - self.gui.text_height - self.gui.text_gap)
         self.assertLessEqual(abs(x-(801-x-w)), 1)
 
     def test_pause_background_contains_pause_labels(self) -> None:
@@ -144,6 +154,9 @@ class GUILayoutTests(unittest.TestCase):
         v.ghosts = []
         v.player = SimpleNamespace(is_invincible=False, draw=Mock(), score=100, lives=3)
         v.level, v.remaining_time, v.cheat_enabled = 1, 30, False
+        v.auto_enabled = False
+        v.score_multiplier = 1
+        v.pacgum_points = {}
         v._draw()
         _, x, y, width, height = v.gui.background.call_args.args
         self.assertLessEqual(abs(x-(v.width-x-width)), 1)

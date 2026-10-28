@@ -46,13 +46,16 @@ class CheatInputTests(unittest.TestCase):
         v.shift_keys = set()
         v.state = GUIStateEnum.Playing
         v.cheat_enabled = False
+        v.auto_enabled = False
+        v.score_multiplier = 1
+        v.pacgum_points = {}
         v.ghost_frozen = False
-        v.cheathandler = CheatHandler(list(map(ord, 'harnakam')))
+        v.cheathandler = CheatHandler(list(map(ord, '3111696')))
         v.player, v.maze, v.canvas = Mock(), Mock(), Mock()
         v.next_level = Mock()
 
     def enter_command(self) -> None:
-        for key in map(ord, 'harnakam'):
+        for key in map(ord, '3111696'):
             self.viewer._on_key(key)
 
     def test_enable_and_disable_do_not_move_or_skip_during_command(self) -> None:

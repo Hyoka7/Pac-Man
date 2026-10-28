@@ -13,7 +13,7 @@ from .visualizerutils import VisualizerUtils
 
 
 @cache
-def _ghost_image(radius: float, color: tuple[int, int, int]) -> Image.Image:
+def ghost_image(radius: float, color: tuple[int, int, int]) -> Image.Image:
     side = ceil(radius * 2) + 2
     img = Image.new(
         "RGBA",
@@ -150,7 +150,7 @@ class Ghost:
                 color = (0, 0, 128)
         else:
             color = self.color
-        img = _ghost_image(self.radius, color)
+        img = ghost_image(self.radius, color)
         center_x, center_y = self.movement.center
         left = round(center_x - img.width / 2)
         top = round(center_y - img.height / 2)

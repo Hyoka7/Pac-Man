@@ -5,6 +5,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from pathlib import Path
 from PIL import Image, ImageFont
 
 from visualize.gui import GUI, GUIStateEnum
@@ -13,6 +14,8 @@ from visualize.visualizerutils import VisualizerUtils
 from visualize.image_renderer import ImageRenderer
 
 text_renderer = ImageRenderer()
+
+FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 
 
 def canvas(width: int = 800, height: int = 600, img_format: int = 0) -> VisualizerUtils:
@@ -118,7 +121,7 @@ class TextRenderingTests(unittest.TestCase):
 
     def test_lowercase_names_digits_and_capitals_share_one_baseline(self) -> None:
         for size in (20, 40):
-            font = cast(ImageFont.FreeTypeFont, ImageFont.load_default(size=size))
+            font = ImageFont.truetype(FONT_PATH, size=size)
             ascent, descent = font.getmetrics()
             images = [text_renderer._text_image(text, (255, 255, 255), size)
                       for text in ('moae', 'ABC', '1234567', 'kyonaha')]
@@ -132,7 +135,7 @@ class TextRenderingTests(unittest.TestCase):
             self.assertEqual(bottoms[1], bottoms[2])
             self.assertGreater(bottoms[3], bottoms[0])
 
-    def test_text_preserves_background_and_blends_yellow_edges_in_both_formats(self) -> None:
+    def test_pixel_font_preserves_background_and_crisp_yellow_edges_in_both_formats(self) -> None:
         for fmt in (0, 1):
             target = canvas(200, 80, fmt)
             target.fill_rect(0, 0, 200, 80, (16, 25, 48))
@@ -145,7 +148,7 @@ class TextRenderingTests(unittest.TestCase):
                     colors.add((r, g, b))
             self.assertIn((16, 25, 48), colors)
             self.assertIn((255, 216, 74), colors)
-            self.assertTrue(any(16 < r < 255 for r, _, _ in colors))
+            self.assertEqual(colors, {(16, 25, 48), (255, 216, 74)})
 
     def test_long_text_is_not_cut_at_old_400_pixel_width_and_clips_offscreen(self) -> None:
         target = canvas(1000, 80)
@@ -207,6 +210,9 @@ class TextRenderingTests(unittest.TestCase):
             draw=Mock(), score=123, lives=3)
         v.level, v.remaining_time = 1, 30
         v.cheat_enabled = True
+        v.auto_enabled = False
+        v.score_multiplier = 1
+        v.pacgum_points = {}
         v.player_name = 'Player'
         v.home_focusing = 0
         v.score_manager = SimpleNamespace(scores=SimpleNamespace(scores=[]))
