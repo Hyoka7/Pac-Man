@@ -1,19 +1,20 @@
 """Player state, movement, queued turns and rendering."""
 
+from collections.abc import Callable
 from functools import cache
 from math import ceil, hypot, radians, tan
 
 from PIL import Image
 
+from .image_renderer import ImageRenderer
 from .maze import Maze
 from .movement import Movement
 from .pacgums import PacgumEatenEnum, Pacgums
-from .image_renderer import ImageRenderer
 from .visualizerutils import VisualizerUtils
 
 
 @cache
-def _player_image(
+def player_image(
     radius: float,
     direction: str,
     mouth_step: int,
@@ -88,8 +89,6 @@ class Player:
         self,
         pos: tuple[int, int] = (0, 0),
         initial_lives: int = 3,
-        score_normal_gum: int = 10,
-        score_super_gum: int = 30,
     ) -> None:
         """Start stopped at a cell, facing east."""
         self.movement = Movement(pos, speed=8.0)
@@ -105,8 +104,6 @@ class Player:
         self.initial_lives = initial_lives
         self.lives = initial_lives
         self.score = 0
-        self.score_normal_gum = score_normal_gum
-        self.score_super_gum = score_super_gum
         self.is_alive: bool = True
 
     def update_mouth(self, elapsed: float) -> None:
@@ -132,27 +129,38 @@ class Player:
         maze: Maze,
         canvas: VisualizerUtils,
         pacgums: Pacgums,
-    ) -> None:
-        """Animate one frame and handle player-specific actions on arrival."""
+        *,
+        choose_auto_direction: Callable[[], str | None] | None = None,
+    ) -> PacgumEatenEnum:
+        """Animate, apply power-ups, and report which gum the player ate."""
         if self.is_invincible:
             self.invincible_remain = max(0.0, self.invincible_remain - elapsed)
             if self.invincible_remain == 0.0:
                 self.is_invincible = False
+        if choose_auto_direction is not None and not self.movement.moving:
+            self.reserved_move = None
+            direction = choose_auto_direction()
+            if direction is not None:
+                self.movement.start(direction, maze, canvas)
         if not self.movement.update(elapsed, canvas):
-            return
+            return PacgumEatenEnum.Neither
         eat_status = pacgums.consume(canvas.cell_center(*self.movement.cell))
-        if eat_status == PacgumEatenEnum.Normal:
-            self.score += self.score_normal_gum
-        elif eat_status == PacgumEatenEnum.Super:
-            self.score += self.score_super_gum
+        if eat_status == PacgumEatenEnum.Super:
             self.is_invincible = True
             self.invincible_remain = 5.0
+        if choose_auto_direction is not None:
+            self.reserved_move = None
+            direction = choose_auto_direction()
+            if direction is not None:
+                self.movement.start(direction, maze, canvas)
+            return eat_status
         if self.reserved_move is not None and self.movement.start(
             self.reserved_move, maze, canvas
         ):
             self.reserved_move = None
         else:
             self.movement.start(self.movement.direction, maze, canvas)
+        return eat_status
 
     def reset(self, canvas: VisualizerUtils) -> None:
         self.movement.reset(canvas)
@@ -168,7 +176,7 @@ class Player:
             *self.movement.cell
         )
         mouth_step = round(self.mouth_half_angle / 45 * 10)
-        img = _player_image(self.radius, self.movement.direction, mouth_step)
+        img = player_image(self.radius, self.movement.direction, mouth_step)
         left = round(center_x - img.width / 2)
         top = round(center_y - img.height / 2)
         self.renderer.draw_image(canvas, left, top, img)

@@ -1,7 +1,10 @@
+from collections.abc import Sequence
 from enum import IntEnum, auto
 
+from .ghost import ghost_image
 from .highscore import ScoreEntry
 from .image_renderer import ImageRenderer
+from .player import player_image
 from .visualizerutils import VisualizerUtils
 
 
@@ -26,6 +29,14 @@ class GUI:
     BORDER_COLOR = (73, 194, 221)
     BAR_TRACK_COLOR = (31, 44, 67)
     BAR_COLOR = (255, 216, 74)
+    PAUSE_LINES = ("PAUSED", "P: Resume", "H: Back to home")
+    INSTRUCTION_LINES = (
+        "Arrow keys or WASD: Move",
+        "P: Pause/Resume",
+        "H: Home while paused",
+        "Eat all pacgums to clear the stage",
+        "Enter: Back to home",
+    )
 
     def __init__(self) -> None:
         self.text_renderer = ImageRenderer()
@@ -33,6 +44,11 @@ class GUI:
     def update_layout(self, width: int, height: int) -> None:
         side = min(width, height)
         self.font_size = max(1, round(side / 30))
+        while self.font_size > 1:
+            text_width = self._max_text_width(self.INSTRUCTION_LINES)
+            if text_width + 4 * self.font_size <= width:
+                break
+            self.font_size -= 1
         self.text_height = self.text_renderer.text_size("Ag", self.font_size)[1]
         self.padding = self.font_size
         self.text_gap = max(1, round(self.font_size / 4))
@@ -63,8 +79,11 @@ class GUI:
         )
 
     def _put_lines_center(
-        self, canvas: VisualizerUtils, width: int, height: int,
-        lines: list[str],
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        height: int,
+        lines: Sequence[str],
         colors: dict[int, tuple[int, int, int]] | None = None,
     ) -> None:
         """Center a text block using Pillow's actual glyph dimensions."""
@@ -96,9 +115,12 @@ class GUI:
         return (height - self._block_height(line_count, last_height)) // 2
 
     def draw_pause_background(self, canvas: VisualizerUtils) -> None:
-        width = min(self.font_size * 12, max(0, canvas.width - 2 * self.padding))
+        width = min(
+            self._max_text_width(self.PAUSE_LINES) + 2 * self.padding,
+            max(0, canvas.width - 2 * self.padding),
+        )
         height = min(
-            self._block_height(3) + 2 * self.padding,
+            self._block_height(len(self.PAUSE_LINES)) + 2 * self.padding,
             max(0, canvas.height - 2 * self.padding),
         )
         self.background(
@@ -125,7 +147,13 @@ class GUI:
             GUIStateEnum.All_Clear: self.line_spacing * 6,
             GUIStateEnum.Stage_Clear: self.line_spacing * 4,
         }
-        width = min(round(canvas.width * 0.8), max(0, canvas.width - 2 * self.padding))
+        width = min(
+            max(
+                round(canvas.width * 0.8),
+                self._max_text_width(self.INSTRUCTION_LINES) + 2 * self.padding,
+            ),
+            max(0, canvas.width - 2 * self.padding),
+        )
         height = min(panel_heights[state], max(0, canvas.height - 2 * self.padding))
         self.background(
             canvas,
@@ -133,6 +161,12 @@ class GUI:
             (canvas.height - height) // 2,
             width,
             height,
+        )
+
+    def _max_text_width(self, lines: Sequence[str]) -> int:
+        return max(
+            (self.text_renderer.text_size(line, self.font_size)[0] for line in lines),
+            default=0,
         )
 
     def background(
@@ -161,6 +195,20 @@ class GUI:
         focusing: int,
     ) -> None:
         lines, menu_start = self._home_content(scores, focusing)
+        title_size = self.font_size * 2
+        image = self.text_renderer._text_image(
+            lines[0],
+            self.ACCENT_COLOR,
+            title_size,
+        )
+        image_range = image.getbbox()
+        if image_range is not None:
+            left, _, right, _ = image_range
+            image = image.crop((left, 0, right, image.height))
+            x = (width - image.width) // 2
+            y = self._block_top(height, len(lines)) - image.height // 2
+            self.text_renderer.draw_image(canvas, x, y, image)
+        lines[0] = ""
         self._put_lines_center(
             canvas,
             width,
@@ -170,6 +218,21 @@ class GUI:
                 0: self.ACCENT_COLOR,
                 menu_start + focusing: self.ACCENT_COLOR,
             },
+        )
+        block_top = self._block_top(height, len(lines))
+        self._draw_home_characters(canvas, width, block_top + self.line_spacing)
+        target_char = lines[menu_start + focusing]
+        target_width, _ = self.text_renderer.text_size(target_char, self.font_size)
+        focus_width, _ = self.text_renderer.text_size(">", self.font_size)
+        x = (width - target_width) // 2 - focus_width - self.text_gap
+        y = block_top + (menu_start + focusing) * self.line_spacing
+        self.text_renderer.draw_text(
+            canvas,
+            x,
+            y,
+            ">",
+            self.ACCENT_COLOR,
+            self.font_size,
         )
 
     def _home_content(
@@ -181,10 +244,6 @@ class GUI:
             "Instruction",
             "Ranking",
             "Exit",
-        ]
-        menu = [
-            ("> " if index == focusing else "  ") + text
-            for index, text in enumerate(menu)
         ]
         lines = ["PAC-MAN", ""]
         menu_start = len(lines)
@@ -242,6 +301,33 @@ class GUI:
                 )
                 x += column_widths[column] + gap
 
+    def _draw_home_characters(
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        y: int,
+    ) -> None:
+        pacman_img = player_image(self.font_size / 2, "E", 10)
+        ghost_colors = (
+            (255, 0, 0),
+            (128, 128, 128),
+            (0, 255, 255),
+            (0, 0, 255),
+        )
+        imgs = [pacman_img]
+        radius = self.font_size / 2
+        imgs.extend(ghost_image(radius, color) for color in ghost_colors)
+        total_width = sum(img.width for img in imgs) + self.text_gap * (len(imgs) - 1)
+        x = (width - total_width) // 2
+        for img in imgs:
+            self.text_renderer.draw_image(
+                canvas,
+                x,
+                y,
+                img,
+            )
+            x += img.width + self.text_gap
+
     def gameover(
         self, canvas: VisualizerUtils, width: int, height: int,
         score: int, name: str,
@@ -293,10 +379,16 @@ class GUI:
         lives: int,
         time: float,
         cheat_enabled: bool,
+        auto_enabled: bool = False,
+        score_multiplier: int = 1,
     ) -> None:
         text = f"Lv:{level} Score:{score} Life:{lives} Time:{time:.1f}"
         if cheat_enabled:
             text += " CHEAT ON"
+        if auto_enabled:
+            text += " AUTO ON"
+        if score_multiplier != 1:
+            text += f" x{score_multiplier}"
         self.text_renderer.draw_numeric_text(
             canvas, x, y, text, self.TEXT_COLOR, self.font_size, slot="hud"
         )
@@ -342,17 +434,18 @@ class GUI:
     def pause(
         self, canvas: VisualizerUtils, width: int, height: int,
     ) -> None:
-        self._put_lines_center(canvas, width, height, [
-            "PAUSED", "P: Resume", "H: Back to home",
-        ], {0: self.ACCENT_COLOR})
+        self._put_lines_center(
+            canvas,
+            width,
+            height,
+            self.PAUSE_LINES,
+            {0: self.ACCENT_COLOR},
+        )
 
     def instruction(
         self, canvas: VisualizerUtils, width: int, height: int,
     ) -> None:
-        self._put_lines_center(canvas, width, height, [
-            "Arrow keys or WASD: Move", "P: Pause/Resume", "H: Home while paused",
-            "Eat all pacgums to clear the stage", "Enter: Back to home",
-        ])
+        self._put_lines_center(canvas, width, height, self.INSTRUCTION_LINES)
 
     def confirm_clear(
         self,

@@ -10,13 +10,14 @@ from mazegenerator import MazeGenerator
 
 from models import Config
 
+from .auto_player import AutoPlayer
 from .cheating import CheatHandler
 from .collision import Collision
 from .ghost import Ghost
 from .gui import GUI, GUIStateEnum
 from .highscore import HighscoreManager, ScoreEntry
 from .maze import Maze
-from .pacgums import Pacgums
+from .pacgums import PacgumEatenEnum, Pacgums
 from .player import Player
 from .strategy import BFSStrategy, RandomStrategy
 from .visualizerutils import VisualizerUtils
@@ -36,11 +37,14 @@ class KeyEnum(IntEnum):
     L = 108
     M = 109
     N = 110
+    O = 111
     P = 112
     R = 114
     S = 115
     T = 116
+    V = 118
     W = 119
+    X = 120
     Y = 121
     BACKSPACE = 65288
     ENTER = 65293
@@ -76,18 +80,22 @@ class MazeVisualizer:
     ) -> None:
         """Create game components before opening a graphics window."""
         self.config = config
+        self.pacgum_points = {
+            PacgumEatenEnum.Normal: config.points_per_pacgum,
+            PacgumEatenEnum.Super: config.points_per_super_pacgum,
+        }
+        self.ghost_points = config.points_per_ghost
+        self.score_multiplier = 1
         self.maze = Maze(maze)
         self.player = Player(
             self.maze.central_cell(),
             self.config.lives,
-            self.config.points_per_pacgum,
-            self.config.points_per_super_pacgum,
         )
         self.pacgums = Pacgums(self.maze.rows, self.maze.cols)
         self.judge = Collision()
         self.score_manager = HighscoreManager(self.config.highscore_filename)
         self.gui = GUI()
-        self.cheathandler = CheatHandler([ord(char) for char in "harnakam"])
+        self.cheathandler = CheatHandler([ord(char) for char in "3111696"])
         self.generator = generator
         self.ghosts: list[Ghost] = []
         self.ghosts.append(Ghost((0, 0), RandomStrategy(), (128, 128, 128)))
@@ -124,6 +132,8 @@ class MazeVisualizer:
         self.closed = True
         self.needs_redraw = True
         self.cheat_enabled = False
+        self.auto_enabled = False
+        self.auto_player = AutoPlayer()
         self.ghost_frozen = False
         self.state: GUIStateEnum = GUIStateEnum.Home
         self.last_time = time.monotonic()
@@ -198,6 +208,8 @@ class MazeVisualizer:
                 self.player.lives,
                 self.remaining_time,
                 self.cheat_enabled,
+                auto_enabled=self.auto_enabled,
+                score_multiplier=self.score_multiplier,
             )
         elif self.state == GUIStateEnum.Ranking:
             self.gui.ranking(
@@ -263,7 +275,21 @@ class MazeVisualizer:
             return
         if self.state == GUIStateEnum.Playing:
             self.remaining_time = max(self.remaining_time - elapsed, 0.0)
-            self.player.update(elapsed, self.maze, self.canvas, self.pacgums)
+            if self.auto_enabled:
+                eaten = self.player.update(
+                    elapsed,
+                    self.maze,
+                    self.canvas,
+                    self.pacgums,
+                    choose_auto_direction=self._choose_auto_direction,
+                )
+            else:
+                eaten = self.player.update(
+                    elapsed, self.maze, self.canvas, self.pacgums
+                )
+            points = self.pacgum_points.get(eaten, 0)
+            if points:
+                self.player.score += points * self.score_multiplier
             if len(self.pacgums) == 0:
                 if self.level < self.max_level:
                     self.state = GUIStateEnum.Stage_Clear
@@ -303,12 +329,24 @@ class MazeVisualizer:
                             break
                         else:
                             print(f"YOU EATEN {ghost.color}")
-                            self.player.score += self.config.points_per_ghost
+                            self.player.score += (
+                                self.ghost_points * self.score_multiplier
+                            )
                             ghost.reset(self.canvas)
                             ghost.respawn_remaining = 5.0
                 self.player.update_mouth(elapsed)
         if self.state == GUIStateEnum.Playing or self.needs_redraw:
             self._draw()
+
+    def _choose_auto_direction(self) -> str | None:
+        return self.auto_player.choose_direction(
+            self.maze,
+            self.player,
+            self.pacgums,
+            self.ghosts,
+            self.canvas,
+            ghosts_frozen=self.ghost_frozen,
+        )
 
     def _on_key(self, key: int, _param: object = None) -> None:
         """Dispatch controls to the owning component."""
@@ -368,6 +406,9 @@ class MazeVisualizer:
                 self.cheat_enabled = not self.cheat_enabled
                 if not self.cheat_enabled:
                     self.ghost_frozen = False
+                    self.auto_enabled = False
+                    self.score_multiplier = 1
+                    self.player.movement.wallhack = False
                 return
             if self.cheathandler.index > 0:
                 return
@@ -385,6 +426,17 @@ class MazeVisualizer:
                 self.player.lives += 1
             elif key == KeyEnum.T and self.cheat_enabled:
                 self.remaining_time += 10.0
+            elif key == KeyEnum.O and self.cheat_enabled:
+                self.auto_enabled = not self.auto_enabled
+                self.player.reserved_move = None
+            elif key == KeyEnum.X and self.cheat_enabled:
+                self.score_multiplier = 10 if self.score_multiplier == 1 else 1
+            elif key == KeyEnum.H and self.cheat_enabled:
+                self.player.movement.wallhack = not self.player.movement.wallhack
+            elif key == KeyEnum.V and self.cheat_enabled:
+                self.player.movement.speed = (
+                    8 if self.player.movement.speed == 16 else 16
+                )
             else:
                 directions: dict[int, str] = {
                     KeyEnum.LEFT: "W",
@@ -397,6 +449,7 @@ class MazeVisualizer:
                     KeyEnum.S: "S",
                 }
                 if key in directions:
+                    self.auto_enabled = False
                     self.player.request_move(directions[key], self.maze, self.canvas)
 
         elif self.state == GUIStateEnum.Pause:
@@ -472,6 +525,9 @@ class MazeVisualizer:
         self.state = GUIStateEnum.Playing
 
     def restart_game(self) -> None:
+        self.auto_enabled = False
+        self.score_multiplier = 1
+        self.player.movement.wallhack = False
         self.level = 1
         self.player.score = 0
         self.player.lives = self.player.initial_lives

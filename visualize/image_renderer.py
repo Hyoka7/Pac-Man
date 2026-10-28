@@ -1,7 +1,7 @@
 """Composite Pillow images and cached text into the game buffer."""
 
 from functools import cache
-from typing import cast
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -10,7 +10,11 @@ from .visualizerutils import VisualizerUtils
 
 @cache
 def _font(size: int) -> ImageFont.FreeTypeFont:
-    return cast(ImageFont.FreeTypeFont, ImageFont.load_default(size=size))
+    return ImageFont.truetype(
+        Path(__file__).resolve().parent.parent
+        / "assets/fonts/PressStart2P-Regular.ttf",
+        size=size,
+    )
 
 
 @cache
