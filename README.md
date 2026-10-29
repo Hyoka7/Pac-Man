@@ -97,7 +97,9 @@ Pydanticの`ScoreEntry`（名前と得点）と`HighscoreData`を使います。
 | --- | --- |
 | `main.py` | 仮のConfig作成、迷路生成と起動 |
 | `models/models.py` | ゲーム共通設定とレベル別設定のPydanticモデル |
-| `visualize/maze_visualizer.py` | MLXの管理、入力、ゲーム進行、描画呼び出し |
+| `visualize/maze_visualizer.py` | MLXの管理、経過時間・入力の受け渡し、画面配置、描画呼び出し |
+| `visualize/game.py` | ゲーム状態、移動更新、衝突・得点、復活、レベル進行、入力による状態遷移 |
+| `visualize/controls.py` / `visualize/game_state.py` | キー定義、ウィンドウへの要求、共通の状態定義 |
 | `visualize/maze.py` | 迷路、移動可否、中央付近の配置、全通路からのBFS距離表 |
 | `visualize/movement.py` | セル間の移動と方向変更 |
 | `visualize/player.py` | プレイヤー、得点、残機、パワーアップ |
@@ -135,13 +137,15 @@ HUDと無敵時間は数字・小数点の部品画像を再利用して合成�
 
 ## 加点値と倍率
 
-通常gum・スーパーgumの加点値は`MazeVisualizer.pacgum_points`、敵は`ghost_points`に設定値から初期化して保持します。`Player.update()`は食べたgumの種類を返し、Visualizerがその値と`score_multiplier`を使って加点します。累計得点は引き続き`player.score`で保持します。
+通常gum・スーパーgumの加点値は`Game.pacgum_points`、敵は`Game.ghost_points`に設定値から初期化して保持します。`Player.update()`は食べたgumの種類を返し、`Game.update()`がその値と`score_multiplier`を使って加点します。累計得点は引き続き`player.score`で保持します。Visualizerからは`self.game.player`や`self.game.state`で参照します。
+
+`MazeVisualizer._on_loop()`は経過秒数を`Game.update(elapsed, canvas)`へ渡し、その結果を描画します。キーは`Game.handle_key(key, canvas)`へ渡し、終了や配色変更の要求だけVisualizerが実行します。レベル変更時はGameが迷路を生成し、VisualizerがCanvasのセルサイズ・オフセットを更新してから`Game.place(canvas)`でキャラクターとgumを配置します。`Game`はMLXやGUIを直接操作しません。
 Xで倍率を切り替えても獲得済みの得点は変えず、以降の3種類の加点に適用します。10倍中はHUDに`x10`を表示します。チート解除・新規ゲームで倍率は1倍に戻ります。数字コマンドとの衝突がなくなったため、次レベル操作は通常のNです。
 
 ## ドットフォント
 
 文字は同梱の`assets/fonts/PressStart2P-Regular.ttf`を読み込みます。ライセンスは同じディレクトリの`OFL.txt`を参照してください。ポーズ画面の枠幅は表示する最長の行と余白から計算し、横幅の小さい画面では説明文が収まるよう文字サイズを調整します。
 
-## 次回のキャラクター描画変更
+## キャラクター描画
 
-ホームには大きなタイトル・Pac-Manとghost4体・中央揃えのメニューを表示します。キャラクターを16×16のドット画像からNEARESTで拡大する試作は見た目を確認済みですが、ユーザーが自分で実装するため、現在の画像生成は滑らかな版へ戻しています。次回の実装手順は[PROGRESS.md](PROGRESS.md)冒頭を参照してください。
+ホームには大きなタイトル・Pac-Manとghost4体・中央揃えのメニューを表示します。キャラクターは16×16の透明画像に描き、NEARESTで表示サイズへ拡大します。Ghostは足4本と白目・黒目を持ち、Playerは4方向と口の開閉に対応します。ホームとゲーム中で同じ画像生成関数を使います。
