@@ -34,7 +34,7 @@ class PlayerRenderingTests(unittest.TestCase):
                     self.assertEqual(rgb(target, 48+dx, 48+dy),
                         (0, 0, 0) if point_direction == direction else (255, 255, 0))
 
-    def test_closed_sprite_keeps_round_antialiased_edges_and_transparent_corners(self) -> None:
+    def test_closed_sprite_keeps_opaque_pixels_and_transparent_corners(self) -> None:
         target = make_canvas()
         target.fill_rect(0, 0, 160, 120, (0, 0, 80))
         player = Player((1, 1))
@@ -44,7 +44,7 @@ class PlayerRenderingTests(unittest.TestCase):
         for dx, dy in ((6, 0), (-6, 0), (0, 6), (0, -6)):
             self.assertEqual(rgb(target, 48+dx, 48+dy), (255, 255, 0))
         self.assertEqual(rgb(target, 36, 36), (0, 0, 80))
-        self.assertTrue(any(0 < rgb(target, x, y)[0] < 255
+        self.assertFalse(any(0 < rgb(target, x, y)[0] < 255
                             for y in range(35, 62) for x in range(35, 62)))
 
     def test_stopped_player_still_animates_mouth(self) -> None:

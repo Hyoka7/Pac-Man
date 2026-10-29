@@ -13,6 +13,7 @@ from unittest.mock import Mock, patch
 from mazegenerator import MazeGenerator
 
 from models.models import Config, LevelConfig
+from visualize.game import Game
 from visualize.ghost import Ghost
 from visualize.player import Player
 from visualize.gui import GUI, GUIStateEnum
@@ -43,21 +44,21 @@ class LevelLayoutTests(unittest.TestCase):
             memoryview(bytearray(4000 * 800)), 4000, 0,
             viewer.offset_x, viewer.offset_y,
         )
-        viewer.player.place(viewer.canvas)
-        for ghost in viewer.ghosts:
+        viewer.game.player.place(viewer.canvas)
+        for ghost in viewer.game.ghosts:
             ghost.place(viewer.canvas)
-        viewer.pacgums.reset(viewer.maze, viewer.canvas, viewer.player.movement.cell)
+        viewer.game.pacgums.reset(viewer.game.maze, viewer.canvas, viewer.game.player.movement.cell)
         return viewer
 
     def assert_placements_fit(self, viewer: MazeVisualizer) -> None:
-        maze, canvas = viewer.maze, viewer.canvas
+        maze, canvas = viewer.game.maze, viewer.canvas
         corners = [(0, 0), (0, maze.rows-1), (maze.cols-1, 0),
                    (maze.cols-1, maze.rows-1)]
-        for ghost, corner in zip(viewer.ghosts, corners):
+        for ghost, corner in zip(viewer.game.ghosts, corners):
             self.assertEqual(ghost.cell, corner)
             self.assertEqual(ghost.movement.center, canvas.cell_center(*corner))
             self.assertEqual(ghost.respawn_remaining, 0.0)
-        characters: list[Player | Ghost] = [viewer.player, *viewer.ghosts]
+        characters: list[Player | Ghost] = [viewer.game.player, *viewer.game.ghosts]
         for character in characters:
             self.assertAlmostEqual(character.radius, canvas.cell_size * 0.375)
             self.assertFalse(character.movement.moving)
@@ -66,11 +67,11 @@ class LevelLayoutTests(unittest.TestCase):
             self.assertLess(x+character.radius, canvas.width)
             self.assertGreaterEqual(y-character.radius, 0)
             self.assertLess(y+character.radius, canvas.height)
-        self.assertNotEqual(maze.maze[viewer.player.movement.cell[1]][
-            viewer.player.movement.cell[0]], 15)
-        self.assertEqual(viewer.pacgums.super_gums,
+        self.assertNotEqual(maze.maze[viewer.game.player.movement.cell[1]][
+            viewer.game.player.movement.cell[0]], 15)
+        self.assertEqual(viewer.game.pacgums.super_gums,
                          {canvas.cell_center(*cell) for cell in corners})
-        self.assertEqual(len(viewer.pacgums),
+        self.assertEqual(len(viewer.game.pacgums),
                          sum(cell != 15 for row in maze.maze for cell in row)-1)
         self.assertEqual((canvas.offset_x, canvas.offset_y),
                          (viewer.offset_x, viewer.offset_y))
@@ -79,76 +80,79 @@ class LevelLayoutTests(unittest.TestCase):
 
     def test_mixed_sizes_then_restart_preserve_the_right_state(self) -> None:
         viewer = self.make_viewer()
-        strategies = [ghost.strategy for ghost in viewer.ghosts]
-        viewer.player.score, viewer.player.lives = 123, 2
+        strategies = [ghost.strategy for ghost in viewer.game.ghosts]
+        viewer.game.player.score, viewer.game.player.lives = 123, 2
         for expected_size, expected_time in (((25, 15), 80), ((15, 25), 70)):
             with self.subTest(size=expected_size):
-                viewer.player.is_invincible = True
-                viewer.player.invincible_remain = 3
-                for ghost in viewer.ghosts:
+                viewer.game.player.is_invincible = True
+                viewer.game.player.invincible_remain = 3
+                for ghost in viewer.game.ghosts:
                     ghost.respawn_remaining = 3.0
                 viewer.next_level()
-                self.assertEqual((viewer.maze.cols, viewer.maze.rows), expected_size)
+                self.assertEqual((viewer.game.maze.cols, viewer.game.maze.rows), expected_size)
                 self.assert_placements_fit(viewer)
-                self.assertEqual((viewer.player.score, viewer.player.lives), (123, 2))
-                self.assertEqual(viewer.remaining_time, expected_time)
-                self.assertFalse(viewer.player.is_invincible)
-                self.assertEqual([g.strategy for g in viewer.ghosts], strategies)
-        for ghost in viewer.ghosts:
+                self.assertEqual((viewer.game.player.score, viewer.game.player.lives), (123, 2))
+                self.assertEqual(viewer.game.remaining_time, expected_time)
+                self.assertFalse(viewer.game.player.is_invincible)
+                self.assertEqual([g.strategy for g in viewer.game.ghosts], strategies)
+        for ghost in viewer.game.ghosts:
             ghost.respawn_remaining = 3.0
         viewer.restart_game()
-        self.assertEqual((viewer.level, viewer.maze.cols, viewer.maze.rows), (1, 15, 15))
-        self.assertEqual((viewer.player.score, viewer.player.lives), (0, 4))
-        self.assertEqual(viewer.remaining_time, 90)
+        self.assertEqual((viewer.game.level, viewer.game.maze.cols, viewer.game.maze.rows), (1, 15, 15))
+        self.assertEqual((viewer.game.player.score, viewer.game.player.lives), (0, 4))
+        self.assertEqual(viewer.game.remaining_time, 90)
         self.assert_placements_fit(viewer)
 
     def test_eaten_ghost_waits_after_reset_and_cannot_score_twice(self) -> None:
         viewer = self.make_viewer()
         viewer.closed = False
-        viewer.state = GUIStateEnum.Playing
+        viewer.game.state = GUIStateEnum.Playing
         viewer.last_time = 10.0
         self.enterContext(patch.object(viewer, "_draw", Mock()))
-        viewer.player.is_invincible = True
-        viewer.player.invincible_remain = 5.0
-        ghost = viewer.ghosts[0]
-        viewer.ghosts = [ghost]
-        ghost.movement.cell = viewer.player.movement.cell
+        viewer.game.player.is_invincible = True
+        viewer.game.player.invincible_remain = 5.0
+        ghost = viewer.game.ghosts[0]
+        viewer.game.ghosts = [ghost]
+        ghost.movement.cell = viewer.game.player.movement.cell
         ghost.movement.place(viewer.canvas)
         with redirect_stdout(StringIO()), patch(
             'visualize.maze_visualizer.time.monotonic', return_value=10.0
         ):
             viewer._on_loop()
-        self.assertEqual(viewer.player.score, viewer.config.points_per_ghost)
+        self.assertEqual(viewer.game.player.score, viewer.game.config.points_per_ghost)
         self.assertEqual(ghost.respawn_remaining, 5.0)
         self.assertEqual(ghost.movement.center, viewer.canvas.cell_center(0, 0))
         with patch('visualize.maze_visualizer.time.monotonic', return_value=10.1):
             viewer._on_loop()
-        self.assertEqual(viewer.player.score, viewer.config.points_per_ghost)
+        self.assertEqual(viewer.game.player.score, viewer.game.config.points_per_ghost)
         self.assertAlmostEqual(ghost.respawn_remaining, 4.9)
         self.assertEqual(ghost.movement.center, viewer.canvas.cell_center(0, 0))
 
     def test_skip_at_last_level_does_not_index_past_settings(self) -> None:
         viewer = self.make_viewer()
-        viewer.level = viewer.max_level
-        viewer.needs_redraw = False
-        original_maze = viewer.maze
+        viewer.game.level = viewer.game.max_level
+        viewer.game.needs_redraw = False
+        original_maze = viewer.game.maze
         viewer.next_level()
-        self.assertEqual(viewer.state, GUIStateEnum.All_Clear)
-        self.assertTrue(viewer.needs_redraw)
-        self.assertEqual(viewer.level, viewer.max_level)
-        self.assertIs(viewer.maze, original_maze)
+        self.assertEqual(viewer.game.state, GUIStateEnum.All_Clear)
+        self.assertTrue(viewer.game.needs_redraw)
+        self.assertEqual(viewer.game.level, viewer.game.max_level)
+        self.assertIs(viewer.game.maze, original_maze)
 
     def test_viewer_initializes_numeric_cheat_command(self) -> None:
         viewer = self.make_viewer()
-        results = [viewer.cheathandler.consume(ord(char)) for char in '3111696']
+        results = [viewer.game.cheathandler.consume(ord(char)) for char in '3111696']
         self.assertEqual(results, [False] * 6 + [True])
 
     def test_layout_centers_both_axes_and_rejects_unrenderable_cells(self) -> None:
         viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        viewer.game = cast(Any, Game.__new__(Game))
+        viewer.game.level_needs_placement = False
+        viewer.canvas = Mock()
         viewer.gui = GUI()
         viewer.width, viewer.height, viewer.margin = 1000, 800, 100
         for cols, rows in ((15, 15), (25, 15), (15, 25)):
-            viewer.maze = SimpleNamespace(cols=cols, rows=rows)
+            viewer.game.maze = SimpleNamespace(cols=cols, rows=rows)
             viewer._update_layout()
             left, top = viewer.offset_x, viewer.offset_y
             right = viewer.width-left-(cols*viewer.cell_size+1)
@@ -156,7 +160,7 @@ class LevelLayoutTests(unittest.TestCase):
             self.assertLessEqual(abs(left-right), 1)
             self.assertLessEqual(abs(top-bottom), 1)
             self.assertGreaterEqual(min(left, top), viewer.margin)
-        viewer.maze = SimpleNamespace(cols=2000, rows=2000)
+        viewer.game.maze = SimpleNamespace(cols=2000, rows=2000)
         with self.assertRaises(ValueError):
             viewer._update_layout()
 
@@ -164,11 +168,14 @@ class LevelLayoutTests(unittest.TestCase):
         for width, height in ((800, 600), (2460, 1340), (4000, 2200)):
             with self.subTest(size=(width, height)):
                 viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+                viewer.game = cast(Any, Game.__new__(Game))
+                viewer.game.level_needs_placement = False
+                viewer.canvas = Mock()
                 viewer.gui = GUI()
                 viewer.width, viewer.height, viewer.margin = width, height, 100
-                viewer.maze = SimpleNamespace(cols=15, rows=15)
+                viewer.game.maze = SimpleNamespace(cols=15, rows=15)
                 viewer._update_layout()
-                maze_bottom = viewer.offset_y + viewer.maze.rows * viewer.cell_size
+                maze_bottom = viewer.offset_y + viewer.game.maze.rows * viewer.cell_size
                 bar_y = viewer.gui.bar_y
                 with patch('visualize.image_renderer.ImageRenderer.draw_numeric_text') as draw:
                     viewer.gui.invinsible_time(Mock(), width, bar_y, 3.2)

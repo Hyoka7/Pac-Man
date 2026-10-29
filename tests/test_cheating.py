@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
+from visualize.game import Game
 from visualize.cheating import CheatHandler
 from visualize.gui import GUI, GUIStateEnum
 from visualize.maze_visualizer import KeyEnum, MazeVisualizer
@@ -41,18 +42,21 @@ class CheatHandlerTests(unittest.TestCase):
 class CheatInputTests(unittest.TestCase):
     def setUp(self) -> None:
         self.viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        self.viewer.game = cast(Any, Game.__new__(Game))
+        self.viewer.game.level_needs_placement = False
+        self.viewer.canvas = Mock()
         v = self.viewer
         v.closed = False
-        v.shift_keys = set()
-        v.state = GUIStateEnum.Playing
-        v.cheat_enabled = False
-        v.auto_enabled = False
-        v.score_multiplier = 1
-        v.pacgum_points = {}
-        v.ghost_frozen = False
-        v.cheathandler = CheatHandler(list(map(ord, '3111696')))
-        v.player, v.maze, v.canvas = Mock(), Mock(), Mock()
-        v.next_level = Mock()
+        v.game.shift_keys = set()
+        v.game.state = GUIStateEnum.Playing
+        v.game.cheat_enabled = False
+        v.game.auto_enabled = False
+        v.game.score_multiplier = 1
+        v.game.pacgum_points = {}
+        v.game.ghost_frozen = False
+        v.game.cheathandler = CheatHandler(list(map(ord, '3111696')))
+        v.game.player, v.game.maze, v.canvas = Mock(), Mock(), Mock()
+        v.game.next_level = Mock()
 
     def enter_command(self) -> None:
         for key in map(ord, '3111696'):
@@ -61,112 +65,112 @@ class CheatInputTests(unittest.TestCase):
     def test_enable_and_disable_do_not_move_or_skip_during_command(self) -> None:
         v = self.viewer
         self.enter_command()
-        self.assertTrue(v.cheat_enabled)
+        self.assertTrue(v.game.cheat_enabled)
         self.enter_command()
-        self.assertFalse(v.cheat_enabled)
-        v.player.request_move.assert_not_called()
-        v.next_level.assert_not_called()
+        self.assertFalse(v.game.cheat_enabled)
+        v.game.player.request_move.assert_not_called()
+        v.game.next_level.assert_not_called()
 
     def test_level_skip_is_available_only_when_enabled(self) -> None:
         v = self.viewer
         v._on_key(KeyEnum.N)
-        v.next_level.assert_not_called()
+        v.game.next_level.assert_not_called()
         self.enter_command()
         v._on_key(KeyEnum.N)
-        v.next_level.assert_called_once()
+        v.game.next_level.assert_called_once()
         self.enter_command()
         v._on_key(KeyEnum.N)
-        v.next_level.assert_called_once()
+        v.game.next_level.assert_called_once()
 
     def test_life_and_time_keys_require_cheats_and_stop_after_disabling(self) -> None:
         v = self.viewer
-        v.player.lives, v.remaining_time = 3, 12.5
+        v.game.player.lives, v.game.remaining_time = 3, 12.5
         v._on_key(KeyEnum.L)
         v._on_key(KeyEnum.T)
-        self.assertEqual((v.player.lives, v.remaining_time), (3, 12.5))
+        self.assertEqual((v.game.player.lives, v.game.remaining_time), (3, 12.5))
         self.enter_command()
         for expected in ((4, 22.5), (5, 32.5)):
             v._on_key(KeyEnum.L)
             v._on_key(KeyEnum.T)
-            self.assertEqual((v.player.lives, v.remaining_time), expected)
+            self.assertEqual((v.game.player.lives, v.game.remaining_time), expected)
         self.enter_command()
         v._on_key(KeyEnum.L)
         v._on_key(KeyEnum.T)
-        self.assertEqual((v.player.lives, v.remaining_time), (5, 32.5))
-        v.player.request_move.assert_not_called()
+        self.assertEqual((v.game.player.lives, v.game.remaining_time), (5, 32.5))
+        v.game.player.request_move.assert_not_called()
 
     def test_life_and_time_cheats_do_not_apply_outside_playing(self) -> None:
         v = self.viewer
-        v.cheat_enabled = True
-        v.player.lives, v.remaining_time = 3, 12.5
+        v.game.cheat_enabled = True
+        v.game.player.lives, v.game.remaining_time = 3, 12.5
         for state in (GUIStateEnum.Home, GUIStateEnum.Instruction,
                       GUIStateEnum.Ranking, GUIStateEnum.Pause,
                       GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
             with self.subTest(state=state):
-                v.state = state
-                v.player_name = ''
+                v.game.state = state
+                v.game.player_name = ''
                 v._on_key(KeyEnum.L)
                 v._on_key(KeyEnum.T)
-                self.assertEqual((v.player.lives, v.remaining_time), (3, 12.5))
+                self.assertEqual((v.game.player.lives, v.game.remaining_time), (3, 12.5))
                 if state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
-                    self.assertEqual(v.player_name, 'lt')
+                    self.assertEqual(v.game.player_name, 'lt')
 
     def test_wrong_key_resets_command_and_keeps_normal_controls(self) -> None:
         v = self.viewer
         v._on_key(KeyEnum.H)
         v._on_key(KeyEnum.UP)
-        self.assertFalse(v.cheat_enabled)
-        self.assertEqual(v.cheathandler.index, 0)
-        v.player.request_move.assert_called_once_with('N', v.maze, v.canvas)
+        self.assertFalse(v.game.cheat_enabled)
+        self.assertEqual(v.game.cheathandler.index, 0)
+        v.game.player.request_move.assert_called_once_with('N', v.game.maze, v.canvas)
 
     def test_freeze_key_only_toggles_when_cheats_are_enabled(self) -> None:
         v = self.viewer
         v._on_key(KeyEnum.F)
-        self.assertFalse(v.ghost_frozen)
+        self.assertFalse(v.game.ghost_frozen)
         self.enter_command()
         v._on_key(KeyEnum.F)
-        self.assertTrue(v.ghost_frozen)
+        self.assertTrue(v.game.ghost_frozen)
         v._on_key(KeyEnum.F)
-        self.assertFalse(v.ghost_frozen)
+        self.assertFalse(v.game.ghost_frozen)
 
     def test_disabling_cheats_clears_freeze(self) -> None:
         v = self.viewer
         self.enter_command()
-        v.ghost_frozen = True
+        v.game.ghost_frozen = True
         self.enter_command()
-        self.assertFalse(v.cheat_enabled)
-        self.assertFalse(v.ghost_frozen)
+        self.assertFalse(v.game.cheat_enabled)
+        self.assertFalse(v.game.ghost_frozen)
 
     def test_regular_movement_still_works_with_cheats_enabled(self) -> None:
         v = self.viewer
         self.enter_command()
         v._on_key(KeyEnum.RIGHT)
-        v.player.request_move.assert_called_once_with('E', v.maze, v.canvas)
+        v.game.player.request_move.assert_called_once_with('E', v.game.maze, v.canvas)
 
     def test_freeze_stops_ghost_update_but_preserves_player_and_collision(self) -> None:
         v = self.viewer
-        v.cheat_enabled, v.ghost_frozen = True, True
-        v.last_time, v.remaining_time = 10.0, 20.0
-        v.pacgums = MagicMock()
-        v.pacgums.__len__.return_value = 1
-        v.player = SimpleNamespace(
+        v.game.cheat_enabled, v.game.ghost_frozen = True, True
+        v.last_time, v.game.remaining_time = 10.0, 20.0
+        v.game.pacgums = MagicMock()
+        v.game.pacgums.__len__.return_value = 1
+        v.game.player = SimpleNamespace(
             update=Mock(), update_mouth=Mock(), movement=SimpleNamespace(cell=(1, 0)),
             is_alive=True, is_invincible=False, lives=1,
         )
         ghost = Mock(respawn_remaining=0.0)
-        v.ghosts = [ghost]
-        v.judge = Mock()
-        v.judge.is_collision.return_value = True
+        v.game.ghosts = [ghost]
+        v.game.judge = Mock()
+        v.game.judge.is_collision.return_value = True
         v._draw = Mock()
         with redirect_stdout(StringIO()), patch(
             'visualize.maze_visualizer.time.monotonic', return_value=10.05
         ):
             v._on_loop()
         ghost.update.assert_not_called()
-        v.player.update.assert_called_once()
-        v.judge.is_collision.assert_called_once_with(v.player, ghost)
-        self.assertEqual(v.state, GUIStateEnum.GameOver)
-        self.assertEqual(v.player.lives, 0)
+        v.game.player.update.assert_called_once()
+        v.game.judge.is_collision.assert_called_once_with(v.game.player, ghost)
+        self.assertEqual(v.game.state, GUIStateEnum.GameOver)
+        self.assertEqual(v.game.player.lives, 0)
         v._draw.assert_called_once()
 
 

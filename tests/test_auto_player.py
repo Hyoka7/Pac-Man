@@ -126,20 +126,20 @@ class AutoPlayerTests(unittest.TestCase):
                             levels=[LevelConfig(width=5, height=1)])
             viewer = MazeVisualizer(self.maze.maze, Mock(), config)
             viewer.canvas = self.canvas
-            viewer.player.place(self.canvas)
+            viewer.game.player.place(self.canvas)
             viewer.closed = False
-            viewer.state = GUIStateEnum.Playing
+            viewer.game.state = GUIStateEnum.Playing
             viewer._on_key(KeyEnum.O)
-            self.assertFalse(viewer.auto_enabled)
-            viewer.cheat_enabled = True
+            self.assertFalse(viewer.game.auto_enabled)
+            viewer.game.cheat_enabled = True
             viewer._on_key(KeyEnum.O)
-            self.assertTrue(viewer.auto_enabled)
+            self.assertTrue(viewer.game.auto_enabled)
             viewer._on_key(KeyEnum.LEFT)
-            self.assertFalse(viewer.auto_enabled)
+            self.assertFalse(viewer.game.auto_enabled)
             viewer._on_key(KeyEnum.O)
             for key in map(ord, '3111696'):
                 viewer._on_key(key)
-            self.assertFalse(viewer.auto_enabled)
+            self.assertFalse(viewer.game.auto_enabled)
 
     def test_game_loop_supplies_auto_decision_to_player(self) -> None:
         with TemporaryDirectory() as directory:
@@ -147,20 +147,20 @@ class AutoPlayerTests(unittest.TestCase):
                             levels=[LevelConfig(width=5, height=1)])
             viewer = MazeVisualizer(self.maze.maze, Mock(), config)
             viewer.canvas = self.canvas
-            viewer.player.place(self.canvas)
-            viewer.ghosts = []
-            viewer.pacgums.remain_gums = {self.canvas.cell_center(3, 0)}
-            viewer.player.movement.cell = (2, 0)
-            viewer.player.place(self.canvas)
+            viewer.game.player.place(self.canvas)
+            viewer.game.ghosts = []
+            viewer.game.pacgums.remain_gums = {self.canvas.cell_center(3, 0)}
+            viewer.game.player.movement.cell = (2, 0)
+            viewer.game.player.place(self.canvas)
             viewer.closed = False
-            viewer.state = GUIStateEnum.Playing
-            viewer.auto_enabled = True
+            viewer.game.state = GUIStateEnum.Playing
+            viewer.game.auto_enabled = True
             viewer.last_time = 10.0
             with patch.object(viewer, '_draw'), patch(
                 'visualize.maze_visualizer.time.monotonic', return_value=10.05
             ):
                 viewer._on_loop()
-            self.assertGreater(viewer.player.movement.center[0],
+            self.assertGreater(viewer.game.player.movement.center[0],
                                self.canvas.cell_center(2, 0)[0])
 
     def test_auto_collects_normal_and_super_gums_through_real_game_loop(self) -> None:
@@ -169,25 +169,25 @@ class AutoPlayerTests(unittest.TestCase):
                             levels=[LevelConfig(width=5, height=1)])
             viewer = MazeVisualizer(self.maze.maze, Mock(), config)
             viewer.canvas = self.canvas
-            viewer.player.place(self.canvas)
-            viewer.ghosts = []
-            viewer.pacgums.reset(viewer.maze, self.canvas, viewer.player.movement.cell)
+            viewer.game.player.place(self.canvas)
+            viewer.game.ghosts = []
+            viewer.game.pacgums.reset(viewer.game.maze, self.canvas, viewer.game.player.movement.cell)
             viewer.closed = False
-            viewer.state = GUIStateEnum.Playing
-            viewer.auto_enabled = True
+            viewer.game.state = GUIStateEnum.Playing
+            viewer.game.auto_enabled = True
             viewer.last_time = 0.0
             with patch.object(viewer, '_draw'):
                 for frame in range(1, 601):
                     with patch('visualize.maze_visualizer.time.monotonic',
                                return_value=frame / 60):
                         viewer._on_loop()
-                    x, y = viewer.player.movement.cell
+                    x, y = viewer.game.player.movement.cell
                     self.assertTrue(0 <= x < 5 and y == 0)
-                    if viewer.state != GUIStateEnum.Playing:
+                    if viewer.game.state != GUIStateEnum.Playing:
                         break
-            self.assertEqual(len(viewer.pacgums), 0)
-            self.assertEqual(viewer.state, GUIStateEnum.All_Clear)
-            self.assertEqual(viewer.player.lives, 3)
+            self.assertEqual(len(viewer.game.pacgums), 0)
+            self.assertEqual(viewer.game.state, GUIStateEnum.All_Clear)
+            self.assertEqual(viewer.game.player.lives, 3)
 
     def test_frozen_ghost_remains_an_obstacle(self) -> None:
         ghost = self.ghost((3, 0))

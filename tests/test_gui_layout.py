@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 from PIL import ImageFont
 
+from visualize.game import Game
 from visualize.gui import GUI, GUIStateEnum
 from visualize.highscore import ScoreEntry
 from visualize.maze_visualizer import MazeVisualizer
@@ -140,8 +141,11 @@ class GUILayoutTests(unittest.TestCase):
 
     def test_pause_background_contains_pause_labels(self) -> None:
         v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        v.game = cast(Any, Game.__new__(Game))
+        v.game.level_needs_placement = False
+        v.canvas = Mock()
         v.closed = False
-        v.state = GUIStateEnum.Pause
+        v.game.state = GUIStateEnum.Pause
         v.canvas, v.m = Mock(width=1600, height=1200), Mock()
         v.gui = GUI()
         v.gui.update_layout(1600, 1200)
@@ -150,13 +154,13 @@ class GUILayoutTests(unittest.TestCase):
         v.width, v.height = 1600, 1200
         v.cmodes = [((255, 255, 255), (255, 0, 0), (0, 0, 0))]
         v.cm = 0
-        v.maze, v.pacgums = Mock(), Mock()
-        v.ghosts = []
-        v.player = SimpleNamespace(is_invincible=False, draw=Mock(), score=100, lives=3)
-        v.level, v.remaining_time, v.cheat_enabled = 1, 30, False
-        v.auto_enabled = False
-        v.score_multiplier = 1
-        v.pacgum_points = {}
+        v.game.maze, v.game.pacgums = Mock(), Mock()
+        v.game.ghosts = []
+        v.game.player = SimpleNamespace(is_invincible=False, draw=Mock(), score=100, lives=3)
+        v.game.level, v.game.remaining_time, v.game.cheat_enabled = 1, 30, False
+        v.game.auto_enabled = False
+        v.game.score_multiplier = 1
+        v.game.pacgum_points = {}
         v._draw()
         _, x, y, width, height = v.gui.background.call_args.args
         self.assertLessEqual(abs(x-(v.width-x-width)), 1)

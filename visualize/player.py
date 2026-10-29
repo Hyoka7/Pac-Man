@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 from functools import cache
-from math import ceil, hypot, radians, tan
+from math import ceil, radians, tan
 
 from PIL import Image
 
@@ -25,60 +25,40 @@ def player_image(
         (side, side),
         (0, 0, 0, 0),
     )
-    center_x = side / 2
-    center_y = side / 2
-    mouth_half_angle = 45 * mouth_step / 10
-    mouth_slope = tan(radians(mouth_half_angle))
+    palette = Image.new(
+        "RGBA",
+        (16, 16),
+        (0, 0, 0, 0),
+    )
 
-    def _circle_coverage(x_pixel: float, y_pixel: float) -> float:
-        """Fade across a one-pixel band around the circle boundary."""
-        distance = hypot(x_pixel - center_x, y_pixel - center_y)
-        return max(0.0, min(1.0, radius + 0.5 - distance))
+    mouth_angle_half = 45 * mouth_step / 10
+    mouth_slope = tan(radians(mouth_angle_half))
 
-    def _is_in_mouth_horizon(x_pixel: float, y_pixel: float, dir: str) -> bool:
-        if mouth_half_angle <= 0:
-            return False
-        dx = x_pixel - center_x
-        dy = y_pixel - center_y
+    def _is_in_mouth(dx: float, dy: float) -> bool:
+        """Return whether a point relative to the center is inside the mouth."""
+        if direction == "E":
+            forward, across = dx, dy
+        elif direction == "W":
+            forward, across = -dx, dy
+        elif direction == "S":
+            forward, across = dy, dx
+        else:
+            forward, across = -dy, dx
         return (
-            abs(dy) <= abs(dx) * mouth_slope and dx > 0
-            if dir == "E"
-            else abs(dy) <= abs(dx) * mouth_slope and dx < 0
+            mouth_step > 0
+            and forward > 0
+            and abs(across) <= forward * mouth_slope
         )
 
-    def _is_in_mouth_vertical(x_pixel: float, y_pixel: float, dir: str) -> bool:
-        if mouth_half_angle <= 0:
-            return False
-        dx = x_pixel - center_x
-        dy = y_pixel - center_y
-        return (
-            abs(dx) <= abs(dy) * mouth_slope and dy > 0
-            if dir == "S"
-            else abs(dx) <= abs(dy) * mouth_slope and dy < 0
-        )
+    for y in range(16):
+        for x in range(16):
+            dx = x - 7.5
+            dy = y - 7.5
+            if dx * dx + dy * dy <= 8 * 8 and not _is_in_mouth(dx, dy):
+                palette.putpixel((x, y), (255, 255, 0, 255))
+    zoomed = palette.resize((side - 2, side - 2), resample=Image.Resampling.NEAREST)
+    img.alpha_composite(zoomed, (1, 1))
 
-    samples = (0.125, 0.375, 0.625, 0.875)
-    for y in range(side):
-        for x in range(side):
-            circle_coverage = _circle_coverage(x + 0.5, y + 0.5)
-            if circle_coverage == 0:
-                continue
-            if direction in ("E", "W"):
-                body_count = sum(
-                    not _is_in_mouth_horizon(x + dx, y + dy, direction)
-                    for dx in samples
-                    for dy in samples
-                )
-            else:
-                body_count = sum(
-                    not _is_in_mouth_vertical(x + dx, y + dy, direction)
-                    for dx in samples
-                    for dy in samples
-                )
-            coverage = circle_coverage * (body_count / 16)
-            if coverage == 0:
-                continue
-            img.putpixel((x, y), (255, 255, 0, round(coverage * 255)))
     return img
 
 

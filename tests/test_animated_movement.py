@@ -133,25 +133,25 @@ class AnimatedMovementTests(unittest.TestCase):
                 levels=[LevelConfig(width=5, height=1)],
             )
             viewer = MazeVisualizer([[13, 5, 5, 5, 7]], Mock(), config)
-            viewer.state = GUIStateEnum.Playing
-            viewer.ghosts = [Ghost((0, 0), BFSStrategy())]
-            viewer.player.movement.speed = 5.0
-            viewer.ghosts[0].movement.speed = 3.0
+            viewer.game.state = GUIStateEnum.Playing
+            viewer.game.ghosts = [Ghost((0, 0), BFSStrategy())]
+            viewer.game.player.movement.speed = 5.0
+            viewer.game.ghosts[0].movement.speed = 3.0
             viewer.canvas = self.canvas
-            viewer.player.place(self.canvas)
-            viewer.ghosts[0].place(self.canvas)
-            viewer.pacgums.reset(viewer.maze, self.canvas, viewer.player.movement.cell)
+            viewer.game.player.place(self.canvas)
+            viewer.game.ghosts[0].place(self.canvas)
+            viewer.game.pacgums.reset(viewer.game.maze, self.canvas, viewer.game.player.movement.cell)
             draw: Mock = self.enterContext(patch.object(viewer, "_draw"))
             viewer.closed = False
             viewer.last_time = 10.0
             viewer._on_key(65363)
             with patch("visualize.maze_visualizer.time.monotonic", return_value=10.05):
                 viewer._on_loop()
-            self.assertAlmostEqual(viewer.player.movement.center[0], 108.0)
-            self.assertAlmostEqual(viewer.ghosts[0].movement.center[0], 40.8)
-            self.assertEqual(viewer.player.movement.cell, (2, 0))
-            self.assertEqual(viewer.ghosts[0].cell, (0, 0))
-            self.assertAlmostEqual(viewer.remaining_time, 89.95)
+            self.assertAlmostEqual(viewer.game.player.movement.center[0], 108.0)
+            self.assertAlmostEqual(viewer.game.ghosts[0].movement.center[0], 40.8)
+            self.assertEqual(viewer.game.player.movement.cell, (2, 0))
+            self.assertEqual(viewer.game.ghosts[0].cell, (0, 0))
+            self.assertAlmostEqual(viewer.game.remaining_time, 89.95)
             draw.assert_called_once()
 
 

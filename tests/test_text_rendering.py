@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 from PIL import Image, ImageFont
 
+from visualize.game import Game
 from visualize.gui import GUI, GUIStateEnum
 from visualize.maze_visualizer import MazeVisualizer
 from visualize.visualizerutils import VisualizerUtils
@@ -196,6 +197,9 @@ class TextRenderingTests(unittest.TestCase):
 
     def test_every_screen_presents_completed_text_once_without_native_strings_or_sync(self) -> None:
         v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        v.game = cast(Any, Game.__new__(Game))
+        v.game.level_needs_placement = False
+        v.canvas = Mock()
         v.closed = False
         v.width, v.height = 800, 600
         v.canvas = canvas()
@@ -204,21 +208,21 @@ class TextRenderingTests(unittest.TestCase):
         v.p = v.win = v.img = 1
         v.cm = 0
         v.cmodes = [((0, 0, 0), (0, 0, 0), (0, 0, 0))]
-        v.maze, v.pacgums = Mock(), Mock()
-        v.ghosts = []
-        v.player = SimpleNamespace(is_invincible=True, invincible_remain=3,
+        v.game.maze, v.game.pacgums = Mock(), Mock()
+        v.game.ghosts = []
+        v.game.player = SimpleNamespace(is_invincible=True, invincible_remain=3,
             draw=Mock(), score=123, lives=3)
-        v.level, v.remaining_time = 1, 30
-        v.cheat_enabled = True
-        v.auto_enabled = False
-        v.score_multiplier = 1
-        v.pacgum_points = {}
-        v.player_name = 'Player'
-        v.home_focusing = 0
-        v.score_manager = SimpleNamespace(scores=SimpleNamespace(scores=[]))
+        v.game.level, v.game.remaining_time = 1, 30
+        v.game.cheat_enabled = True
+        v.game.auto_enabled = False
+        v.game.score_multiplier = 1
+        v.game.pacgum_points = {}
+        v.game.player_name = 'Player'
+        v.game.home_focusing = 0
+        v.game.score_manager = SimpleNamespace(scores=SimpleNamespace(scores=[]))
         for state in GUIStateEnum:
             with self.subTest(state=state):
-                v.state = state
+                v.game.state = state
                 v.m = Mock()
                 presented = []
                 v.m.mlx_put_image_to_window.side_effect = lambda *args: presented.append(bytes(v.canvas.img_data))

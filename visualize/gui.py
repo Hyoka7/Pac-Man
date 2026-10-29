@@ -1,23 +1,11 @@
 from collections.abc import Sequence
-from enum import IntEnum, auto
 
+from .game_state import GUIStateEnum
 from .ghost import ghost_image
 from .highscore import ScoreEntry
 from .image_renderer import ImageRenderer
 from .player import player_image
 from .visualizerutils import VisualizerUtils
-
-
-class GUIStateEnum(IntEnum):
-    Home = auto()
-    Instruction = auto()
-    Ranking = auto()
-    Playing = auto()
-    Pause = auto()
-    GameOver = auto()
-    Stage_Clear = auto()
-    All_Clear = auto()
-    Confirm_Clear = auto()
 
 
 class GUI:

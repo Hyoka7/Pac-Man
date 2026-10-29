@@ -20,25 +20,31 @@ def ghost_image(radius: float, color: tuple[int, int, int]) -> Image.Image:
         (side, side),
         (0, 0, 0, 0),
     )
-    center_x, center_y = side / 2, side / 2
-    notch_depth = radius / 3
-    notch_half_width = radius / 6
-    for y in range(side):
-        for x in range(side):
+    palette = Image.new(
+        "RGBA",
+        (16, 16),
+        (0, 0, 0, 0),
+    )
+    center_x, center_y = 8.0, 8.0
+    sprite_radius = 8.0
+    notch_depth = sprite_radius / 3
+    notch_half_width = sprite_radius / 6
+    for y in range(16):
+        for x in range(16):
             dx = x + 0.5 - center_x
             dy = y + 0.5 - center_y
             if dy <= 0:
                 # Distance to the head's circular outline.
-                distance = hypot(dx, dy) - radius
+                distance = hypot(dx, dy) - sprite_radius
             else:
                 # Distance to the sides and bottom; the head-body join
                 # is inside the shape, so it must stay fully colored.
-                distance = max(abs(dx) - radius, dy - radius)
-            for notch_x in (-radius / 2, 0.0, radius / 2):
+                distance = max(abs(dx) - sprite_radius, dy - sprite_radius)
+            for notch_x in (-sprite_radius / 2, 0.0, sprite_radius / 2):
                 # Center each ellipse on the bottom edge so its upper
                 # half removes a rounded notch from the body.
                 ellipse_x = (dx - notch_x) / notch_half_width
-                ellipse_y = (dy - radius) / notch_depth
+                ellipse_y = (dy - sprite_radius) / notch_depth
                 ellipse_radius = hypot(ellipse_x, ellipse_y)
                 gradient = hypot(ellipse_x / notch_half_width, ellipse_y / notch_depth)
                 # Approximate distance in pixels, positive inside the cut.
@@ -48,8 +54,33 @@ def ghost_image(radius: float, color: tuple[int, int, int]) -> Image.Image:
                     else min(notch_half_width, notch_depth)
                 )
                 distance = max(distance, cut_distance)
-            coverage = max(0.0, min(1.0, 0.5 - distance))
-            img.putpixel((x, y), (*color, round(coverage * 255)))
+            if distance <= 0:
+                palette.putpixel((x, y), (*color, 255))
+
+    def range_putpixel(
+        start_x: int,
+        start_y: int,
+        end_x: int,
+        end_y: int,
+        img: Image.Image,
+        color: tuple[
+            int,
+            int,
+            int,
+            int,
+        ],
+    ) -> None:
+        for y in range(start_y, end_y + 1):
+            for x in range(start_x, end_x + 1):
+                img.putpixel((x, y), color)
+
+    range_putpixel(3, 5, 6, 8, palette, (255, 255, 255, 255))
+    range_putpixel(9, 5, 12, 8, palette, (255, 255, 255, 255))
+    range_putpixel(5, 7, 6, 8, palette, (0, 0, 0, 255))
+    range_putpixel(11, 7, 12, 8, palette, (0, 0, 0, 255))
+
+    zoomed = palette.resize((side - 2, side - 2), resample=Image.Resampling.NEAREST)
+    img.alpha_composite(zoomed, (1, 1))
     return img
 
 

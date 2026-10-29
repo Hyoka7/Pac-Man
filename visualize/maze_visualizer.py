@@ -1,65 +1,25 @@
-"""Connect MLX lifecycle and events to the game components."""
+"""Adapt game state to the MLX window, events and rendering."""
 
 from __future__ import annotations
 
 import time
-from enum import IntEnum
 from typing import TYPE_CHECKING
 
 from mazegenerator import MazeGenerator
 
 from models import Config
 
-from .auto_player import AutoPlayer
-from .cheating import CheatHandler
-from .collision import Collision
-from .ghost import Ghost
+from .controls import KeyEnum, WindowAction
+from .game import Game
 from .gui import GUI, GUIStateEnum
-from .highscore import HighscoreManager, ScoreEntry
-from .maze import Maze
-from .pacgums import PacgumEatenEnum, Pacgums
-from .player import Player
-from .strategy import BFSStrategy, RandomStrategy
 from .visualizerutils import VisualizerUtils
 
 if TYPE_CHECKING:
     from mlx import Mlx
 
 
-class KeyEnum(IntEnum):
-    A = 97
-    C = 99
-    D = 100
-    F = 102
-    H = 104
-    I = 105
-    K = 107
-    L = 108
-    M = 109
-    N = 110
-    O = 111
-    P = 112
-    R = 114
-    S = 115
-    T = 116
-    V = 118
-    W = 119
-    X = 120
-    Y = 121
-    BACKSPACE = 65288
-    ENTER = 65293
-    ESC = 65307
-    LEFT = 65361
-    UP = 65362
-    RIGHT = 65363
-    DOWN = 65364
-    SHIFT_L = 65505
-    SHIFT_R = 65506
-
-
-
 class MazeVisualizer:
-    """Coordinate the window, input, updates and rendering."""
+    """Own MLX resources, screen layout and presentation of the game."""
 
     m: Mlx
     p: int
@@ -78,38 +38,9 @@ class MazeVisualizer:
         generator: MazeGenerator,
         config: Config,
     ) -> None:
-        """Create game components before opening a graphics window."""
-        self.config = config
-        self.pacgum_points = {
-            PacgumEatenEnum.Normal: config.points_per_pacgum,
-            PacgumEatenEnum.Super: config.points_per_super_pacgum,
-        }
-        self.ghost_points = config.points_per_ghost
-        self.score_multiplier = 1
-        self.maze = Maze(maze)
-        self.player = Player(
-            self.maze.central_cell(),
-            self.config.lives,
-        )
-        self.pacgums = Pacgums(self.maze.rows, self.maze.cols)
-        self.judge = Collision()
-        self.score_manager = HighscoreManager(self.config.highscore_filename)
+        """Connect game state to the GUI before opening a graphics window."""
+        self.game = Game(maze, generator, config)
         self.gui = GUI()
-        self.cheathandler = CheatHandler([ord(char) for char in "3111696"])
-        self.generator = generator
-        self.ghosts: list[Ghost] = []
-        self.ghosts.append(Ghost((0, 0), RandomStrategy(), (128, 128, 128)))
-        self.ghosts.append(Ghost((0, self.maze.rows - 1), BFSStrategy()))
-        self.ghosts.append(
-            Ghost((self.maze.cols - 1, 0), BFSStrategy(), color=(0, 255, 0)),
-        )
-        self.ghosts.append(
-            Ghost(
-                (self.maze.cols - 1, self.maze.rows - 1),
-                BFSStrategy(),
-                color=(0, 0, 255),
-            )
-        )
         self.cmodes = [
             ((126, 249, 255), (255, 92, 138), (145, 255, 174)),
             ((89, 196, 255), (255, 204, 92), (77, 255, 218)),
@@ -125,20 +56,8 @@ class MazeVisualizer:
             ((224, 230, 238), (255, 105, 105), (112, 224, 178)),
         ]
         self.cm = 0
-        self.level = 1
-        self.home_focusing = 0
-        self.max_level = len(self.config.levels)
-        self.remaining_time = self.config.levels[0].max_time
         self.closed = True
-        self.needs_redraw = True
-        self.cheat_enabled = False
-        self.auto_enabled = False
-        self.auto_player = AutoPlayer()
-        self.ghost_frozen = False
-        self.state: GUIStateEnum = GUIStateEnum.Home
         self.last_time = time.monotonic()
-        self.player_name = ""
-        self.shift_keys: set[int] = set()
 
     def _draw(self, _param: object = None) -> None:
         """Compose the current game view into the image buffer."""
@@ -146,23 +65,23 @@ class MazeVisualizer:
         if self.closed:
             return
         show_invincible_status = (
-            self.state in (GUIStateEnum.Playing, GUIStateEnum.Pause)
-            and self.player.is_invincible
+            self.game.state in (GUIStateEnum.Playing, GUIStateEnum.Pause)
+            and self.game.player.is_invincible
         )
         self.canvas.clear_image()
-        self.gui.draw_backdrop(self.canvas, self.state)
-        if self.state == GUIStateEnum.Playing or self.state == GUIStateEnum.Pause:
+        self.gui.draw_backdrop(self.canvas, self.game.state)
+        if self.game.state == GUIStateEnum.Playing or self.game.state == GUIStateEnum.Pause:
             wall_color, landmark_color, _ = self.cmodes[self.cm]
-            self.maze.draw(self.canvas, wall_color, landmark_color)
-            self.pacgums.draw(self.canvas)
-            for ghost in self.ghosts:
+            self.game.maze.draw(self.canvas, wall_color, landmark_color)
+            self.game.pacgums.draw(self.canvas)
+            for ghost in self.game.ghosts:
                 ghost.draw(
                     self.canvas,
-                    self.player.is_invincible,
-                    self.player.invincible_remain,
+                    self.game.player.is_invincible,
+                    self.game.player.invincible_remain,
                 )
-            self.player.draw(self.canvas)
-        if self.state == GUIStateEnum.Pause:
+            self.game.player.draw(self.canvas)
+        if self.game.state == GUIStateEnum.Pause:
             self.gui.draw_pause_background(self.canvas)
         bar_y = self.gui.bar_y
         if show_invincible_status:
@@ -172,7 +91,7 @@ class MazeVisualizer:
                 bar_y,
                 self.gui.bar_width,
                 self.gui.bar_height,
-                self.player.invincible_remain,
+                self.game.player.invincible_remain,
                 5.0,
             )
 
@@ -181,76 +100,76 @@ class MazeVisualizer:
                 self.canvas,
                 self.width,
                 bar_y,
-                self.player.invincible_remain,
+                self.game.player.invincible_remain,
             )
 
-        if self.state == GUIStateEnum.Home:
+        if self.game.state == GUIStateEnum.Home:
             self.gui.home(
                 self.canvas,
                 self.width,
                 self.height,
-                self.score_manager.scores.scores,
-                self.home_focusing,
+                self.game.score_manager.scores.scores,
+                self.game.home_focusing,
             )
-        elif self.state == GUIStateEnum.Instruction:
+        elif self.game.state == GUIStateEnum.Instruction:
             self.gui.instruction(
                 self.canvas,
                 self.width,
                 self.height,
             )
-        elif self.state == GUIStateEnum.Playing or self.state == GUIStateEnum.Pause:
+        elif self.game.state == GUIStateEnum.Playing or self.game.state == GUIStateEnum.Pause:
             self.gui.draw_stats(
                 self.canvas,
                 self.gui.hud_x,
                 self.gui.hud_y,
-                self.level,
-                self.player.score,
-                self.player.lives,
-                self.remaining_time,
-                self.cheat_enabled,
-                auto_enabled=self.auto_enabled,
-                score_multiplier=self.score_multiplier,
+                self.game.level,
+                self.game.player.score,
+                self.game.player.lives,
+                self.game.remaining_time,
+                self.game.cheat_enabled,
+                auto_enabled=self.game.auto_enabled,
+                score_multiplier=self.game.score_multiplier,
             )
-        elif self.state == GUIStateEnum.Ranking:
+        elif self.game.state == GUIStateEnum.Ranking:
             self.gui.ranking(
                 self.canvas,
                 self.width,
                 self.height,
-                self.score_manager.scores.scores,
+                self.game.score_manager.scores.scores,
             )
-        elif self.state == GUIStateEnum.Confirm_Clear:
+        elif self.game.state == GUIStateEnum.Confirm_Clear:
             self.gui.confirm_clear(self.canvas, self.width, self.height)
-        if self.state == GUIStateEnum.GameOver:
+        if self.game.state == GUIStateEnum.GameOver:
             self.gui.gameover(
                 self.canvas,
                 self.width,
                 self.height,
-                self.player.score,
-                self.player_name,
+                self.game.player.score,
+                self.game.player_name,
             )
-        elif self.state == GUIStateEnum.Pause:
+        elif self.game.state == GUIStateEnum.Pause:
             self.gui.pause(
                 self.canvas,
                 self.width,
                 self.height,
             )
-        elif self.state == GUIStateEnum.Stage_Clear:
+        elif self.game.state == GUIStateEnum.Stage_Clear:
             self.gui.stage_clear(
                 self.canvas,
                 self.width,
                 self.height,
             )
-        elif self.state == GUIStateEnum.All_Clear:
+        elif self.game.state == GUIStateEnum.All_Clear:
             self.gui.all_clear(
                 self.canvas,
                 self.width,
                 self.height,
-                self.player.score,
-                self.player_name,
+                self.game.player.score,
+                self.game.player_name,
             )
 
         self.m.mlx_put_image_to_window(self.p, self.win, self.img, 0, 0)
-        self.needs_redraw = False
+        self.game.needs_redraw = False
 
     def _close(self, _param: object = None) -> None:
         del _param
@@ -261,289 +180,56 @@ class MazeVisualizer:
         self.m.mlx_destroy_window(self.p, self.win)
         self.m.mlx_loop_exit(self.p)
 
-    def _respawn(self) -> None:
-        self.player.reset(self.canvas)
-        for ghost in self.ghosts:
-            ghost.reset(self.canvas)
-
     def _on_loop(self, _param: object = None) -> None:
-        """Update movement and mouth animation, then redraw the frame."""
+        """Supply elapsed time to the game, then present its current state."""
         now = time.monotonic()
         elapsed = now - self.last_time
         self.last_time = now
         if self.closed:
             return
-        if self.state == GUIStateEnum.Playing:
-            self.remaining_time = max(self.remaining_time - elapsed, 0.0)
-            if self.auto_enabled:
-                eaten = self.player.update(
-                    elapsed,
-                    self.maze,
-                    self.canvas,
-                    self.pacgums,
-                    choose_auto_direction=self._choose_auto_direction,
-                )
-            else:
-                eaten = self.player.update(
-                    elapsed, self.maze, self.canvas, self.pacgums
-                )
-            points = self.pacgum_points.get(eaten, 0)
-            if points:
-                self.player.score += points * self.score_multiplier
-            if len(self.pacgums) == 0:
-                if self.level < self.max_level:
-                    self.state = GUIStateEnum.Stage_Clear
-                    self.needs_redraw = True
-                else:
-                    self.state = GUIStateEnum.All_Clear
-                    self.needs_redraw = True
-            elif self.remaining_time == 0.0:
-                self.player.is_alive = False
-                self.player.lives = 0
-                self.state = GUIStateEnum.GameOver
-                self.needs_redraw = True
-            else:
-                for ghost in self.ghosts:
-                    if not self.ghost_frozen:
-                        ghost.update(
-                            elapsed,
-                            self.maze,
-                            self.canvas,
-                            self.player.movement.cell,
-                            self.player.is_invincible,
-                        )
-                    if ghost.respawn_remaining > 0.0:
-                        continue
-                    if self.player.is_alive and self.judge.is_collision(
-                        self.player, ghost
-                    ):
-                        if not self.player.is_invincible:
-                            print(f"YOU DIED BY {ghost.color}")
-                            self.player.lives -= 1
-                            if self.player.lives == 0:
-                                self.player.is_alive = False
-                                self.state = GUIStateEnum.GameOver
-                                self.needs_redraw = True
-                            else:
-                                self._respawn()
-                            break
-                        else:
-                            print(f"YOU EATEN {ghost.color}")
-                            self.player.score += (
-                                self.ghost_points * self.score_multiplier
-                            )
-                            ghost.reset(self.canvas)
-                            ghost.respawn_remaining = 5.0
-                self.player.update_mouth(elapsed)
-        if self.state == GUIStateEnum.Playing or self.needs_redraw:
+        self._place_pending_level()
+        self.game.update(elapsed, self.canvas)
+        if self.game.state == GUIStateEnum.Playing or self.game.needs_redraw:
             self._draw()
 
-    def _choose_auto_direction(self) -> str | None:
-        return self.auto_player.choose_direction(
-            self.maze,
-            self.player,
-            self.pacgums,
-            self.ghosts,
-            self.canvas,
-            ghosts_frozen=self.ghost_frozen,
-        )
-
     def _on_key(self, key: int, _param: object = None) -> None:
-        """Dispatch controls to the owning component."""
+        """Pass controls to the game and apply requested window actions."""
         if self.closed:
             return
-        if key == KeyEnum.SHIFT_L or key == KeyEnum.SHIFT_R:
-            self.shift_keys.add(key)
-            return
-        if key == KeyEnum.ESC:
+        action = self.game.handle_key(key, self.canvas)
+        if action == WindowAction.Close:
             self._close()
             return
-        if self.state == GUIStateEnum.Home:
-            if key == KeyEnum.ENTER:
-                if self.home_focusing == 0:
-                    self.restart_game()
-                elif self.home_focusing == 1:
-                    self.state = GUIStateEnum.Instruction
-                    self.needs_redraw = True
-                elif self.home_focusing == 2:
-                    self.state = GUIStateEnum.Ranking
-                    self.needs_redraw = True
-                elif self.home_focusing == 3:
-                    self._close()
-            elif key == KeyEnum.I:
-                self.state = GUIStateEnum.Instruction
-                self.needs_redraw = True
-            elif key == KeyEnum.H:
-                self.state = GUIStateEnum.Ranking
-                self.needs_redraw = True
-            elif key == KeyEnum.UP:
-                self.home_focusing = (self.home_focusing - 1) % 4
-                self.needs_redraw = True
-            elif key == KeyEnum.DOWN:
-                self.home_focusing = (self.home_focusing + 1) % 4
-                self.needs_redraw = True
-        elif self.state == GUIStateEnum.Ranking:
-            if key == KeyEnum.ENTER:
-                self.state = GUIStateEnum.Home
-                self.needs_redraw = True
-            elif key == KeyEnum.C:
-                self.state = GUIStateEnum.Confirm_Clear
-                self.needs_redraw = True
-        elif self.state == GUIStateEnum.Instruction:
-            if key == KeyEnum.ENTER:
-                self.state = GUIStateEnum.Home
-                self.needs_redraw = True
-        elif self.state == GUIStateEnum.Confirm_Clear:
-            if key == KeyEnum.Y:
-                self.score_manager.clear()
-                self.state = GUIStateEnum.Ranking
-                self.needs_redraw = True
-            elif key == KeyEnum.N:
-                self.state = GUIStateEnum.Ranking
-                self.needs_redraw = True
-        elif self.state == GUIStateEnum.Playing:
-            if self.cheathandler.consume(key):
-                self.cheat_enabled = not self.cheat_enabled
-                if not self.cheat_enabled:
-                    self.ghost_frozen = False
-                    self.auto_enabled = False
-                    self.score_multiplier = 1
-                    self.player.movement.wallhack = False
-                return
-            if self.cheathandler.index > 0:
-                return
-            if key == KeyEnum.P:
-                self.state = GUIStateEnum.Pause
-                self.needs_redraw = True
-            elif key in (99, 67):
-                self.cm = (self.cm + 1) % len(self.cmodes)
-                self._draw()
-            elif key == KeyEnum.N and self.cheat_enabled:
-                self.next_level()
-            elif key == KeyEnum.F and self.cheat_enabled:
-                self.ghost_frozen = not self.ghost_frozen
-            elif key == KeyEnum.L and self.cheat_enabled:
-                self.player.lives += 1
-            elif key == KeyEnum.T and self.cheat_enabled:
-                self.remaining_time += 10.0
-            elif key == KeyEnum.O and self.cheat_enabled:
-                self.auto_enabled = not self.auto_enabled
-                self.player.reserved_move = None
-            elif key == KeyEnum.X and self.cheat_enabled:
-                self.score_multiplier = 10 if self.score_multiplier == 1 else 1
-            elif key == KeyEnum.H and self.cheat_enabled:
-                self.player.movement.wallhack = not self.player.movement.wallhack
-            elif key == KeyEnum.V and self.cheat_enabled:
-                self.player.movement.speed = (
-                    8 if self.player.movement.speed == 16 else 16
-                )
-            else:
-                directions: dict[int, str] = {
-                    KeyEnum.LEFT: "W",
-                    KeyEnum.A: "W",
-                    KeyEnum.UP: "N",
-                    KeyEnum.W: "N",
-                    KeyEnum.RIGHT: "E",
-                    KeyEnum.D: "E",
-                    KeyEnum.DOWN: "S",
-                    KeyEnum.S: "S",
-                }
-                if key in directions:
-                    self.auto_enabled = False
-                    self.player.request_move(directions[key], self.maze, self.canvas)
-
-        elif self.state == GUIStateEnum.Pause:
-            if key == KeyEnum.P:
-                self.state = GUIStateEnum.Playing
-                self.needs_redraw = True
-            elif key == KeyEnum.H:
-                self.state = GUIStateEnum.Home
-                self.needs_redraw = True
-        elif self.state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
-            if key == KeyEnum.ENTER:
-                self.score_manager += ScoreEntry(
-                    name=self.player_name if len(self.player_name) else "kyonaha",
-                    score=self.player.score,
-                )
-                self.player_name = ""
-                self.state = GUIStateEnum.Home
-                self.needs_redraw = True
-            elif key == KeyEnum.BACKSPACE:
-                self.player_name = self.player_name[:-1]
-                self.needs_redraw = True
-            elif (
-                0 <= key <= 128
-                and (chr(key).isalnum() or chr(key) == " ")
-                and len(self.player_name) < 10
-            ):
-                char = chr(key)
-                if len(self.shift_keys):
-                    self.player_name += char.upper()
-                else:
-                    self.player_name += char
-                self.needs_redraw = True
-        elif self.state == GUIStateEnum.Stage_Clear:
-            self.next_level()
+        self._place_pending_level()
+        if action == WindowAction.CycleColors:
+            self.cm = (self.cm + 1) % len(self.cmodes)
+            self._draw()
 
     def _on_key_release(self, key: int, _param: object = None) -> None:
-        if key == KeyEnum.SHIFT_L or key == KeyEnum.SHIFT_R:
-            self.shift_keys.discard(key)
+        self.game.release_key(key)
 
-    def regenerate_maze(self) -> None:
-        new_conf = self.config.levels[self.level - 1]
-        new_generator = MazeGenerator((new_conf.width, new_conf.height))
-        self.generator = new_generator
-        self.maze = Maze(self.generator.maze)
+    def _place_pending_level(self) -> None:
+        """Apply screen geometry before the game places entities and pickups."""
+        if not self.game.level_needs_placement:
+            return
         self._update_layout()
         self.canvas.margin = self.margin
         self.canvas.cell_size = self.cell_size
         self.canvas.offset_x = self.offset_x
         self.canvas.offset_y = self.offset_y
-        self.player.movement.initial_cell = self.maze.central_cell()
-        corners = []
-        corners.append((0, 0))
-        corners.append((0, self.maze.rows - 1))
-        corners.append((self.maze.cols - 1, 0))
-        corners.append((self.maze.cols - 1, self.maze.rows - 1))
-        for ghost, corner in zip(self.ghosts, corners):
-            ghost.movement.initial_cell = corner
+        self.game.place(self.canvas)
 
     def next_level(self) -> None:
-        if self.level >= self.max_level:
-            self.state = GUIStateEnum.All_Clear
-            self.needs_redraw = True
-            return
-        self.level += 1
-        self.regenerate_maze()
-        self._respawn()
-        self.pacgums.reset(
-            self.maze,
-            self.canvas,
-            self.player.movement.cell,
-        )
-        self.remaining_time = self.config.levels[self.level - 1].max_time
-        self.state = GUIStateEnum.Playing
+        self.game.next_level()
+        self._place_pending_level()
 
     def restart_game(self) -> None:
-        self.auto_enabled = False
-        self.score_multiplier = 1
-        self.player.movement.wallhack = False
-        self.level = 1
-        self.player.score = 0
-        self.player.lives = self.player.initial_lives
-        self.regenerate_maze()
-        self._respawn()
-        self.pacgums.reset(
-            self.maze,
-            self.canvas,
-            self.player.movement.cell,
-        )
-        self.remaining_time = self.config.levels[0].max_time
-        self.state = GUIStateEnum.Playing
+        self.game.restart_game()
+        self._place_pending_level()
 
     def _calc_cell_size(self) -> int:
-        fit_x = (self.width - 2 * self.margin - 1) // self.maze.cols
-        fit_y = (self.height - 2 * self.margin - 1) // self.maze.rows
+        fit_x = (self.width - 2 * self.margin - 1) // self.game.maze.cols
+        fit_y = (self.height - 2 * self.margin - 1) // self.game.maze.rows
         return min(fit_x, fit_y)
 
     def _update_layout(self) -> None:
@@ -553,8 +239,8 @@ class MazeVisualizer:
         self.cell_size = self._calc_cell_size()
         if self.cell_size < 1:
             raise ValueError("maze is too large for the screen")
-        self.offset_x = (self.width - (self.cell_size * self.maze.cols + 1)) // 2
-        self.offset_y = (self.height - (self.cell_size * self.maze.rows + 1)) // 2
+        self.offset_x = (self.width - (self.cell_size * self.game.maze.cols + 1)) // 2
+        self.offset_y = (self.height - (self.cell_size * self.game.maze.rows + 1)) // 2
 
     def run(self) -> None:
         """Open the window and display the maze until it is closed."""
@@ -596,10 +282,7 @@ class MazeVisualizer:
                 self.offset_x,
                 self.offset_y,
             )
-            self.player.place(self.canvas)
-            for ghost in self.ghosts:
-                ghost.place(self.canvas)
-            self.pacgums.reset(self.maze, self.canvas, self.player.movement.cell)
+            self.game.place(self.canvas)
             self.m.mlx_loop_hook(self.p, self._on_loop, None)
             self.m.mlx_hook(self.win, 2, 1, self._on_key, None)
             self.m.mlx_hook(self.win, 3, 2, self._on_key_release, None)
