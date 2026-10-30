@@ -71,7 +71,7 @@ class Player:
         initial_lives: int = 3,
     ) -> None:
         """Start stopped at a cell, facing east."""
-        self.movement = Movement(pos, speed=8.0)
+        self.movement = Movement(pos, speed=6.5)
         self.renderer = ImageRenderer()
         self.radius: float = 0.0
         self.ult = False

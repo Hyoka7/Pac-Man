@@ -84,9 +84,12 @@ class Game:
         for ghost in self.ghosts:
             ghost.reset(canvas)
 
-    def update(self, elapsed: float, canvas: VisualizerUtils) -> PacgumEatenEnum:
+    def update(
+        self, elapsed: float, canvas: VisualizerUtils
+    ) -> tuple[PacgumEatenEnum, int]:
         """Advance gameplay by the supplied elapsed seconds; paused states stay still."""
         eaten = PacgumEatenEnum.Neither
+        ghost_eaten = 0
         if self.state == GUIStateEnum.Playing:
             self.remaining_time = max(self.remaining_time - elapsed, 0.0)
             if self.auto_enabled:
@@ -133,6 +136,7 @@ class Game:
                             if self.no_collision:
                                 continue
                             self.player.lives -= 1
+
                             if self.player.lives == 0:
                                 self.player.is_alive = False
                                 self.state = GUIStateEnum.GameOver
@@ -144,10 +148,11 @@ class Game:
                             self.player.score += (
                                 self.ghost_points * self.score_multiplier
                             )
+                            ghost_eaten += 1
                             ghost.reset(canvas)
                             ghost.respawn_remaining = 5.0
                 self.player.update_mouth(elapsed)
-        return eaten
+        return eaten, ghost_eaten
 
     def _choose_auto_direction(self, canvas: VisualizerUtils) -> str | None:
         return self.auto_player.choose_direction(
@@ -214,6 +219,7 @@ class Game:
                 self.cheat_enabled = not self.cheat_enabled
                 if not self.cheat_enabled:
                     self.ghost_frozen = False
+                    self.no_collision = False
                     self.auto_enabled = False
                     self.score_multiplier = 1
                     self.player.movement.wallhack = False
@@ -327,6 +333,7 @@ class Game:
 
     def restart_game(self) -> None:
         self.auto_enabled = False
+        self.no_collision = False
         self.score_multiplier = 1
         self.player.movement.wallhack = False
         self.level = 1
