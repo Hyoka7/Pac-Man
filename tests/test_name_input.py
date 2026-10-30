@@ -11,13 +11,16 @@ from unittest.mock import Mock
 from visualize.game import Game
 from visualize.gui import GUIStateEnum
 from visualize.highscore import HighscoreManager
-from visualize.maze_visualizer import KeyEnum, MazeVisualizer
+from visualize.controls import KeyEnum
+from visualize.maze_visualizer import MazeVisualizer
 
 
 def viewer(state: GUIStateEnum = GUIStateEnum.GameOver) -> Any:
     v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+    v.audio = Mock()
     v.game = cast(Any, Game.__new__(Game))
     v.game.level_needs_placement = False
+    v.game.no_collision = False
     v.canvas = Mock()
     v.closed = False
     v.game.state = state

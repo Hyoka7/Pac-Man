@@ -9,3 +9,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Pixabay audio: download locally; see assets/audio/README.md
+/assets/audio/menu_bgm.mp3
+/assets/audio/pacgum.mp3

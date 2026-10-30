@@ -24,6 +24,7 @@ from visualize.visualizerutils import VisualizerUtils
 
 class LevelLayoutTests(unittest.TestCase):
     def make_viewer(self) -> MazeVisualizer:
+        self.enterContext(patch('visualize.maze_visualizer.AudioManager'))
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         config = Config(
@@ -146,8 +147,10 @@ class LevelLayoutTests(unittest.TestCase):
 
     def test_layout_centers_both_axes_and_rejects_unrenderable_cells(self) -> None:
         viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        viewer.audio = Mock()
         viewer.game = cast(Any, Game.__new__(Game))
         viewer.game.level_needs_placement = False
+        viewer.game.no_collision = False
         viewer.canvas = Mock()
         viewer.gui = GUI()
         viewer.width, viewer.height, viewer.margin = 1000, 800, 100
@@ -168,8 +171,10 @@ class LevelLayoutTests(unittest.TestCase):
         for width, height in ((800, 600), (2460, 1340), (4000, 2200)):
             with self.subTest(size=(width, height)):
                 viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+                viewer.audio = Mock()
                 viewer.game = cast(Any, Game.__new__(Game))
                 viewer.game.level_needs_placement = False
+                viewer.game.no_collision = False
                 viewer.canvas = Mock()
                 viewer.gui = GUI()
                 viewer.width, viewer.height, viewer.margin = width, height, 100

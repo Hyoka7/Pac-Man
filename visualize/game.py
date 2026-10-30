@@ -71,6 +71,7 @@ class Game:
         self.player_name = ""
         self.shift_keys: set[int] = set()
         self.level_needs_placement = False
+        self.no_collision = False
 
     def place(self, canvas: VisualizerUtils) -> None:
         """Place a new level after the renderer has updated the canvas layout."""
@@ -83,8 +84,9 @@ class Game:
         for ghost in self.ghosts:
             ghost.reset(canvas)
 
-    def update(self, elapsed: float, canvas: VisualizerUtils) -> None:
+    def update(self, elapsed: float, canvas: VisualizerUtils) -> PacgumEatenEnum:
         """Advance gameplay by the supplied elapsed seconds; paused states stay still."""
+        eaten = PacgumEatenEnum.Neither
         if self.state == GUIStateEnum.Playing:
             self.remaining_time = max(self.remaining_time - elapsed, 0.0)
             if self.auto_enabled:
@@ -128,7 +130,8 @@ class Game:
                         self.player, ghost
                     ):
                         if not self.player.is_invincible:
-                            print(f"YOU DIED BY {ghost.color}")
+                            if self.no_collision:
+                                continue
                             self.player.lives -= 1
                             if self.player.lives == 0:
                                 self.player.is_alive = False
@@ -138,13 +141,13 @@ class Game:
                                 self.respawn(canvas)
                             break
                         else:
-                            print(f"YOU EATEN {ghost.color}")
                             self.player.score += (
                                 self.ghost_points * self.score_multiplier
                             )
                             ghost.reset(canvas)
                             ghost.respawn_remaining = 5.0
                 self.player.update_mouth(elapsed)
+        return eaten
 
     def _choose_auto_direction(self, canvas: VisualizerUtils) -> str | None:
         return self.auto_player.choose_direction(
@@ -241,6 +244,8 @@ class Game:
                 self.player.movement.speed = (
                     8 if self.player.movement.speed == 16 else 16
                 )
+            elif key == KeyEnum.K and self.cheat_enabled:
+                self.no_collision = not self.no_collision
             else:
                 directions: dict[int, str] = {
                     KeyEnum.LEFT: "W",

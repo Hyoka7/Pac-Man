@@ -141,8 +141,10 @@ class GUILayoutTests(unittest.TestCase):
 
     def test_pause_background_contains_pause_labels(self) -> None:
         v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        v.audio = Mock()
         v.game = cast(Any, Game.__new__(Game))
         v.game.level_needs_placement = False
+        v.game.no_collision = False
         v.canvas = Mock()
         v.closed = False
         v.game.state = GUIStateEnum.Pause

@@ -11,7 +11,7 @@ from visualize.player import player_image
 class PixelSpriteTests(unittest.TestCase):
     def test_sprites_have_only_opaque_or_transparent_pixels(self) -> None:
         for radius in (8, 12.5, 24):
-            images = [ghost_image(radius, (0, 0, 128))]
+            images = [ghost_image(radius, (0, 0, 128), "E")]
             images.extend(player_image(radius, direction, step)
                           for direction in "EWNS" for step in (0, 5, 10))
             for image in images:
@@ -22,7 +22,7 @@ class PixelSpriteTests(unittest.TestCase):
 
     def test_integer_scale_repeats_each_source_pixel(self) -> None:
         for make in (lambda r: player_image(r, "E", 10),
-                     lambda r: ghost_image(r, (255, 0, 0))):
+                     lambda r: ghost_image(r, (255, 0, 0), "E")):
             small = make(8).crop((1, 1, 17, 17))
             large = make(24)
             self.assertEqual(large.size, (50, 50))
@@ -31,7 +31,7 @@ class PixelSpriteTests(unittest.TestCase):
                              expected.tobytes())
 
     def test_ghost_is_symmetric_with_four_feet(self) -> None:
-        image = ghost_image(8, (255, 0, 0))
+        image = ghost_image(8, (255, 0, 0), "E")
         alpha = image.getchannel("A")
         self.assertEqual(alpha.tobytes(),
                          alpha.transpose(Image.Transpose.FLIP_LEFT_RIGHT).tobytes())
@@ -40,11 +40,14 @@ class PixelSpriteTests(unittest.TestCase):
                    for x, filled in enumerate(row))
         self.assertEqual(feet, 4)
 
-    def test_ghost_eyes_have_white_backgrounds_and_black_pupils(self) -> None:
-        image = ghost_image(8, (255, 0, 0))
-        for left in (3, 9):
-            for y in range(5, 9):
-                for x in range(left, left + 4):
-                    expected = ((0, 0, 0, 255) if x >= left + 2 and y >= 7
-                                else (255, 255, 255, 255))
-                    self.assertEqual(image.getpixel((x + 1, y + 1)), expected)
+    def test_ghost_pupils_follow_direction_and_stay_within_whites(self) -> None:
+        offsets = {"E": (2, 1), "W": (0, 1), "N": (1, 0), "S": (1, 2)}
+        for direction, (dx, dy) in offsets.items():
+            with self.subTest(direction=direction):
+                image = ghost_image(8, (255, 0, 0), direction)
+                for left in (3, 9):
+                    for y in range(5, 9):
+                        for x in range(left, left + 4):
+                            pupil = left + dx <= x < left + dx + 2 and 5 + dy <= y < 7 + dy
+                            expected = (0, 0, 0, 255) if pupil else (255, 255, 255, 255)
+                            self.assertEqual(image.getpixel((x + 1, y + 1)), expected)

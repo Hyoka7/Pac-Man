@@ -10,13 +10,15 @@ from unittest.mock import Mock, patch
 from models.models import Config, LevelConfig
 from visualize.ghost import Ghost
 from visualize.gui import GUIStateEnum
-from visualize.maze_visualizer import KeyEnum, MazeVisualizer
+from visualize.controls import KeyEnum
+from visualize.maze_visualizer import MazeVisualizer
 from visualize.strategy import BFSStrategy
 from visualize.visualizerutils import VisualizerUtils
 
 
 class ScoreCheatTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.enterContext(patch('visualize.maze_visualizer.AudioManager'))
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         config = Config(

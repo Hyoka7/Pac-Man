@@ -28,6 +28,7 @@ class AnimatedMovementTests(unittest.TestCase):
 
     def setUp(self) -> None:
         """Use a three-cell corridor with walls at both ends."""
+        self.enterContext(patch('visualize.maze_visualizer.AudioManager'))
         self.maze = Maze([[13, 5, 7]])
         self.canvas = make_canvas()
 

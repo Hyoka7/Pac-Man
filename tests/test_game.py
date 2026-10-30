@@ -5,7 +5,7 @@ from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from mazegenerator import MazeGenerator
 
@@ -15,12 +15,14 @@ from visualize.game import Game
 from visualize.game_state import GUIStateEnum
 from visualize.ghost import Ghost
 from visualize.maze_visualizer import MazeVisualizer
+from visualize.pacgums import PacgumEatenEnum
 from visualize.strategy import BFSStrategy
 from visualize.visualizerutils import VisualizerUtils
 
 
 class GameTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.enterContext(patch('visualize.maze_visualizer.AudioManager'))
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.config = Config(
@@ -55,11 +57,38 @@ class GameTests(unittest.TestCase):
         game.pacgums.super_gums.clear()
         game.remaining_time = 0.125
         game.handle_key(KeyEnum.RIGHT, self.canvas)
-        game.update(0.125, self.canvas)
+        eaten = game.update(0.125, self.canvas)
+        self.assertEqual(eaten, PacgumEatenEnum.Normal)
         self.assertEqual(game.state, GUIStateEnum.All_Clear)
         self.assertEqual(game.remaining_time, 0.0)
         self.assertEqual(game.player.score, self.config.points_per_pacgum)
         self.assertEqual(game.player.lives, self.config.lives)
+
+    def test_inactive_states_return_no_gum_event(self) -> None:
+        for state in (GUIStateEnum.Home, GUIStateEnum.Pause, GUIStateEnum.GameOver):
+            with self.subTest(state=state):
+                self.game.state = state
+                self.assertEqual(self.game.update(0.1, self.canvas), PacgumEatenEnum.Neither)
+
+    def test_death_cheat_preserves_lives_but_still_allows_eating_ghosts(self) -> None:
+        game = self.game
+        game.handle_key(KeyEnum.K, self.canvas)
+        self.assertFalse(game.no_collision)
+        game.cheat_enabled = True
+        game.handle_key(KeyEnum.K, self.canvas)
+        self.assertTrue(game.no_collision)
+        ghost = Ghost(game.player.movement.cell, BFSStrategy())
+        ghost.place(self.canvas)
+        game.ghosts = [ghost]
+        game.ghost_frozen = True
+        game.update(0.0, self.canvas)
+        self.assertEqual(game.player.lives, self.config.lives)
+        self.assertEqual(game.player.score, 0)
+        game.player.is_invincible = True
+        game.player.invincible_remain = 5.0
+        game.update(0.0, self.canvas)
+        self.assertEqual(game.player.score, self.config.points_per_ghost)
+        self.assertEqual(ghost.respawn_remaining, 5.0)
 
     def test_timeout_with_gums_remaining_ends_game(self) -> None:
         self.game.remaining_time = 0.1

@@ -304,7 +304,7 @@ class GUI:
         )
         imgs = [pacman_img]
         radius = self.font_size / 2
-        imgs.extend(ghost_image(radius, color) for color in ghost_colors)
+        imgs.extend(ghost_image(radius, color, "E") for color in ghost_colors)
         total_width = sum(img.width for img in imgs) + self.text_gap * (len(imgs) - 1)
         x = (width - total_width) // 2
         for img in imgs:

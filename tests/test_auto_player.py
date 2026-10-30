@@ -10,7 +10,8 @@ from visualize.auto_player import AutoPlayer
 from visualize.ghost import Ghost
 from visualize.gui import GUIStateEnum
 from visualize.maze import Maze
-from visualize.maze_visualizer import KeyEnum, MazeVisualizer
+from visualize.controls import KeyEnum
+from visualize.maze_visualizer import MazeVisualizer
 from visualize.pacgums import Pacgums
 from visualize.player import Player
 from visualize.strategy import BFSStrategy
@@ -37,6 +38,7 @@ def maze_from_edges(cols: int, rows: int,
 
 class AutoPlayerTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.enterContext(patch('visualize.maze_visualizer.AudioManager'))
         self.maze = Maze([[13, 5, 5, 5, 7]])
         self.canvas = canvas(5, 1)
         self.player = Player((2, 0))

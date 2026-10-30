@@ -15,7 +15,8 @@ from visualize.game import Game
 from visualize.cheating import CheatHandler
 from visualize.gui import GUI, GUIStateEnum
 from visualize.highscore import HighscoreManager, ScoreEntry
-from visualize.maze_visualizer import KeyEnum, MazeVisualizer
+from visualize.controls import KeyEnum
+from visualize.maze_visualizer import MazeVisualizer
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 
@@ -37,8 +38,10 @@ class HomeRedrawTests(unittest.TestCase):
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        self.viewer.audio = Mock()
         self.viewer.game = cast(Any, Game.__new__(Game))
         self.viewer.game.level_needs_placement = False
+        self.viewer.game.no_collision = False
         self.viewer.canvas = Mock()
         v = self.viewer
         v.closed = False

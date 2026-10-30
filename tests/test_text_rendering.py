@@ -197,8 +197,10 @@ class TextRenderingTests(unittest.TestCase):
 
     def test_every_screen_presents_completed_text_once_without_native_strings_or_sync(self) -> None:
         v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        v.audio = Mock()
         v.game = cast(Any, Game.__new__(Game))
         v.game.level_needs_placement = False
+        v.game.no_collision = False
         v.canvas = Mock()
         v.closed = False
         v.width, v.height = 800, 600
