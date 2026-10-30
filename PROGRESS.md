@@ -1,6 +1,18 @@
 # Pac-Man 開発メモ
 
-最終更新：2026-10-29。
+最終更新：2026-10-30。
+
+## 音声の追加（2026-10-30）
+
+- 責務分割後のゲームはユーザーが実プレイで正常動作を確認済み。
+- pygame-ceを導入し、AudioManagerのAudioStateで曲を区別する。Home・Ranking・Instructionは共通のメニュー曲、Playingはプレイ曲。再生中の曲と同じなら再読み込み・再生しない。アプリ終了時はmixerを終了する。
+- プレイ中のBGMはCenturion_of_warの **Chipped urgency(combat)** のループ版を採用し、`assets/audio/playing.ogg`へ配置・接続済み。配布元のファイル名は`ungerncy_chiptunetrollvcombat4_loop.ogg`。出典：https://opengameart.org/content/chipped-urgencycombat 。CC0。同梱する。
+- gum取得音はDriken5482の **Retro Coin 1** を`assets/audio/pacgum.mp3`へ配置。出典：https://pixabay.com/sound-effects/film-special-effects-retro-coin-1-236677/ 。Pixabay Content License。
+- Game.update()はPacgumEatenEnumを返し、VisualizerがNormal/Superのときだけ効果音を再生。最後のgumでクリア画面へ変わったフレームも鳴る。停止状態ではNeitherを返す。
+- Pixabayのメニュー曲と取得音は、音源ファイルの公開リポジトリへの配布条件が未確認のため、ローカルに保持してgitignoreへ追加。出典・手動配置手順は`assets/audio/README.md`。新規環境では2音源を配置してから起動する。
+- Ghostの黒目は4方向に対応済み。Kキーの死亡無効チートを追加済みで、スーパーgum中は敵を食べられる。
+- 次回はポーズ・クリア・ゲームオーバー時のBGMをどうするか決める。現在はこれらの画面でも直前の曲が続く。死亡無効フラグのチート解除・新規ゲーム時のリセットも未実装なので確認する。
+- 本体はユーザーが実装し、テストはアシスタント担当。最終検証は全186テスト成功。push対象からscores.jsonの変更、PACMAN.pdf、未追跡docs/を除外する。
 
 ## 現在の作業：ゲーム進行と描画の分離
 

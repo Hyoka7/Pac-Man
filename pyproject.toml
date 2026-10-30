@@ -8,6 +8,7 @@ dependencies = [
     "datamodel-code-generator>=0.83.0",
     "pillow>=13.0.0",
     "pydantic>=2.14.0",
+    "pygame-ce>=2.5.8",
 ]
 
 [dependency-groups]

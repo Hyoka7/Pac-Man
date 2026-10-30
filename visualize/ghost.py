@@ -13,7 +13,11 @@ from .visualizerutils import VisualizerUtils
 
 
 @cache
-def ghost_image(radius: float, color: tuple[int, int, int]) -> Image.Image:
+def ghost_image(
+    radius: float,
+    color: tuple[int, int, int],
+    direction: str,
+) -> Image.Image:
     side = ceil(radius * 2) + 2
     img = Image.new(
         "RGBA",
@@ -74,10 +78,38 @@ def ghost_image(radius: float, color: tuple[int, int, int]) -> Image.Image:
             for x in range(start_x, end_x + 1):
                 img.putpixel((x, y), color)
 
+    blackeye_start = {
+        "E": (2, 1),
+        "W": (0, 1),
+        "N": (1, 0),
+        "S": (1, 2),
+    }
     range_putpixel(3, 5, 6, 8, palette, (255, 255, 255, 255))
     range_putpixel(9, 5, 12, 8, palette, (255, 255, 255, 255))
-    range_putpixel(5, 7, 6, 8, palette, (0, 0, 0, 255))
-    range_putpixel(11, 7, 12, 8, palette, (0, 0, 0, 255))
+    left_blackeye_start_x, left_blackeye_start_y = (
+        3 + blackeye_start[direction][0],
+        5 + blackeye_start[direction][1],
+    )
+    range_putpixel(
+        left_blackeye_start_x,
+        left_blackeye_start_y,
+        left_blackeye_start_x + 1,
+        left_blackeye_start_y + 1,
+        palette,
+        (0, 0, 0, 255),
+    )
+    right_blackeye_start_x, right_blackeye_start_y = (
+        9 + blackeye_start[direction][0],
+        5 + blackeye_start[direction][1],
+    )
+    range_putpixel(
+        right_blackeye_start_x,
+        right_blackeye_start_y,
+        right_blackeye_start_x + 1,
+        right_blackeye_start_y + 1,
+        palette,
+        (0, 0, 0, 255),
+    )
 
     zoomed = palette.resize((side - 2, side - 2), resample=Image.Resampling.NEAREST)
     img.alpha_composite(zoomed, (1, 1))
@@ -181,7 +213,7 @@ class Ghost:
                 color = (0, 0, 128)
         else:
             color = self.color
-        img = ghost_image(self.radius, color)
+        img = ghost_image(self.radius, color, self.direction)
         center_x, center_y = self.movement.center
         left = round(center_x - img.width / 2)
         top = round(center_y - img.height / 2)

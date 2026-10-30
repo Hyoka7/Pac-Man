@@ -9,9 +9,11 @@ from mazegenerator import MazeGenerator
 
 from models import Config
 
-from .controls import KeyEnum, WindowAction
+from .audio import AudioManager
+from .controls import WindowAction
 from .game import Game
 from .gui import GUI, GUIStateEnum
+from .pacgums import PacgumEatenEnum
 from .visualizerutils import VisualizerUtils
 
 if TYPE_CHECKING:
@@ -41,6 +43,7 @@ class MazeVisualizer:
         """Connect game state to the GUI before opening a graphics window."""
         self.game = Game(maze, generator, config)
         self.gui = GUI()
+        self.audio = AudioManager()
         self.cmodes = [
             ((126, 249, 255), (255, 92, 138), (145, 255, 174)),
             ((89, 196, 255), (255, 204, 92), (77, 255, 218)),
@@ -176,6 +179,7 @@ class MazeVisualizer:
         if self.closed:
             return
         self.closed = True
+        self.audio.close()
         self.m.mlx_destroy_image(self.p, self.img)
         self.m.mlx_destroy_window(self.p, self.win)
         self.m.mlx_loop_exit(self.p)
@@ -188,7 +192,20 @@ class MazeVisualizer:
         if self.closed:
             return
         self._place_pending_level()
-        self.game.update(elapsed, self.canvas)
+        eaten = self.game.update(elapsed, self.canvas)
+        if eaten in (
+            PacgumEatenEnum.Normal,
+            PacgumEatenEnum.Super,
+        ):
+            self.audio.pacgum_sound()
+        if self.game.state in (
+            GUIStateEnum.Home,
+            GUIStateEnum.Ranking,
+            GUIStateEnum.Instruction,
+        ):
+            self.audio.play_menu_bgm()
+        elif self.game.state == GUIStateEnum.Playing:
+            self.audio.play_playing_bgm()
         if self.game.state == GUIStateEnum.Playing or self.game.needs_redraw:
             self._draw()
 
