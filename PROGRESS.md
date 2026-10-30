@@ -2,16 +2,37 @@
 
 最終更新：2026-10-30。
 
+## 明日（2026-10-31）の再開手順
+
+ユーザーの最新指示により、AIが今回追加したStrategy関連の実装だけを取り除いた。貪欲・先回り・巡回・先読み逃走・協力追跡、GhostCoordinatorおよびそれら専用のテストは削除済み。元のBFSStrategy・RandomStrategy・FleeBFSStrategyへ戻す。音声系はすべて維持する。
+
+1. `make run`で元のBFS追跡3体＋Random1体の動きを確認する。プレイヤー速度はユーザーが設定した6.5マス/秒、敵は4マス/秒を維持する。
+2. `visualize/strategy.py`の既存インターフェースから読み、ユーザー自身が新しい追跡・先回り・逃走を考えて実装する。既存BFSの目的地を変える案も含めて、必要なところだけ相談しながら進める。
+3. 本体はユーザーが書き、明示的に依頼された場合だけアシスタントが実装する。アシスタントはテストの追加・修正を担当する。
+4. 変更後は関連テストを更新し、`.venv/bin/python -B -m unittest discover -s tests -q`で確認する。
+
+維持する内容：メニュー・プレイ・Game overのBGM、通常gum・Power up・敵を食べる効果音、AudioManager、音源出典、Game.update()から(gumの種類, 食べた敵の数)を返す処理、死亡無効チートのリセット、Ghostの目の4方向対応、プレイヤー速度6.5。
+
+保留：通常gumの音量を小さくする調整、Game over音をループ/1回のどちらにするか、ポーズ中のBGM。これらは音を出せるときに判断する。残機喪失時の専用音は候補のみで未実装。
+
+配布：CC0のプレイBGMは同梱。Pixabayの5音源はローカルに保持し、出典と手動配置手順のみpushする。scores.jsonの変更、PACMAN.pdf、未追跡docs/はpush対象外。
+
+履歴：協力Strategyを含む直前のコミットを、Strategy追加を取り除いた内容に差し替えて再pushする。
+
+差し替え前の検証：全189テスト成功、git diff --check成功。Strategy本体とGhostの移動処理は音声追加コミット0f4af0f時点と一致し、音声コード・音源・プレイヤー速度・ローカルのscores.jsonが削除作業前と同じ内容であることを確認済み。
+
 ## 音声の追加（2026-10-30）
 
+- 追加音源はPower up＝Driken5482のRetro powerup 1、敵を食べる音＝同作者のRetro blip、Game over＝ejah_musicのGame over - retro video game 1を採用し、接続済み。出典はassets/audio/README.mdに記録。
+- cartoon_musicのGame over - 8-bit alertは、残機を1つ失ったときの候補として保留（未採用）。Game over short jingleは怖い雰囲気が合わず不採用。
 - 責務分割後のゲームはユーザーが実プレイで正常動作を確認済み。
 - pygame-ceを導入し、AudioManagerのAudioStateで曲を区別する。Home・Ranking・Instructionは共通のメニュー曲、Playingはプレイ曲。再生中の曲と同じなら再読み込み・再生しない。アプリ終了時はmixerを終了する。
 - プレイ中のBGMはCenturion_of_warの **Chipped urgency(combat)** のループ版を採用し、`assets/audio/playing.ogg`へ配置・接続済み。配布元のファイル名は`ungerncy_chiptunetrollvcombat4_loop.ogg`。出典：https://opengameart.org/content/chipped-urgencycombat 。CC0。同梱する。
 - gum取得音はDriken5482の **Retro Coin 1** を`assets/audio/pacgum.mp3`へ配置。出典：https://pixabay.com/sound-effects/film-special-effects-retro-coin-1-236677/ 。Pixabay Content License。
-- Game.update()はPacgumEatenEnumを返し、VisualizerがNormal/Superのときだけ効果音を再生。最後のgumでクリア画面へ変わったフレームも鳴る。停止状態ではNeitherを返す。
-- Pixabayのメニュー曲と取得音は、音源ファイルの公開リポジトリへの配布条件が未確認のため、ローカルに保持してgitignoreへ追加。出典・手動配置手順は`assets/audio/README.md`。新規環境では2音源を配置してから起動する。
+- Game.update()は(gumの種類, 食べた敵の数)を返す。Visualizerが通常gum・スーパーgum・敵の音を鳴らし分け、gumと敵を同じフレームで食べた場合も両方鳴る。最後のgumでクリア画面へ変わったフレームも鳴る。停止状態では(Neither, 0)を返す。
+- Pixabayの5音源は、音源ファイルの公開リポジトリへの配布条件が未確認のため、ローカルに保持してgitignoreへ追加。出典・手動配置手順は`assets/audio/README.md`。新規環境では5音源を配置してから起動する。
 - Ghostの黒目は4方向に対応済み。Kキーの死亡無効チートを追加済みで、スーパーgum中は敵を食べられる。
-- 次回はポーズ・クリア・ゲームオーバー時のBGMをどうするか決める。現在はこれらの画面でも直前の曲が続く。死亡無効フラグのチート解除・新規ゲーム時のリセットも未実装なので確認する。
+- Game overでは専用曲をループ再生中。ループ/1回の判断と通常gumの音量調整はユーザーが保留。ポーズ・クリアでは直前の曲が続く。死亡無効フラグはチート解除・新規ゲーム時にリセットする実装とテストが完了。
 - 本体はユーザーが実装し、テストはアシスタント担当。最終検証は全186テスト成功。push対象からscores.jsonの変更、PACMAN.pdf、未追跡docs/を除外する。
 
 ## 現在の作業：ゲーム進行と描画の分離

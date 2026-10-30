@@ -55,10 +55,11 @@ class GameTests(unittest.TestCase):
         game = self.game
         game.pacgums.remain_gums = {self.canvas.cell_center(3, 0)}
         game.pacgums.super_gums.clear()
-        game.remaining_time = 0.125
+        step_time = 1 / game.player.movement.speed + 1e-6
+        game.remaining_time = step_time
         game.handle_key(KeyEnum.RIGHT, self.canvas)
-        eaten = game.update(0.125, self.canvas)
-        self.assertEqual(eaten, PacgumEatenEnum.Normal)
+        eaten = game.update(step_time, self.canvas)
+        self.assertEqual(eaten, (PacgumEatenEnum.Normal, 0))
         self.assertEqual(game.state, GUIStateEnum.All_Clear)
         self.assertEqual(game.remaining_time, 0.0)
         self.assertEqual(game.player.score, self.config.points_per_pacgum)
@@ -68,7 +69,7 @@ class GameTests(unittest.TestCase):
         for state in (GUIStateEnum.Home, GUIStateEnum.Pause, GUIStateEnum.GameOver):
             with self.subTest(state=state):
                 self.game.state = state
-                self.assertEqual(self.game.update(0.1, self.canvas), PacgumEatenEnum.Neither)
+                self.assertEqual(self.game.update(0.1, self.canvas), (PacgumEatenEnum.Neither, 0))
 
     def test_death_cheat_preserves_lives_but_still_allows_eating_ghosts(self) -> None:
         game = self.game
@@ -81,12 +82,12 @@ class GameTests(unittest.TestCase):
         ghost.place(self.canvas)
         game.ghosts = [ghost]
         game.ghost_frozen = True
-        game.update(0.0, self.canvas)
+        self.assertEqual(game.update(0.0, self.canvas), (PacgumEatenEnum.Neither, 0))
         self.assertEqual(game.player.lives, self.config.lives)
         self.assertEqual(game.player.score, 0)
         game.player.is_invincible = True
         game.player.invincible_remain = 5.0
-        game.update(0.0, self.canvas)
+        self.assertEqual(game.update(0.0, self.canvas), (PacgumEatenEnum.Neither, 1))
         self.assertEqual(game.player.score, self.config.points_per_ghost)
         self.assertEqual(ghost.respawn_remaining, 5.0)
 

@@ -13,3 +13,6 @@ wheels/
 # Pixabay audio: download locally; see assets/audio/README.md
 /assets/audio/menu_bgm.mp3
 /assets/audio/pacgum.mp3
+/assets/audio/powerup.mp3
+/assets/audio/eat.mp3
+/assets/audio/gameover.mp3

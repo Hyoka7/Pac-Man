@@ -49,6 +49,7 @@ class HomeRedrawTests(unittest.TestCase):
         v.game.cheathandler = CheatHandler(list(map(ord, '3111696')))
         v.game.cheat_enabled = False
         v.game.auto_enabled = False
+        v.game.ghost_frozen = False
         v.game.score_multiplier = 1
         v.game.pacgum_points = {}
         v.game.state = GUIStateEnum.Home

@@ -38,7 +38,9 @@ class ScoreCheatTests(unittest.TestCase):
         v.last_time = 10.0
         self.enterContext(patch.object(v, '_draw'))
 
-    def tick(self, now: float = 10.125) -> None:
+    def tick(self, now: float | None = None) -> None:
+        if now is None:
+            now = self.viewer.last_time + 1 / self.viewer.game.player.movement.speed + 1e-6
         with patch('visualize.maze_visualizer.time.monotonic', return_value=now):
             self.viewer._on_loop()
 
@@ -111,21 +113,27 @@ class ScoreCheatTests(unittest.TestCase):
         v._on_key(KeyEnum.H)
         self.assertFalse(v.game.player.movement.wallhack)
 
-    def test_disabling_cheats_resets_multiplier_and_wallhack(self) -> None:
+    def test_disabling_cheats_resets_multiplier_wallhack_and_death_immunity(self) -> None:
         v = self.viewer
         v._on_key(KeyEnum.X)
         v._on_key(KeyEnum.H)
+        v._on_key(KeyEnum.K)
+        self.assertTrue(v.game.no_collision)
         for key in map(ord, '3111696'):
             v._on_key(key)
         self.assertFalse(v.game.cheat_enabled)
         self.assertEqual(v.game.score_multiplier, 1)
         self.assertFalse(v.game.player.movement.wallhack)
+        self.assertFalse(v.game.no_collision)
 
-    def test_new_game_resets_multiplier_and_wallhack(self) -> None:
+    def test_new_game_resets_multiplier_wallhack_and_death_immunity(self) -> None:
         v = self.viewer
         v._on_key(KeyEnum.X)
         v._on_key(KeyEnum.H)
+        v._on_key(KeyEnum.K)
+        self.assertTrue(v.game.no_collision)
         with patch.object(v.game, 'regenerate_maze'):
             v.restart_game()
         self.assertEqual(v.game.score_multiplier, 1)
         self.assertFalse(v.game.player.movement.wallhack)
+        self.assertFalse(v.game.no_collision)

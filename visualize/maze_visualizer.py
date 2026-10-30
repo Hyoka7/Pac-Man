@@ -192,12 +192,13 @@ class MazeVisualizer:
         if self.closed:
             return
         self._place_pending_level()
-        eaten = self.game.update(elapsed, self.canvas)
-        if eaten in (
-            PacgumEatenEnum.Normal,
-            PacgumEatenEnum.Super,
-        ):
+        gum, eaten = self.game.update(elapsed, self.canvas)
+        if gum == PacgumEatenEnum.Normal:
             self.audio.pacgum_sound()
+        elif gum == PacgumEatenEnum.Super:
+            self.audio.super_pacgum_sound()
+        if eaten > 0:
+            self.audio.eating_sound()
         if self.game.state in (
             GUIStateEnum.Home,
             GUIStateEnum.Ranking,
@@ -206,6 +207,8 @@ class MazeVisualizer:
             self.audio.play_menu_bgm()
         elif self.game.state == GUIStateEnum.Playing:
             self.audio.play_playing_bgm()
+        elif self.game.state == GUIStateEnum.GameOver:
+            self.audio.play_gameover_bgm()
         if self.game.state == GUIStateEnum.Playing or self.game.needs_redraw:
             self._draw()
 

@@ -117,7 +117,8 @@ class AutoPlayerTests(unittest.TestCase):
             return self.auto.choose_direction(maze, player, gums, [], target)
         player.update(0.0, maze, target, gums, choose_auto_direction=choose)
         self.assertEqual(player.movement.target_cell, (1, 0))
-        player.update(0.125, maze, target, gums, choose_auto_direction=choose)
+        player.update(1 / player.movement.speed + 1e-6,
+                      maze, target, gums, choose_auto_direction=choose)
         self.assertEqual(player.movement.cell, (1, 0))
         self.assertEqual(player.movement.target_cell, (1, 1))
         self.assertEqual(len(gums), 1)
