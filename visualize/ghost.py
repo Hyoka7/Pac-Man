@@ -155,6 +155,7 @@ class Ghost:
         maze: Maze,
         canvas: VisualizerUtils,
         player_cell: tuple[int, int],
+        player_dir: str,
         eatable: bool,
     ) -> None:
         """Choose a direction at cell centers and animate the chosen move."""
@@ -165,13 +166,17 @@ class Ghost:
             if not eatable:
                 if self.cell == player_cell:
                     return
-                direction = self.strategy.choose_direction(maze, self.cell, player_cell)
+                direction = self.strategy.choose_direction(
+                    maze, self.cell, player_cell, player_dir
+                )
                 if direction is None:
                     return
                 self.movement.start(direction, maze, canvas)
             else:
                 flee = FleeBFSStrategy()
-                direction = flee.choose_direction(maze, self.cell, player_cell)
+                direction = flee.choose_direction(
+                    maze, self.cell, player_cell, player_dir
+                )
                 if direction is None:
                     return
                 self.movement.start(direction, maze, canvas)

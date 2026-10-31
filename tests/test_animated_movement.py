@@ -99,7 +99,7 @@ class AnimatedMovementTests(unittest.TestCase):
         """A ghost uses the shared animation without eating pacgums."""
         ghost = Ghost((2, 0), BFSStrategy())
         ghost.place(self.canvas)
-        ghost.update(0.05, self.maze, self.canvas, (0, 0), eatable=False)
+        ghost.update(0.05, self.maze, self.canvas, (0, 0), player_dir="E", eatable=False)
         self.assertEqual(ghost.cell, (2, 0))
         self.assertLess(ghost.movement.center[0], 100.0)
         self.assertGreater(ghost.movement.center[0], 68.0)
@@ -109,7 +109,7 @@ class AnimatedMovementTests(unittest.TestCase):
         self.assertEqual(
             bytes(self.canvas.img_data[offset : offset + 4]), bytes([0, 0, 0, 255])
         )
-        ghost.update(0.3, self.maze, self.canvas, (0, 0), eatable=False)
+        ghost.update(0.3, self.maze, self.canvas, (0, 0), player_dir="E", eatable=False)
         self.assertEqual(ghost.cell, (1, 0))
         self.canvas.clear_image()
         ghost.draw(self.canvas, eatable=False, eatable_remain=0.0)
@@ -122,7 +122,7 @@ class AnimatedMovementTests(unittest.TestCase):
         """Direction selection may return None when there is no passage."""
         ghost = Ghost((0, 0), BFSStrategy())
         ghost.place(self.canvas)
-        ghost.update(1.0, Maze([[15]]), self.canvas, (1, 0), eatable=False)
+        ghost.update(1.0, Maze([[15]]), self.canvas, (1, 0), player_dir="E", eatable=False)
         self.assertFalse(ghost.movement.moving)
         self.assertEqual(ghost.cell, (0, 0))
 

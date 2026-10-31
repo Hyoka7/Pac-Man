@@ -55,7 +55,7 @@ class MazeDistanceTests(unittest.TestCase):
             (BFSStrategy(), (1, 0), 'W'),
         ):
             before = maze.checks
-            self.assertEqual(strategy.choose_direction(maze, (2, 0), player),
+            self.assertEqual(strategy.choose_direction(maze, (2, 0), player, player_dir="E"),
                              expected)
             self.assertLessEqual(maze.checks - before, 4)
 

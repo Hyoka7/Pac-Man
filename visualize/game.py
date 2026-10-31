@@ -14,7 +14,7 @@ from .highscore import HighscoreManager, ScoreEntry
 from .maze import Maze
 from .pacgums import PacgumEatenEnum, Pacgums
 from .player import Player
-from .strategy import BFSStrategy, RandomStrategy
+from .strategy import AmbushStrategy, BFSStrategy, BlockStrategy, ReverseAmbushStrategy
 from .visualizerutils import VisualizerUtils
 
 
@@ -46,15 +46,15 @@ class Game:
         self.cheathandler = CheatHandler([ord(char) for char in "3111696"])
         self.generator = generator
         self.ghosts: list[Ghost] = []
-        self.ghosts.append(Ghost((0, 0), RandomStrategy(), (128, 128, 128)))
+        self.ghosts.append(Ghost((0, 0), BlockStrategy(), (128, 128, 128)))
         self.ghosts.append(Ghost((0, self.maze.rows - 1), BFSStrategy()))
         self.ghosts.append(
-            Ghost((self.maze.cols - 1, 0), BFSStrategy(), color=(0, 255, 0)),
+            Ghost((self.maze.cols - 1, 0), AmbushStrategy(), color=(0, 255, 0)),
         )
         self.ghosts.append(
             Ghost(
                 (self.maze.cols - 1, self.maze.rows - 1),
-                BFSStrategy(),
+                ReverseAmbushStrategy(),
                 color=(0, 0, 255),
             )
         )
@@ -85,7 +85,9 @@ class Game:
             ghost.reset(canvas)
 
     def update(
-        self, elapsed: float, canvas: VisualizerUtils
+        self,
+        elapsed: float,
+        canvas: VisualizerUtils,
     ) -> tuple[PacgumEatenEnum, int]:
         """Advance gameplay by the supplied elapsed seconds; paused states stay still."""
         eaten = PacgumEatenEnum.Neither
@@ -125,6 +127,7 @@ class Game:
                             self.maze,
                             canvas,
                             self.player.movement.cell,
+                            self.player.movement.direction,
                             self.player.is_invincible,
                         )
                     if ghost.respawn_remaining > 0.0:
