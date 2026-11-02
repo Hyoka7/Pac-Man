@@ -1,7 +1,7 @@
 import math
 
-from .ghost import Ghost
-from .player import Player
+from game.ghost import Ghost
+from game.player import Player
 
 
 class Collision:

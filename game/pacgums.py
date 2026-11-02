@@ -3,8 +3,8 @@
 from enum import IntEnum
 from math import ceil, floor
 
-from .maze import Maze
-from .visualizerutils import VisualizerUtils
+from game.maze import Maze
+from visualize.visualizerutils import VisualizerUtils
 
 
 class PacgumEatenEnum(IntEnum):

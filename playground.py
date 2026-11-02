@@ -1,5 +1,7 @@
 """Standalone Pillow text preview; the game uses visualize.image_renderer.ImageRenderer."""
+import os
 
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import pygame
 
 if __name__ == "__main__":

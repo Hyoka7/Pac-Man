@@ -9,12 +9,12 @@ from mazegenerator import MazeGenerator
 
 from models import Config
 
-from .audio import AudioManager
-from .controls import WindowAction
-from .game import Game
-from .gui import GUI, GUIStateEnum
-from .pacgums import PacgumEatenEnum
-from .visualizerutils import VisualizerUtils
+from audio.manager import AudioManager
+from controls.keys import WindowAction
+from game.game import Game
+from visualize.gui import GUI, GUIStateEnum
+from game.pacgums import PacgumEatenEnum
+from visualize.visualizerutils import VisualizerUtils
 
 if TYPE_CHECKING:
     from mlx import Mlx
@@ -67,27 +67,121 @@ class MazeVisualizer:
         del _param
         if self.closed:
             return
-        show_invincible_status = (
-            self.game.state in (GUIStateEnum.Playing, GUIStateEnum.Pause)
-            and self.game.player.is_invincible
-        )
         self.canvas.clear_image()
         self.gui.draw_backdrop(self.canvas, self.game.state)
-        if self.game.state == GUIStateEnum.Playing or self.game.state == GUIStateEnum.Pause:
-            wall_color, landmark_color, _ = self.cmodes[self.cm]
-            self.game.maze.draw(self.canvas, wall_color, landmark_color)
-            self.game.pacgums.draw(self.canvas)
-            for ghost in self.game.ghosts:
-                ghost.draw(
-                    self.canvas,
-                    self.game.player.is_invincible,
-                    self.game.player.invincible_remain,
-                )
-            self.game.player.draw(self.canvas)
-        if self.game.state == GUIStateEnum.Pause:
-            self.gui.draw_pause_background(self.canvas)
-        bar_y = self.gui.bar_y
-        if show_invincible_status:
+        if self.game.state in (
+            GUIStateEnum.Playing,
+            GUIStateEnum.Pause,
+            GUIStateEnum.Ready,
+        ):
+            self._draw_world()
+            self._draw_hud()
+
+        self._draw_screen()
+
+        self.m.mlx_put_image_to_window(self.p, self.win, self.img, 0, 0)
+        self.game.needs_redraw = False
+
+    def _draw_screen(self) -> None:
+        """Choose the UI renderer for the active screen."""
+        renderers = {
+            GUIStateEnum.Home: self._draw_home,
+            GUIStateEnum.Instruction: self._draw_instruction,
+            GUIStateEnum.Ready: self._draw_ready,
+            GUIStateEnum.Ranking: self._draw_ranking,
+            GUIStateEnum.Confirm_Clear: self._draw_confirm_clear,
+            GUIStateEnum.GameOver: self._draw_gameover,
+            GUIStateEnum.Pause: self._draw_pause,
+            GUIStateEnum.Stage_Clear: self._draw_stage_clear,
+            GUIStateEnum.All_Clear: self._draw_all_clear,
+        }
+        renderer = renderers.get(self.game.state)
+        if renderer is not None:
+            renderer()
+
+    def _draw_home(self) -> None:
+        self.gui.home(
+            self.canvas,
+            self.width,
+            self.height,
+            self.game.score_manager.scores.scores,
+            self.game.home_focusing,
+        )
+
+    def _draw_gameover(self) -> None:
+        self.gui.gameover(
+            self.canvas,
+            self.width,
+            self.height,
+            self.game.player.score,
+            self.game.player_name,
+        )
+
+    def _draw_instruction(self) -> None:
+        self.gui.instruction(
+            self.canvas,
+            self.width,
+            self.height,
+        )
+
+    def _draw_pause(self) -> None:
+        self.gui.pause(
+            self.canvas,
+            self.width,
+            self.height,
+        )
+
+    def _draw_ready(self) -> None:
+        self.gui.ready(
+            self.canvas,
+            self.width,
+            self.height,
+        )
+
+    def _draw_stage_clear(self) -> None:
+        self.gui.stage_clear(
+            self.canvas,
+            self.width,
+            self.height,
+        )
+
+    def _draw_ranking(self) -> None:
+        self.gui.ranking(
+            self.canvas,
+            self.width,
+            self.height,
+            self.game.score_manager.scores.scores,
+        )
+
+    def _draw_all_clear(self) -> None:
+        self.gui.all_clear(
+            self.canvas,
+            self.width,
+            self.height,
+            self.game.player.score,
+            self.game.player_name,
+        )
+
+    def _draw_confirm_clear(self) -> None:
+        self.gui.confirm_clear(self.canvas, self.width, self.height)
+
+    def _draw_world(self) -> None:
+        """Draw the maze, pacgums and characters into the current canvas."""
+        wall_color, landmark_color, _ = self.cmodes[self.cm]
+        self.game.maze.draw(self.canvas, wall_color, landmark_color)
+        self.game.pacgums.draw(self.canvas)
+        for ghost in self.game.ghosts:
+            ghost.draw(
+                self.canvas,
+                self.game.player.is_invincible,
+                self.game.player.invincible_remain,
+            )
+        self.game.player.draw(self.canvas)
+
+    def _draw_hud(self) -> None:
+        """Draw invincibility status and the gameplay score, lives and timer."""
+        if self.game.player.is_invincible:
+            bar_y = self.gui.bar_y
             self.gui.draw_invincible_bar(
                 self.canvas,
                 (self.width - self.gui.bar_width) // 2,
@@ -97,30 +191,13 @@ class MazeVisualizer:
                 self.game.player.invincible_remain,
                 5.0,
             )
-
-        if show_invincible_status:
             self.gui.invinsible_time(
                 self.canvas,
                 self.width,
                 bar_y,
                 self.game.player.invincible_remain,
             )
-
-        if self.game.state == GUIStateEnum.Home:
-            self.gui.home(
-                self.canvas,
-                self.width,
-                self.height,
-                self.game.score_manager.scores.scores,
-                self.game.home_focusing,
-            )
-        elif self.game.state == GUIStateEnum.Instruction:
-            self.gui.instruction(
-                self.canvas,
-                self.width,
-                self.height,
-            )
-        elif self.game.state == GUIStateEnum.Playing or self.game.state == GUIStateEnum.Pause:
+        if self.game.state in (GUIStateEnum.Playing, GUIStateEnum.Pause):
             self.gui.draw_stats(
                 self.canvas,
                 self.gui.hud_x,
@@ -133,46 +210,6 @@ class MazeVisualizer:
                 auto_enabled=self.game.auto_enabled,
                 score_multiplier=self.game.score_multiplier,
             )
-        elif self.game.state == GUIStateEnum.Ranking:
-            self.gui.ranking(
-                self.canvas,
-                self.width,
-                self.height,
-                self.game.score_manager.scores.scores,
-            )
-        elif self.game.state == GUIStateEnum.Confirm_Clear:
-            self.gui.confirm_clear(self.canvas, self.width, self.height)
-        if self.game.state == GUIStateEnum.GameOver:
-            self.gui.gameover(
-                self.canvas,
-                self.width,
-                self.height,
-                self.game.player.score,
-                self.game.player_name,
-            )
-        elif self.game.state == GUIStateEnum.Pause:
-            self.gui.pause(
-                self.canvas,
-                self.width,
-                self.height,
-            )
-        elif self.game.state == GUIStateEnum.Stage_Clear:
-            self.gui.stage_clear(
-                self.canvas,
-                self.width,
-                self.height,
-            )
-        elif self.game.state == GUIStateEnum.All_Clear:
-            self.gui.all_clear(
-                self.canvas,
-                self.width,
-                self.height,
-                self.game.player.score,
-                self.game.player_name,
-            )
-
-        self.m.mlx_put_image_to_window(self.p, self.win, self.img, 0, 0)
-        self.game.needs_redraw = False
 
     def _close(self, _param: object = None) -> None:
         del _param
@@ -193,12 +230,22 @@ class MazeVisualizer:
             return
         self._place_pending_level()
         gum, eaten = self.game.update(elapsed, self.canvas)
+        self._play_sound_effects(gum, eaten)
+        self._update_bgm()
+        if self.game.state == GUIStateEnum.Playing or self.game.needs_redraw:
+            self._draw()
+
+    def _play_sound_effects(self, gum: PacgumEatenEnum, eaten: int) -> None:
+        """Play independent pacgum and ghost events from the current update."""
         if gum == PacgumEatenEnum.Normal:
             self.audio.pacgum_sound()
         elif gum == PacgumEatenEnum.Super:
             self.audio.super_pacgum_sound()
         if eaten > 0:
             self.audio.eating_sound()
+
+    def _update_bgm(self) -> None:
+        """Select screen music while preserving the current track on overlays."""
         if self.game.state in (
             GUIStateEnum.Home,
             GUIStateEnum.Ranking,
@@ -209,8 +256,6 @@ class MazeVisualizer:
             self.audio.play_playing_bgm()
         elif self.game.state == GUIStateEnum.GameOver:
             self.audio.play_gameover_bgm()
-        if self.game.state == GUIStateEnum.Playing or self.game.needs_redraw:
-            self._draw()
 
     def _on_key(self, key: int, _param: object = None) -> None:
         """Pass controls to the game and apply requested window actions."""
@@ -263,14 +308,26 @@ class MazeVisualizer:
         self.offset_y = (self.height - (self.cell_size * self.game.maze.rows + 1)) // 2
 
     def run(self) -> None:
-        """Open the window and display the maze until it is closed."""
+        """Open the window, place the game and release resources on exit."""
+        self._open_window()
+        try:
+            self._create_canvas()
+            self.game.place(self.canvas)
+            self._register_hooks()
+            self._draw()
+            self.last_time = time.monotonic()
+            self.m.mlx_loop(self.p)
+        finally:
+            self._close()
+
+    def _open_window(self) -> None:
+        """Initialize MLX and allocate the window and backing image."""
         from mlx import Mlx
 
         self.m = Mlx()
         self.p = self.m.mlx_init()
         if self.p is None:
             raise RuntimeError("MLX initialization failed")
-
         _, screen_width, screen_height = self.m.mlx_get_screen_size(self.p)
         window_gap = max(1, round(min(screen_width, screen_height) / 15))
         self.width = screen_width - window_gap
@@ -284,32 +341,31 @@ class MazeVisualizer:
             self.m.mlx_destroy_window(self.p, self.win)
             raise RuntimeError("MLX image creation failed")
         self.closed = False
-        try:
-            self.img_data, bpp, self.line_size, self.img_format = (
-                self.m.mlx_get_data_addr(self.img)
-            )
-            self.bytes_per_pixel = bpp // 8
-            if bpp != 32 or self.img_format not in (0, 1):
-                raise RuntimeError("Unsupported MLX image format")
-            self.canvas = VisualizerUtils(
-                self.width,
-                self.height,
-                self.cell_size,
-                self.margin,
-                self.img_data,
-                self.line_size,
-                self.img_format,
-                self.offset_x,
-                self.offset_y,
-            )
-            self.game.place(self.canvas)
-            self.m.mlx_loop_hook(self.p, self._on_loop, None)
-            self.m.mlx_hook(self.win, 2, 1, self._on_key, None)
-            self.m.mlx_hook(self.win, 3, 2, self._on_key_release, None)
-            self.m.mlx_expose_hook(self.win, self._draw, None)
-            self.m.mlx_hook(self.win, 33, 0, self._close, None)
-            self._draw()
-            self.last_time = time.monotonic()
-            self.m.mlx_loop(self.p)
-        finally:
-            self._close()
+
+    def _create_canvas(self) -> None:
+        """Validate the backing image and expose it to drawing helpers."""
+        self.img_data, bpp, self.line_size, self.img_format = (
+            self.m.mlx_get_data_addr(self.img)
+        )
+        self.bytes_per_pixel = bpp // 8
+        if bpp != 32 or self.img_format not in (0, 1):
+            raise RuntimeError("Unsupported MLX image format")
+        self.canvas = VisualizerUtils(
+            self.width,
+            self.height,
+            self.cell_size,
+            self.margin,
+            self.img_data,
+            self.line_size,
+            self.img_format,
+            self.offset_x,
+            self.offset_y,
+        )
+
+    def _register_hooks(self) -> None:
+        """Connect window events to this visualizer's callbacks."""
+        self.m.mlx_loop_hook(self.p, self._on_loop, None)
+        self.m.mlx_hook(self.win, 2, 1, self._on_key, None)
+        self.m.mlx_hook(self.win, 3, 2, self._on_key_release, None)
+        self.m.mlx_expose_hook(self.win, self._draw, None)
+        self.m.mlx_hook(self.win, 33, 0, self._close, None)

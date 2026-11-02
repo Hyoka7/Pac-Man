@@ -3,11 +3,11 @@
 from collections import deque
 from math import hypot, inf
 
-from .ghost import Ghost
-from .maze import Maze
-from .pacgums import Pacgums
-from .player import Player
-from .visualizerutils import VisualizerUtils
+from game.ghost import Ghost
+from game.maze import Maze
+from game.pacgums import Pacgums
+from game.player import Player
+from visualize.visualizerutils import VisualizerUtils
 
 Cell = tuple[int, int]
 

@@ -1,11 +1,10 @@
 from collections.abc import Sequence
 
-from .game_state import GUIStateEnum
-from .ghost import ghost_image
-from .highscore import ScoreEntry
-from .image_renderer import ImageRenderer
-from .player import player_image
-from .visualizerutils import VisualizerUtils
+from game.state import GUIStateEnum
+from storage.highscore import ScoreEntry
+from visualize.image_renderer import ImageRenderer
+from visualize.sprites import ghost_image, player_image
+from visualize.visualizerutils import VisualizerUtils
 
 
 class GUI:
@@ -17,7 +16,6 @@ class GUI:
     BORDER_COLOR = (73, 194, 221)
     BAR_TRACK_COLOR = (31, 44, 67)
     BAR_COLOR = (255, 216, 74)
-    PAUSE_LINES = ("PAUSED", "P: Resume", "H: Back to home")
     INSTRUCTION_LINES = (
         "Arrow keys or WASD: Move",
         "P: Pause/Resume",
@@ -102,28 +100,38 @@ class GUI:
     ) -> int:
         return (height - self._block_height(line_count, last_height)) // 2
 
-    def draw_pause_background(self, canvas: VisualizerUtils) -> None:
-        width = min(
-            self._max_text_width(self.PAUSE_LINES) + 2 * self.padding,
+    def _draw_panel_lines(
+        self,
+        canvas: VisualizerUtils,
+        lines: Sequence[str],
+    ) -> None:
+        panel_width = min(
+            self._max_text_width(lines) + 2 * self.padding,
             max(0, canvas.width - 2 * self.padding),
         )
-        height = min(
-            self._block_height(len(self.PAUSE_LINES)) + 2 * self.padding,
+        panel_height = min(
+            self._block_height(len(lines)) + 2 * self.padding,
             max(0, canvas.height - 2 * self.padding),
         )
+        panel_x = (canvas.width - panel_width) // 2
+        panel_y = (canvas.height - panel_height) // 2
         self.background(
             canvas,
-            (canvas.width - width) // 2,
-            (canvas.height - height) // 2,
-            width,
-            height,
+            panel_x,
+            panel_y,
+            panel_width,
+            panel_height,
         )
 
     def draw_backdrop(
         self, canvas: VisualizerUtils, state: GUIStateEnum,
     ) -> None:
         """Draw a static screen's navy backdrop and centered bordered panel."""
-        if state in (GUIStateEnum.Playing, GUIStateEnum.Pause):
+        if state in (
+            GUIStateEnum.Playing,
+            GUIStateEnum.Pause,
+            GUIStateEnum.Ready,
+        ):
             return
         canvas.fill_rect(0, 0, canvas.width, canvas.height, self.BACKGROUND_COLOR)
         panel_heights = {
@@ -221,6 +229,25 @@ class GUI:
             ">",
             self.ACCENT_COLOR,
             self.font_size,
+        )
+
+    def ready(
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        height: int,
+    ) -> None:
+        ready_lines = ["READY?", "Press any key to start"]
+        self._draw_panel_lines(
+            canvas,
+            ready_lines,
+        )
+        self._put_lines_center(
+            canvas,
+            width,
+            height,
+            ready_lines,
+            {0: self.ACCENT_COLOR},
         )
 
     def _home_content(
@@ -422,11 +449,16 @@ class GUI:
     def pause(
         self, canvas: VisualizerUtils, width: int, height: int,
     ) -> None:
+        pause_lines = ("PAUSED", "P: Resume", "H: Back to home")
+        self._draw_panel_lines(
+            canvas,
+            pause_lines,
+        )
         self._put_lines_center(
             canvas,
             width,
             height,
-            self.PAUSE_LINES,
+            pause_lines,
             {0: self.ACCENT_COLOR},
         )
 

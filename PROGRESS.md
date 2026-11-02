@@ -1,8 +1,27 @@
 # Pac-Man 開発メモ
 
-最終更新：2026-10-31。
+最終更新：2026-11-02。
 
-## 現在の進捗と次の作業（2026-10-31）
+## 現在の構成（2026-11-02）
+
+- `game/`：Game、状態、Player・Ghost、迷路、移動、gum、衝突、Strategy、自動操作。
+- `controls/`：キー定義、状態別入力、順番入力のチート判定。
+- `audio/`：AudioManager。BGMの共通再生処理と既存の公開メソッドを維持。
+- `storage/`：ランキングのPydanticモデルとJSON保存・読み込み。
+- `visualize/`：MLX、GUI、文字・画像合成、画像バッファ、キャラクター画像生成。
+- 旧importとテストのpatch先を新しい配置へ更新。`from visualize import MazeVisualizer` は維持し、ゲーム側のimportではウィンドウ・音声モジュールを読み込まない。
+- Planner・移動先予約・BlockStrategy・RandomStrategyは削除済み。敵はBFS・Ambush・ReverseAmbush・Inkyを使用。Inkyはプレイヤーの2マス先と赤の現在地から目標を計算し、到達可能な最寄りのマスへ補正する。
+- プレイヤー速度は5.5、敵は4。開始・残機あり復活後はReadyで入力待ち。次レベルは従来どおりPlayingへ進む。
+- 描画・入力・更新・初期化を関数分割済み。Ready/Pauseは文字から共通の背景サイズを計算する。
+- Gameの公開入口とキャラクターのdraw()は維持。Canvasによる座標変換も現状維持。
+- Pixabay音源5ファイルのgitignore除外を解除し、ゲームの実行用assetsとして同梱する方針へ変更。READMEに全6音源の作品名・作者・出典と、Press Start 2Pのクレジットを記載した。
+- 保存前の検証：`.venv/bin/python -B -m unittest discover -s tests -q`で全204テスト成功。画面・音声を使わないimport、Readyでの入力待ち、MLX初期化と失敗時の後片付けも確認した。
+
+次は実プレイで開始・復活・次レベル・水色の追跡・BGM切り替えを確認する。ユーザー自身で実装する進め方を基本とし、今回のリファクタリングは一括実装の依頼に基づく。
+
+push対象外：scores.jsonのプレイ記録、PACMAN.pdf、未追跡docs/。Pixabayの音源ファイルは今回から含める。
+
+## 保存履歴（2026-10-31）
 
 ユーザー自身がBFSを再利用して3種類のStrategyを実装し、敵4体に別の狙い方を設定した。昨日AIが作った協力処理を復元したものではなく、各敵が独立して目標を決める段階。
 

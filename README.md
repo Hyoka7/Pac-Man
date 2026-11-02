@@ -97,25 +97,30 @@ Pydanticの`ScoreEntry`（名前と得点）と`HighscoreData`を使います。
 
 ## 構成
 
-| ファイル | 役割 |
+| モジュール | 役割 |
 | --- | --- |
-| `main.py` | 仮のConfig作成、迷路生成と起動 |
-| `models/models.py` | ゲーム共通設定とレベル別設定のPydanticモデル |
-| `visualize/maze_visualizer.py` | MLXの管理、経過時間・入力の受け渡し、画面配置、描画呼び出し |
-| `visualize/game.py` | ゲーム状態、移動更新、衝突・得点、復活、レベル進行、入力による状態遷移 |
-| `visualize/controls.py` / `visualize/game_state.py` | キー定義、ウィンドウへの要求、共通の状態定義 |
-| `visualize/maze.py` | 迷路、移動可否、中央付近の配置、全通路からのBFS距離表 |
-| `visualize/movement.py` | セル間の移動と方向変更 |
-| `visualize/player.py` | プレイヤー、得点、残機、パワーアップ |
-| `visualize/ghost.py` / `strategy.py` | 敵の描画・移動と方向選択 |
-| `visualize/pacgums.py` | 通常gumとスーパーgumの配置・消費・描画 |
-| `visualize/collision.py` | 接触判定 |
-| `visualize/gui.py` | 各画面、ランキング、HUD、バーの表示 |
-| `visualize/image_renderer.py` | ImageRenderer：文字画像の生成・計測、任意のRGBA画像の一括合成 |
-| `visualize/cheating.py` | 順番入力のチートコマンド判定 |
-| `visualize/highscore.py` | 得点モデルとJSONの保存・読み込み |
-| `visualize/visualizerutils.py` | 画像バッファとピクセル描画 |
+| `main.py` | Config作成、迷路生成と起動 |
+| `models/` | 共通設定・レベル別設定のPydanticモデル |
+| `game/game.py` | ゲーム進行、得点・衝突、復活、レベル準備 |
+| `game/state.py` | Home・Ready・Playingなどの共通状態 |
+| `game/player.py` / `game/ghost.py` | キャラクターの状態と更新 |
+| `game/maze.py` / `game/movement.py` | 壁、全通路のBFS距離表、移動・方向変更 |
+| `game/strategy.py` / `game/auto_player.py` | 敵の目標選択と自動操作 |
+| `game/pacgums.py` / `game/collision.py` | gumの配置・消費、接触判定 |
+| `controls/game_input.py` | 状態別のキー処理、チート操作、名前入力 |
+| `controls/keys.py` / `controls/cheating.py` | キー・方向の対応、ウィンドウへの要求、チートの順番入力 |
+| `audio/manager.py` | BGMと効果音の再生 |
+| `storage/highscore.py` | 得点モデルとJSONの保存・読み込み |
+| `visualize/maze_visualizer.py` | MLXの管理、描画、ゲーム更新と音声の呼び出し |
+| `visualize/gui.py` | 各画面、ランキング、HUD、バー、パネル |
+| `visualize/sprites.py` | Player・Ghostのキャッシュ付き画像生成 |
+| `visualize/image_renderer.py` | 文字画像の生成・計測とRGBA画像の一括合成 |
+| `visualize/visualizerutils.py` | 画像バッファ、ピクセル描画、セルと画面座標の変換 |
 | `playground.py` | ゲーム本体とは独立したPythonの練習用コード |
+
+キー入力は `Game.handle_key()` から `controls.game_input` へ渡し、ゲームの状態・得点・残機は引き続き `Game` と各キャラクターが保持します。画面遷移は `Game.set_state()` で再描画要求も更新します。
+
+キャラクターの既存の `draw()` は維持し、画像生成を `visualize.sprites` に分離しました。移動とgumの配置は引き続きCanvasの座標変換を使います。`from visualize import MazeVisualizer` は利用時に読み込むため、ゲーム関連だけのimportではMLXやPygameを読み込みません。
 
 ## 検証と今後の作業
 
@@ -136,7 +141,7 @@ HUDと無敵時間は数字・小数点の部品画像を再利用して合成�
 
 プレイ中に`3111696`でチートを有効にしてから、OでAutoを切り替えます。動作中はHUDに`AUTO ON`を表示します。矢印キーによる手動入力、チート解除、新規ゲームでAutoを解除します。壁貫通はHで切り替え、Wはチート中も上移動に使えます。
 
-`visualize/auto_player.py`の`AutoPlayer`が、敵の速度・移動途中の位置・衝突半径・復活待ち時間から危険を見積もり、安全に進めるgumを最大8マス先まで探します。敵が出口を塞げる行き止まりを避け、安全な経路がなければ敵の到達に時間がかかる方向へ逃げます。無敵時間の残りと停止中の敵も判定に使います。
+`game/auto_player.py`の`AutoPlayer`が、敵の速度・移動途中の位置・衝突半径・復活待ち時間から危険を見積もり、安全に進めるgumを最大8マス先まで探します。敵が出口を塞げる行き止まりを避け、安全な経路がなければ敵の到達に時間がかかる方向へ逃げます。無敵時間の残りと停止中の敵も判定に使います。
 方向はマスの中心で選び、移動・gum取得・無敵更新は既存のPlayerに任せます。Autoは通常の通路を対象にした局所探索で、ランダムな敵に対する生存やクリアを保証するものではありません。
 
 ## 加点値と倍率
@@ -158,4 +163,26 @@ Xで倍率を切り替えても獲得済みの得点は変えず、以降の3種
 
 pygame-ceのmixerでBGMとgum取得音を再生します。Home・Ranking・Instructionでは共通のメニュー曲、Playingではプレイ曲へ切り替え、同じ曲を再生中なら再読み込みしません。現時点ではPauseやクリア画面へ移動しても直前のBGMが継続します。
 
-初回起動前に[音源の出典・配置手順](assets/audio/README.md)を確認してください。CC0のプレイ曲は同梱し、Pixabayのメニュー曲・効果音は別途ダウンロードして配置します。テストは音声デバイスや音源ファイルの読み込みをモック化します。
+使用する6音源は`assets/audio/`に配置します。各ファイルと出典の対応は[音源メモ](assets/audio/README.md)を参照してください。テストは音声デバイスや音源ファイルの読み込みをモック化します。
+
+## 音源クレジット
+
+このゲームでは、以下の作者の皆さまが公開してくださった音楽・効果音を使用しています。素敵な音源を提供してくださった皆さまに感謝します。
+
+| 用途 | 作品 | 作者 | 配布元 |
+| --- | --- | --- | --- |
+| メニューBGM | 8 bit Arcade | moodmode | [Pixabay](https://pixabay.com/music/video-games-8-bit-arcade-138828/) |
+| プレイ中BGM | Chipped urgency(combat)（ループ版） | Centurion_of_war | [OpenGameArt](https://opengameart.org/content/chipped-urgencycombat) |
+| gum取得音 | Retro Coin 1 | Driken5482 | [Pixabay](https://pixabay.com/sound-effects/film-special-effects-retro-coin-1-236677/) |
+| Power up音 | Retro powerup 1 | Driken5482 | [Pixabay](https://pixabay.com/sound-effects/retro-powerup-1-236686/) |
+| 敵を食べる音 | Retro blip | Driken5482 | [Pixabay](https://pixabay.com/sound-effects/film-special-effects-retro-blip-236676/) |
+| Game over音 | Game over - retro video game 1 | ejah_music | [Pixabay](https://pixabay.com/music/video-games-game-over-retro-video-game-1-422479/) |
+
+## フォントクレジット
+
+画面の文字には **Press Start 2P** を使用しています。レトロなゲームの雰囲気を彩るフォントを公開してくださった作者の皆さまに感謝します。
+
+- フォント：Press Start 2P
+- 作者・著作権者：The Press Start 2P Project Authors（Copyright 2012）
+- 配布元：[Google Fonts](https://fonts.google.com/specimen/Press+Start+2P)
+- 同梱ライセンス：[SIL Open Font License 1.1](assets/fonts/OFL.txt)

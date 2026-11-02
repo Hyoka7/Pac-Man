@@ -2,7 +2,7 @@
 
 from collections import deque
 
-from .visualizerutils import VisualizerUtils
+from visualize.visualizerutils import VisualizerUtils
 
 
 class Maze:

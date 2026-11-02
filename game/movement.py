@@ -1,7 +1,7 @@
 """Pixel-coordinate movement shared by players and ghosts."""
 
-from .maze import Maze
-from .visualizerutils import VisualizerUtils
+from game.maze import Maze
+from visualize.visualizerutils import VisualizerUtils
 
 
 class Movement:

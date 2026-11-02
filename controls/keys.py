@@ -34,6 +34,18 @@ class KeyEnum(IntEnum):
     SHIFT_R = 65506
 
 
+MOVEMENT_DIRECTIONS: dict[int, str] = {
+    KeyEnum.LEFT: "W",
+    KeyEnum.A: "W",
+    KeyEnum.UP: "N",
+    KeyEnum.W: "N",
+    KeyEnum.RIGHT: "E",
+    KeyEnum.D: "E",
+    KeyEnum.DOWN: "S",
+    KeyEnum.S: "S",
+}
+
+
 class WindowAction(Enum):
     Close = auto()
     CycleColors = auto()

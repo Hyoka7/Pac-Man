@@ -14,10 +14,10 @@
 
 - ファイル：`menu_bgm.mp3`
 - 曲名：8 Bit Arcade
+- 作者：moodmode
 - 出典：https://pixabay.com/music/video-games-8-bit-arcade-138828/
 - ライセンス：Pixabay Content License
 - ライセンス説明：https://pixabay.com/service/license-summary/
-- 作者名とダウンロード時の表示・証明書は別途確認する。
 
 ## gum取得音（使用中）
 
@@ -66,6 +66,6 @@ Kosmo The Catの「Game over short jingle」は、ユーザーの試聴でおど
 
 ## 新しい環境での配置
 
-CC0の`playing.ogg`は同梱する。Pixabayの音源ファイルをそのまま公開リポジトリへ配布する条件は未確認のため、`menu_bgm.mp3`・`pacgum.mp3`・`powerup.mp3`・`eat.mp3`・`gameover.mp3`は同梱しない。上の各ページから利用条件を確認して手動でダウンロードし、このディレクトリに記載のファイル名で置く。
+`playing.ogg`・`menu_bgm.mp3`・`pacgum.mp3`・`powerup.mp3`・`eat.mp3`・`gameover.mp3`の6音源を、このゲームのBGM・効果音として同梱する。作者への謝辞と作品リンクは、ルートの[READMEの音源クレジット](../../README.md#音源クレジット)に記載している。
 
-現在は6音源がそろっている前提で起動する。Pixabayの音源が未配置の場合は、音源の読み込みエラーになる。
+現在は6音源がそろっている前提で起動する。ファイルを別途入れ直す場合は、上の各ページから入手し、記載のファイル名でこのディレクトリに置く。

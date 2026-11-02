@@ -7,6 +7,7 @@ class GUIStateEnum(IntEnum):
     Home = auto()
     Instruction = auto()
     Ranking = auto()
+    Ready = auto()
     Playing = auto()
     Pause = auto()
     GameOver = auto()
