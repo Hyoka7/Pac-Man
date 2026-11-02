@@ -9,7 +9,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from visualize.highscore import HighscoreManager, ScoreEntry
+from storage.highscore import HighscoreManager, ScoreEntry
 
 
 class HighscoreTests(unittest.TestCase):

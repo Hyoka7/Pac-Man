@@ -2,8 +2,13 @@
 
 import random
 from abc import ABC, abstractmethod
+from typing import TypedDict, Unpack
 
-from .maze import Maze
+from game.maze import Maze
+
+
+class StrategyKwargs(TypedDict, total=False):
+    red_pos: tuple[int, int] | None
 
 
 class Strategy(ABC):
@@ -16,27 +21,21 @@ class Strategy(ABC):
         ghost_pos: tuple[int, int],
         player_pos: tuple[int, int],
         player_dir: str,
+        target: tuple[int, int] | None = None,
+        **kwargs: Unpack[StrategyKwargs],
     ) -> str | None:
         """Return an open direction, or None when no move is available."""
         raise NotImplementedError
 
-
-class RandomStrategy(Strategy):
-    """Choose randomly among all open neighboring cells."""
-
-    def choose_direction(
+    def choose_target(
         self,
         maze: Maze,
         ghost_pos: tuple[int, int],
         player_pos: tuple[int, int],
         player_dir: str,
-    ) -> str | None:
-        """Return a random legal move, or None for an isolated cell."""
-        available = []
-        for direction in ("N", "S", "E", "W"):
-            if maze.can_move(*ghost_pos, direction):
-                available.append(direction)
-        return random.choice(available) if available else None
+        **kwargs: Unpack[StrategyKwargs],
+    ) -> tuple[int, int]:
+        return player_pos
 
 
 class BFSStrategy(Strategy):
@@ -48,9 +47,19 @@ class BFSStrategy(Strategy):
         ghost_pos: tuple[int, int],
         player_pos: tuple[int, int],
         player_dir: str,
+        target: tuple[int, int] | None = None,
+        **kwargs: Unpack[StrategyKwargs],
     ) -> str | None:
         """Choose randomly among steps that reduce the shortest distance by one."""
-        best_distance = maze.distances.get(ghost_pos, {}).get(player_pos)
+        if target is None:
+            target = self.choose_target(
+                maze,
+                ghost_pos,
+                player_pos,
+                player_dir,
+                **kwargs,
+            )
+        best_distance = maze.distances.get(ghost_pos, {}).get(target)
         if best_distance is None or best_distance == 0:
             return None
         candidates: list[str] = []
@@ -58,41 +67,50 @@ class BFSStrategy(Strategy):
             if not maze.can_move(*ghost_pos, direction):
                 continue
             neighbor = maze.next_cell(*ghost_pos, direction)
-            distance = maze.distances.get(neighbor, {}).get(player_pos)
+            distance = maze.distances.get(neighbor, {}).get(target)
             if distance is not None and distance == best_distance - 1:
                 candidates.append(direction)
         return random.choice(candidates) if candidates else None
 
 
 class AmbushStrategy(BFSStrategy):
-    def choose_direction(
+    def __init__(self, lookahead: int = 3) -> None:
+        self.lookahead = lookahead
+
+    def targets_ahead(
+        self, maze: Maze, player_pos: tuple[int, int], player_dir: str
+    ) -> list[tuple[int, int]]:
+        """List open cells ahead, from nearest to farthest."""
+        targets: list[tuple[int, int]] = []
+        target = player_pos
+        for _ in range(self.lookahead):
+            if not maze.can_move(*target, player_dir):
+                break
+            target = maze.next_cell(*target, player_dir)
+            targets.append(target)
+        return targets
+
+    def choose_target(
         self,
         maze: Maze,
         ghost_pos: tuple[int, int],
         player_pos: tuple[int, int],
         player_dir: str,
-    ) -> str | None:
-        target = player_pos
-        step = 0
-        while step < 3 and maze.can_move(*target, player_dir):
-            target = maze.next_cell(*target, player_dir)
-            step += 1
-        return super().choose_direction(
-            maze,
-            ghost_pos,
-            target,
-            player_dir,
-        )
+        **kwargs: Unpack[StrategyKwargs],
+    ) -> tuple[int, int]:
+        targets = self.targets_ahead(maze, player_pos, player_dir)
+        return targets[-1] if targets else player_pos
 
 
 class ReverseAmbushStrategy(AmbushStrategy):
-    def choose_direction(
+    def choose_target(
         self,
         maze: Maze,
         ghost_pos: tuple[int, int],
         player_pos: tuple[int, int],
         player_dir: str,
-    ) -> str | None:
+        **kwargs: Unpack[StrategyKwargs],
+    ) -> tuple[int, int]:
         reverse_dir = {
             "N": "S",
             "S": "N",
@@ -100,37 +118,39 @@ class ReverseAmbushStrategy(AmbushStrategy):
             "W": "E",
         }
         dir = reverse_dir[player_dir]
-        return super().choose_direction(maze, ghost_pos, player_pos, dir)
+        return super().choose_target(maze, ghost_pos, player_pos, dir, **kwargs)
 
-
-class BlockStrategy(BFSStrategy):
-    def choose_direction(
+class InkyStrategy(BFSStrategy):
+    def choose_target(
         self,
         maze: Maze,
         ghost_pos: tuple[int, int],
         player_pos: tuple[int, int],
         player_dir: str,
-    ) -> str | None:
-        can_move_dir = []
-        for dir in ["N", "E", "S", "W"]:
-            if maze.can_move(*player_pos, dir):
-                can_move_dir.append(dir)
-        vertical_dir = []
-        if player_dir in ("N", "S"):
-            for dir in can_move_dir:
-                if dir in ("E", "W"):
-                    vertical_dir.append(dir)
-        if player_dir in ("E", "W"):
-            for dir in can_move_dir:
-                if dir in ("N", "S"):
-                    vertical_dir.append(dir)
-        if len(vertical_dir):
-            chosen_dir = random.choice(vertical_dir)
-            target = maze.next_cell(*player_pos, chosen_dir)
-            return super().choose_direction(maze, ghost_pos, target, player_dir)
-        else:
-            return super().choose_direction(maze, ghost_pos, player_pos, player_dir)
-
+        target: tuple[int, int] | None = None,
+        **kwargs: Unpack[StrategyKwargs],
+    ) -> tuple[int, int]:
+        ahead_coords = {
+            "N": (0, -2),
+            "S": (0, 2),
+            "W": (-2, 0),
+            "E": (2, 0),
+        }
+        px, py = player_pos
+        ax, ay = ahead_coords[player_dir]
+        ahead_x, ahead_y = px + ax, py + ay
+        red_pos = kwargs.get("red_pos")
+        if red_pos is None:
+            return player_pos
+        gx, gy = red_pos
+        target_x, target_y = 2 * ahead_x - gx, 2 * ahead_y - gy
+        reachable = maze.distances.get(ghost_pos, {})
+        nearest_reachable = min(
+            reachable,
+            key=lambda cell: (cell[0] - target_x) ** 2 + (cell[1] - target_y) ** 2,
+            default=ghost_pos,
+        )
+        return nearest_reachable
 
 class FleeBFSStrategy(Strategy):
     """Choose shortest-path steps using the maze's precomputed distances."""
@@ -141,6 +161,8 @@ class FleeBFSStrategy(Strategy):
         ghost_pos: tuple[int, int],
         player_pos: tuple[int, int],
         player_dir: str,
+        target: tuple[int, int] | None = None,
+        **kwargs: Unpack[StrategyKwargs],
     ) -> str | None:
         """Look up distances without running BFS during gameplay."""
         best_distance = -1

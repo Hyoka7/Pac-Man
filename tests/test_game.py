@@ -5,22 +5,67 @@ from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from typing import Unpack
 from unittest.mock import Mock, patch
 
 from mazegenerator import MazeGenerator
 
 from models.models import Config, LevelConfig
-from visualize.controls import KeyEnum, WindowAction
-from visualize.game import Game
-from visualize.game_state import GUIStateEnum
-from visualize.ghost import Ghost
+from controls.keys import KeyEnum, WindowAction
+from game.game import Game
+from game.state import GUIStateEnum
+from game.ghost import Ghost
+from game.maze import Maze
 from visualize.maze_visualizer import MazeVisualizer
-from visualize.pacgums import PacgumEatenEnum
-from visualize.strategy import BFSStrategy
+from game.pacgums import PacgumEatenEnum
+from game.strategy import BFSStrategy, ReverseAmbushStrategy, StrategyKwargs
 from visualize.visualizerutils import VisualizerUtils
 
 
 class GameTests(unittest.TestCase):
+    def test_current_red_position_reaches_strategy_target_selection(self) -> None:
+        class RedTargetStrategy(BFSStrategy):
+            def choose_target(
+                self, maze: Maze, ghost_pos: tuple[int, int],
+                player_pos: tuple[int, int], player_dir: str,
+                **kwargs: Unpack[StrategyKwargs],
+            ) -> tuple[int, int]:
+                red_pos = kwargs.get("red_pos")
+                return red_pos if red_pos is not None else player_pos
+
+        game = self.game
+        game.player.movement.cell = (0, 0)
+        game.player.movement.place(self.canvas)
+        game.pacgums.reset(game.maze, self.canvas, (0, 0))
+        game.no_collision = True
+        observer = Ghost((1, 0), RedTargetStrategy())
+        red = Ghost((4, 0), BFSStrategy())
+        game.ghosts = [observer, red]
+        for red_cell, expected in (((4, 0), (2, 0)), ((0, 0), (0, 0))):
+            with self.subTest(red_cell=red_cell):
+                observer.place(self.canvas)
+                red.movement.cell = red_cell
+                red.place(self.canvas)
+                game.update(0.0, self.canvas)
+                self.assertEqual(observer.movement.target_cell, expected)
+
+    def test_each_ghost_follows_its_own_strategy(self) -> None:
+        game = self.game
+        game.maze = Maze([[9, 1, 3], [8, 0, 2], [12, 4, 6]])
+        game.player.movement.cell = (2, 2)
+        game.player.movement.place(self.canvas)
+        game.pacgums.reset(game.maze, self.canvas, (2, 2))
+        follower = Ghost((0, 0), ReverseAmbushStrategy())
+        leader = Ghost((0, 0), BFSStrategy())
+        game.ghosts = [follower, leader]
+        for ghost in game.ghosts:
+            ghost.place(self.canvas)
+        with patch('game.strategy.random.choice', side_effect=lambda choices: choices[0]):
+            game.update(0.01, self.canvas)
+        self.assertEqual(leader.movement.target_cell, (1, 0))
+        self.assertEqual(follower.movement.target_cell, (0, 1))
+        self.assertEqual(game.ghosts, [follower, leader])
+
     def setUp(self) -> None:
         self.enterContext(patch('visualize.maze_visualizer.AudioManager'))
         directory = TemporaryDirectory()
@@ -66,10 +111,25 @@ class GameTests(unittest.TestCase):
         self.assertEqual(game.player.lives, self.config.lives)
 
     def test_inactive_states_return_no_gum_event(self) -> None:
-        for state in (GUIStateEnum.Home, GUIStateEnum.Pause, GUIStateEnum.GameOver):
+        center = self.game.player.movement.center
+        remaining = self.game.remaining_time
+        for state in GUIStateEnum:
+            if state == GUIStateEnum.Playing:
+                continue
             with self.subTest(state=state):
                 self.game.state = state
                 self.assertEqual(self.game.update(0.1, self.canvas), (PacgumEatenEnum.Neither, 0))
+                self.assertEqual(self.game.player.movement.center, center)
+                self.assertEqual(self.game.remaining_time, remaining)
+
+    def test_ready_consumes_start_key_before_accepting_movement(self) -> None:
+        game = self.game
+        game.set_state(GUIStateEnum.Ready)
+        game.handle_key(KeyEnum.RIGHT, self.canvas)
+        self.assertEqual(game.state, GUIStateEnum.Playing)
+        self.assertFalse(game.player.movement.moving)
+        game.handle_key(KeyEnum.RIGHT, self.canvas)
+        self.assertTrue(game.player.movement.moving)
 
     def test_death_cheat_preserves_lives_but_still_allows_eating_ghosts(self) -> None:
         game = self.game
@@ -110,7 +170,7 @@ class GameTests(unittest.TestCase):
         before = set(game.pacgums.remain_gums)
         with redirect_stdout(StringIO()):
             game.update(0.0, self.canvas)
-        self.assertEqual(game.state, GUIStateEnum.Playing)
+        self.assertEqual(game.state, GUIStateEnum.Ready)
         self.assertEqual((game.player.lives, game.player.score), (1, 123))
         self.assertEqual(game.pacgums.remain_gums, before)
         self.assertEqual(game.player.movement.center,
@@ -143,7 +203,7 @@ class GameTests(unittest.TestCase):
         viewer.closed = False
         viewer.game.state = GUIStateEnum.Home
         viewer._on_key(KeyEnum.ENTER)
-        self.assertEqual(viewer.game.state, GUIStateEnum.Playing)
+        self.assertEqual(viewer.game.state, GUIStateEnum.Ready)
         self.assertFalse(viewer.game.level_needs_placement)
         viewer.game.state = GUIStateEnum.Stage_Clear
         viewer._on_key(32)

@@ -2,9 +2,9 @@
 
 import unittest
 
-from visualize.ghost import Ghost
-from visualize.maze import Maze
-from visualize.strategy import AmbushStrategy, BFSStrategy, RandomStrategy
+from game.ghost import Ghost
+from game.maze import Maze
+from game.strategy import AmbushStrategy, BFSStrategy
 from visualize.visualizerutils import VisualizerUtils
 
 
@@ -17,6 +17,14 @@ def make_canvas() -> VisualizerUtils:
 
 class GhostNavigationTests(unittest.TestCase):
     """Verify the current strategy-based navigation, including reversals."""
+
+    def test_invincible_player_makes_ghost_flee(self) -> None:
+        maze = Maze([[13, 5, 7]])
+        canvas = make_canvas()
+        ghost = Ghost((1, 0), BFSStrategy())
+        ghost.place(canvas)
+        ghost.update(0.01, maze, canvas, (0, 0), 'E', True)
+        self.assertEqual(ghost.movement.target_cell, (2, 0))
 
     def test_player_heading_reaches_ambush_strategy(self) -> None:
         maze = Maze([[13, 5, 5, 5, 7]])
@@ -59,14 +67,6 @@ class GhostNavigationTests(unittest.TestCase):
         ghost.update(0.1, Maze([[15, 15]]), canvas, (1, 0), player_dir="E", eatable=False)
         self.assertFalse(ghost.movement.moving)
         self.assertEqual(ghost.movement.center, (36.0, 36.0))
-
-    def test_isolated_random_ghost_stays_still(self) -> None:
-        """The same None handling also applies to RandomStrategy."""
-        canvas = make_canvas()
-        ghost = Ghost((0, 0), RandomStrategy())
-        ghost.place(canvas)
-        ghost.update(0.1, Maze([[15]]), canvas, (1, 0), player_dir="E", eatable=False)
-        self.assertFalse(ghost.movement.moving)
 
     def test_two_ghosts_can_share_one_bfs_strategy(self) -> None:
         """Movement remains independent while the distance map is shared."""

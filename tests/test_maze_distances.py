@@ -2,8 +2,8 @@
 
 import unittest
 
-from visualize.maze import Maze
-from visualize.strategy import BFSStrategy
+from game.maze import Maze
+from game.strategy import BFSStrategy
 
 
 class CountingMaze(Maze):

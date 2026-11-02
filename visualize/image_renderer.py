@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .visualizerutils import VisualizerUtils
+from visualize.visualizerutils import VisualizerUtils
 
 
 @cache

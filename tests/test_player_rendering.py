@@ -2,7 +2,7 @@
 
 import unittest
 
-from visualize.player import Player
+from game.player import Player
 from visualize.visualizerutils import VisualizerUtils
 
 

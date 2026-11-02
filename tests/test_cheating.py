@@ -8,10 +8,10 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
-from visualize.game import Game
-from visualize.cheating import CheatHandler
+from game.game import Game
+from controls.cheating import CheatHandler
 from visualize.gui import GUI, GUIStateEnum
-from visualize.controls import KeyEnum
+from controls.keys import KeyEnum
 from visualize.maze_visualizer import MazeVisualizer
 
 

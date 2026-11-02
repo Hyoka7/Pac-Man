@@ -6,10 +6,10 @@ from typing import Any, cast
 import unittest
 from unittest.mock import Mock, patch
 
-from visualize.game import Game
+from game.game import Game
 from visualize.gui import GUI, GUIStateEnum
-from visualize.highscore import HighscoreManager, ScoreEntry
-from visualize.controls import KeyEnum
+from storage.highscore import HighscoreManager, ScoreEntry
+from controls.keys import KeyEnum
 from visualize.maze_visualizer import MazeVisualizer
 from visualize.visualizerutils import VisualizerUtils
 

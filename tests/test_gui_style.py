@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import ImageFont
 
 from visualize.gui import GUI, GUIStateEnum
-from visualize.highscore import ScoreEntry
+from storage.highscore import ScoreEntry
 from visualize.visualizerutils import VisualizerUtils
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"

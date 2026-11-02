@@ -2,9 +2,9 @@
 
 import unittest
 
-from visualize.maze import Maze
-from visualize.pacgums import Pacgums
-from visualize.player import Player
+from game.maze import Maze
+from game.pacgums import Pacgums
+from game.player import Player
 from visualize.visualizerutils import VisualizerUtils
 
 

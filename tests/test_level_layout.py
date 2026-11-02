@@ -13,11 +13,11 @@ from unittest.mock import Mock, patch
 from mazegenerator import MazeGenerator
 
 from models.models import Config, LevelConfig
-from visualize.game import Game
-from visualize.ghost import Ghost
-from visualize.player import Player
+from game.game import Game
+from game.ghost import Ghost
+from game.player import Player
 from visualize.gui import GUI, GUIStateEnum
-from visualize.maze import Maze
+from game.maze import Maze
 from visualize.maze_visualizer import MazeVisualizer
 from visualize.visualizerutils import VisualizerUtils
 
@@ -113,6 +113,7 @@ class LevelLayoutTests(unittest.TestCase):
         viewer.game.player.is_invincible = True
         viewer.game.player.invincible_remain = 5.0
         ghost = viewer.game.ghosts[0]
+        spawn_center = viewer.canvas.cell_center(*ghost.movement.initial_cell)
         viewer.game.ghosts = [ghost]
         ghost.movement.cell = viewer.game.player.movement.cell
         ghost.movement.place(viewer.canvas)
@@ -122,12 +123,12 @@ class LevelLayoutTests(unittest.TestCase):
             viewer._on_loop()
         self.assertEqual(viewer.game.player.score, viewer.game.config.points_per_ghost)
         self.assertEqual(ghost.respawn_remaining, 5.0)
-        self.assertEqual(ghost.movement.center, viewer.canvas.cell_center(0, 0))
+        self.assertEqual(ghost.movement.center, spawn_center)
         with patch('visualize.maze_visualizer.time.monotonic', return_value=10.1):
             viewer._on_loop()
         self.assertEqual(viewer.game.player.score, viewer.game.config.points_per_ghost)
         self.assertAlmostEqual(ghost.respawn_remaining, 4.9)
-        self.assertEqual(ghost.movement.center, viewer.canvas.cell_center(0, 0))
+        self.assertEqual(ghost.movement.center, spawn_center)
 
     def test_skip_at_last_level_does_not_index_past_settings(self) -> None:
         viewer = self.make_viewer()

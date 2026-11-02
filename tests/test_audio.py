@@ -5,15 +5,15 @@ from typing import Any, cast
 import unittest
 from unittest.mock import Mock, call, patch
 
-from visualize.audio import AudioManager, AudioState
-from visualize.game_state import GUIStateEnum
+from audio.manager import AudioManager, AudioState
+from game.state import GUIStateEnum
 from visualize.maze_visualizer import MazeVisualizer
-from visualize.pacgums import PacgumEatenEnum
+from game.pacgums import PacgumEatenEnum
 
 
 class AudioTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.mixer = self.enterContext(patch('visualize.audio.pygame.mixer'))
+        self.mixer = self.enterContext(patch('audio.manager.pygame.mixer'))
         self.sounds = {f'assets/audio/{name}.mp3': Mock()
                        for name in ('pacgum', 'eat', 'powerup')}
         self.mixer.Sound.side_effect = self.sounds.__getitem__
@@ -53,7 +53,9 @@ class AudioTests(unittest.TestCase):
     def test_menu_screens_share_music_and_gameplay_switches_track_once(self) -> None:
         viewer = self.viewer()
         states = (GUIStateEnum.Home, GUIStateEnum.Ranking, GUIStateEnum.Instruction,
-                  GUIStateEnum.Home, GUIStateEnum.Playing, GUIStateEnum.Pause)
+                  GUIStateEnum.Home, GUIStateEnum.Ready, GUIStateEnum.Playing,
+                  GUIStateEnum.Pause, GUIStateEnum.Ready, GUIStateEnum.Stage_Clear,
+                  GUIStateEnum.All_Clear)
         with patch('visualize.maze_visualizer.time.monotonic', return_value=1.0):
             for state in states:
                 viewer.game.state = state

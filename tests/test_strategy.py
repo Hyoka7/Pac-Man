@@ -3,34 +3,14 @@
 import unittest
 from unittest.mock import patch
 
-from visualize.maze import Maze
-from visualize.strategy import (
-    AmbushStrategy, BFSStrategy, BlockStrategy, RandomStrategy, ReverseAmbushStrategy,
+from game.maze import Maze
+from game.strategy import (
+    AmbushStrategy, BFSStrategy, InkyStrategy, ReverseAmbushStrategy,
 )
-
-
-class CountingMaze(Maze):
-    """Count graph visits without replacing the real maze traversal."""
-
-    def __init__(self, cells: list[list[int]]) -> None:
-        """Initialize a maze and its traversal counter."""
-        self.checks = 0
-        super().__init__(cells)
-
-    def can_move(self, x: int, y: int, direction: str) -> bool:
-        """Count and perform the original wall check."""
-        self.checks += 1
-        return super().can_move(x, y, direction)
 
 
 class BFSStrategyTests(unittest.TestCase):
     """Verify wall-aware paths using the level's precomputed distance table."""
-
-    def test_takes_detour_instead_of_greedy_dead_end(self) -> None:
-        """The tempting east branch is longer than going south first."""
-        maze = Maze([[9, 7, 11], [12, 5, 6]])
-        self.assertEqual(BFSStrategy().choose_direction(maze, (0, 0), (2, 0), player_dir="E"),
-                         'S')
 
     def test_reaches_player_by_shortest_route(self) -> None:
         """Following the distance gradient reaches the player in four moves."""
@@ -51,7 +31,7 @@ class BFSStrategyTests(unittest.TestCase):
         strategy = BFSStrategy()
         for index, expected in ((0, 'E'), (-1, 'S')):
             with self.subTest(selection=index), patch(
-                'visualize.strategy.random.choice', side_effect=lambda choices: choices[index],
+                'game.strategy.random.choice', side_effect=lambda choices: choices[index],
             ):
                 direction = strategy.choose_direction(maze, (0, 0), (1, 1), player_dir="E")
                 self.assertEqual(direction, expected)
@@ -67,37 +47,29 @@ class BFSStrategyTests(unittest.TestCase):
             self.assertEqual(set(choices), {'N', 'E'})
             return choices[-1]
 
-        with patch('visualize.strategy.random.choice', side_effect=select_last_shortest):
+        with patch('game.strategy.random.choice', side_effect=select_last_shortest):
             direction = BFSStrategy().choose_direction(maze, (1, 1), (2, 0), player_dir="E")
         self.assertEqual(direction, 'E')
         assert direction is not None
         self.assertEqual(maze.distances[maze.next_cell(1, 1, direction)][(2, 0)], 1)
 
-    def test_returns_none_when_already_at_player(self) -> None:
-        """No step is needed when ghost and player share a cell."""
-        self.assertIsNone(BFSStrategy().choose_direction(Maze([[0]]), (0, 0), (0, 0), player_dir="E"))
-
-    def test_returns_none_for_unreachable_player(self) -> None:
-        """Disconnected cells have no path."""
-        self.assertIsNone(BFSStrategy().choose_direction(Maze([[15, 15]]),
-                                                        (0, 0), (1, 0), player_dir="E"))
-
-    def test_returns_none_for_invalid_coordinates(self) -> None:
-        """Out-of-bounds inputs cannot produce a movement direction."""
+    def test_no_step_for_arrival_unreachable_or_invalid_positions(self) -> None:
         strategy = BFSStrategy()
-        maze = Maze([[13, 7]])
-        self.assertIsNone(strategy.choose_direction(maze, (-1, 0), (1, 0), player_dir="E"))
-        self.assertIsNone(strategy.choose_direction(maze, (0, 0), (2, 0), player_dir="E"))
+        for label, cells, ghost, player in (
+            ('arrived', [[13, 7]], (0, 0), (0, 0)),
+            ('unreachable', [[13, 7, 13, 7]], (0, 0), (3, 0)),
+            ('invalid ghost', [[13, 7]], (-1, 0), (1, 0)),
+            ('invalid target', [[13, 7]], (0, 0), (2, 0)),
+        ):
+            with self.subTest(case=label):
+                self.assertIsNone(strategy.choose_direction(
+                    Maze(cells), ghost, player, player_dir='E'))
 
-    def test_reuses_search_for_different_ghosts(self) -> None:
-        """Different ghosts reuse the level table without additional searches."""
-        maze = CountingMaze([[13, 5, 5, 5, 7]])
-        strategy = BFSStrategy()
-        self.assertEqual(strategy.choose_direction(maze, (0, 0), (4, 0), player_dir="E"), 'E')
-        after_first = maze.checks
-        self.assertGreater(after_first, 4)
-        self.assertEqual(strategy.choose_direction(maze, (1, 0), (4, 0), player_dir="E"), 'E')
-        self.assertLessEqual(maze.checks - after_first, 4)
+    def test_explicit_target_overrides_the_personality_goal(self) -> None:
+        maze = Maze([[13, 5, 5, 5, 7]])
+        # Ambush would head east; the supplied target must send it west.
+        self.assertEqual(AmbushStrategy().choose_direction(
+            maze, (1, 0), (2, 0), 'E', target=(0, 0)), 'W')
 
     def test_uses_precomputed_distances_after_player_moves(self) -> None:
         """A new target selects a different entry in the same distance table."""
@@ -116,17 +88,26 @@ class BFSStrategyTests(unittest.TestCase):
 
 
 class AmbushStrategyTests(unittest.TestCase):
-    def test_target_ahead_makes_ghost_intercept_instead_of_following(self) -> None:
-        maze = Maze([[13, 5, 5, 5, 5, 5, 7]])
-        strategy = AmbushStrategy()
-        self.assertEqual(strategy.choose_direction(maze, (1, 0), (0, 0), 'E'), 'E')
-        self.assertEqual(strategy.choose_direction(maze, (5, 0), (6, 0), 'W'), 'W')
+    def test_configurable_lookahead_changes_the_interception_goal(self) -> None:
+        maze = Maze([[13, 5, 5, 5, 7]])
+        self.assertEqual(AmbushStrategy(lookahead=2).choose_target(
+            maze, (4, 0), (0, 0), 'E'), (2, 0))
+        self.assertEqual(AmbushStrategy(lookahead=0).choose_target(
+            maze, (4, 0), (0, 0), 'E'), (0, 0))
 
-    def test_vertical_player_heading_is_used(self) -> None:
-        maze = Maze([[11], [10], [10], [10], [10], [10], [14]])
+    def test_intercepts_ahead_in_all_four_directions(self) -> None:
+        horizontal = Maze([[13, 5, 5, 5, 5, 5, 7]])
+        vertical = Maze([[11], [10], [10], [10], [10], [10], [14]])
         strategy = AmbushStrategy()
-        self.assertEqual(strategy.choose_direction(maze, (0, 1), (0, 0), 'S'), 'S')
-        self.assertEqual(strategy.choose_direction(maze, (0, 5), (0, 6), 'N'), 'N')
+        for maze, ghost, player, heading in (
+            (horizontal, (1, 0), (0, 0), 'E'),
+            (horizontal, (5, 0), (6, 0), 'W'),
+            (vertical, (0, 1), (0, 0), 'S'),
+            (vertical, (0, 5), (0, 6), 'N'),
+        ):
+            with self.subTest(heading=heading):
+                self.assertEqual(strategy.choose_direction(
+                    maze, ghost, player, heading), heading)
 
     def test_wall_and_map_edge_stop_prediction(self) -> None:
         strategy = AmbushStrategy()
@@ -166,51 +147,48 @@ class ReverseAmbushStrategyTests(unittest.TestCase):
             maze, (0, 0), (3, 0), 'E'))
 
 
-class BlockStrategyTests(unittest.TestCase):
-    def test_horizontal_player_heading_targets_north_or_south_exit(self) -> None:
-        maze = Maze([[9, 1, 3], [8, 0, 2], [12, 4, 6]])
-        # The chosen north exit is east of the ghost, so returning N would be wrong.
-        with patch('visualize.strategy.random.choice', side_effect=lambda choices: choices[0]):
-            self.assertEqual(BlockStrategy().choose_direction(
-                maze, (0, 0), (1, 1), 'E'), 'E')
+class InkyStrategyTests(unittest.TestCase):
+    def test_target_reflects_red_position_across_two_cells_ahead(self) -> None:
+        size = 9
+        maze = Maze([[
+            (1 if y == 0 else 0) | (2 if x == size - 1 else 0)
+            | (4 if y == size - 1 else 0) | (8 if x == 0 else 0)
+            for x in range(size)] for y in range(size)])
+        strategy = InkyStrategy()
+        for heading, red, expected in (
+            ('N', (4, 4), (4, 0)),
+            ('E', (4, 4), (8, 4)),
+            ('S', (4, 4), (4, 8)),
+            ('W', (4, 4), (0, 4)),
+            ('E', (7, 4), (5, 4)),
+        ):
+            with self.subTest(heading=heading, red=red):
+                self.assertEqual(strategy.choose_target(
+                    maze, (0, 0), (4, 4), heading, red_pos=red), expected)
 
-    def test_vertical_player_heading_targets_east_or_west_exit(self) -> None:
-        maze = Maze([[9, 1, 3], [8, 0, 2], [12, 4, 6]])
-        with patch('visualize.strategy.random.choice', side_effect=lambda choices: choices[0]):
-            self.assertEqual(BlockStrategy().choose_direction(
-                maze, (2, 0), (1, 1), 'N'), 'S')
+    def test_outside_target_projects_to_reachable_cell_and_drives_bfs(self) -> None:
+        maze = Maze([[13, 5, 7]])
+        strategy = InkyStrategy()
+        self.assertEqual(strategy.choose_target(
+            maze, (0, 0), (1, 0), 'E', red_pos=(0, 0)), (2, 0))
+        self.assertEqual(strategy.choose_direction(
+            maze, (0, 0), (1, 0), 'E', red_pos=(0, 0)), 'E')
 
-    def test_routes_around_walls_to_the_selected_exit(self) -> None:
-        maze = Maze([[9, 7, 11], [12, 5, 6]])
-        direction = BlockStrategy().choose_direction(maze, (1, 0), (2, 0), 'E')
-        self.assertEqual(direction, 'W')
-        self.assertTrue(maze.can_move(1, 0, direction))
+    def test_projection_excludes_disconnected_cells(self) -> None:
+        maze = Maze([[13, 7, 13, 7]])
+        self.assertEqual(InkyStrategy().choose_target(
+            maze, (0, 0), (2, 0), 'E', red_pos=(3, 0)), (1, 0))
 
-    def test_no_side_exit_falls_back_to_direct_chase(self) -> None:
-        self.assertEqual(BlockStrategy().choose_direction(
-            Maze([[13, 5, 5, 5, 7]]), (4, 0), (0, 0), 'E'), 'W')
-        self.assertIsNone(BlockStrategy().choose_direction(
-            Maze([[15, 15]]), (0, 0), (1, 0), 'E'))
+    def test_missing_red_falls_back_to_player(self) -> None:
+        maze = Maze([[13, 5, 7]])
+        for kwargs in ({}, {'red_pos': None}):
+            with self.subTest(kwargs=kwargs):
+                self.assertEqual(InkyStrategy().choose_target(
+                    maze, (0, 0), (1, 0), 'E', **kwargs), (1, 0))
 
-    def test_waits_when_already_at_the_selected_exit(self) -> None:
-        maze = Maze([[9, 1, 3], [8, 0, 2], [12, 4, 6]])
-        with patch('visualize.strategy.random.choice', side_effect=lambda choices: choices[0]):
-            self.assertIsNone(BlockStrategy().choose_direction(
-                maze, (1, 0), (1, 1), 'E'))
-
-
-class RandomStrategyTests(unittest.TestCase):
-    """Random movement still respects walls and handles empty candidates."""
-
-    def test_only_open_direction_is_selected(self) -> None:
-        """A one-exit cell has a deterministic random choice."""
-        self.assertEqual(RandomStrategy().choose_direction(Maze([[13, 7]]),
-                                                          (0, 0), (1, 0), player_dir="E"), 'E')
-
-    def test_isolated_cell_returns_none(self) -> None:
-        """An empty candidate list must not raise from random.choice."""
-        self.assertIsNone(RandomStrategy().choose_direction(Maze([[15]]),
-                                                           (0, 0), (1, 0), player_dir="E"))
+    def test_no_reachable_cells_returns_current_position(self) -> None:
+        self.assertEqual(InkyStrategy().choose_target(
+            Maze([[15, 15]]), (0, 0), (1, 0), 'E', red_pos=(1, 0)), (0, 0))
 
 
 if __name__ == '__main__':

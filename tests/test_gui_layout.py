@@ -7,9 +7,9 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 from PIL import ImageFont
 
-from visualize.game import Game
+from game.game import Game
 from visualize.gui import GUI, GUIStateEnum
-from visualize.highscore import ScoreEntry
+from storage.highscore import ScoreEntry
 from visualize.maze_visualizer import MazeVisualizer
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
@@ -68,14 +68,15 @@ class GUILayoutTests(unittest.TestCase):
         screens: list[tuple[Callable[..., None], tuple[Any, ...]]] = [
             (self.gui.ranking, ([],)), (self.gui.gameover, (1234567, 'LONGESTNAM')),
             (self.gui.all_clear, (1234567, 'LONGESTNAM')),
-            (self.gui.stage_clear, ()), (self.gui.pause, ()), (self.gui.instruction, ()),
+            (self.gui.stage_clear, ()), (self.gui.pause, ()), (self.gui.ready, ()),
+            (self.gui.instruction, ()),
         ]
         for width, height in ((800, 600), (1001, 801)):
             for renderer, args in screens:
                 with self.subTest(screen=renderer.__name__, size=(width, height)):
                     self.draw_text.reset_mock()
                     self.gui.update_layout(width, height)
-                    renderer(Mock(), width, height, *args)
+                    renderer(Mock(width=width, height=height), width, height, *args)
                     self.assert_centered_block(width, height)
 
     def test_scaled_screens_keep_long_text_inside_their_panels(self) -> None:
@@ -88,6 +89,7 @@ class GUILayoutTests(unittest.TestCase):
             (GUIStateEnum.All_Clear, self.gui.all_clear, (9999999999, 'WWWWWWWWWW')),
             (GUIStateEnum.Stage_Clear, self.gui.stage_clear, ()),
             (GUIStateEnum.Pause, self.gui.pause, ()),
+            (GUIStateEnum.Ready, self.gui.ready, ()),
         ]
         for width, height in ((480, 320), (800, 600), (1280, 720),
                               (2460, 1340), (720, 1280), (4000, 2200)):
@@ -97,16 +99,13 @@ class GUILayoutTests(unittest.TestCase):
                     canvas = Mock(width=width, height=height)
                     self.draw_text.reset_mock()
                     with patch.object(self.gui, 'background', wraps=self.gui.background) as background:
-                        if state == GUIStateEnum.Pause:
-                            self.gui.draw_pause_background(canvas)
-                        else:
-                            self.gui.draw_backdrop(canvas, state)
+                        self.gui.draw_backdrop(canvas, state)
+                        renderer(canvas, width, height, *args)
                     _, x, y, panel_width, panel_height = background.call_args.args
                     self.assertGreaterEqual(x, 0)
                     self.assertGreaterEqual(y, 0)
                     self.assertLessEqual(x+panel_width, width)
                     self.assertLessEqual(y+panel_height, height)
-                    renderer(canvas, width, height, *args)
                     for call in self.draw_text.call_args_list:
                         _, tx, ty, text, _, size = call.args
                         tw, th = dimensions(text, size)

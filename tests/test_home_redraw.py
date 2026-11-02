@@ -11,11 +11,11 @@ from unittest.mock import MagicMock, Mock, patch
 
 from PIL import ImageFont
 
-from visualize.game import Game
-from visualize.cheating import CheatHandler
+from game.game import Game
+from controls.cheating import CheatHandler
 from visualize.gui import GUI, GUIStateEnum
-from visualize.highscore import HighscoreManager, ScoreEntry
-from visualize.controls import KeyEnum
+from storage.highscore import HighscoreManager, ScoreEntry
+from controls.keys import KeyEnum
 from visualize.maze_visualizer import MazeVisualizer
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
@@ -477,7 +477,7 @@ class HomeRedrawTests(unittest.TestCase):
                         v._on_loop()
                     v.m.mlx_put_image_to_window.assert_called_once()
 
-    def test_power_bar_and_timer_only_appear_during_play_or_pause(self) -> None:
+    def test_power_bar_and_timer_only_appear_on_gameplay_screens(self) -> None:
         v = self.viewer
         gui = GUI()
         gui.update_layout(800, 600)
@@ -496,7 +496,7 @@ class HomeRedrawTests(unittest.TestCase):
                     v._draw()
                     expected = (
                         invincible
-                        and state in (GUIStateEnum.Playing, GUIStateEnum.Pause)
+                        and state in (GUIStateEnum.Playing, GUIStateEnum.Pause, GUIStateEnum.Ready)
                     )
                     strings = [
                         call.args[3]

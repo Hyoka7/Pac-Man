@@ -4,8 +4,7 @@ import unittest
 
 from PIL import Image
 
-from visualize.ghost import ghost_image
-from visualize.player import player_image
+from visualize.sprites import ghost_image, player_image
 
 
 class PixelSpriteTests(unittest.TestCase):

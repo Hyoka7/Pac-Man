@@ -9,12 +9,12 @@ from models.models import Config, LevelConfig
 from visualize.gui import GUIStateEnum
 
 from visualize import MazeVisualizer
-from visualize.ghost import Ghost
-from visualize.maze import Maze
-from visualize.movement import Movement
-from visualize.pacgums import Pacgums
-from visualize.player import Player
-from visualize.strategy import BFSStrategy
+from game.ghost import Ghost
+from game.maze import Maze
+from game.movement import Movement
+from game.pacgums import Pacgums
+from game.player import Player
+from game.strategy import BFSStrategy
 from visualize.visualizerutils import VisualizerUtils
 
 

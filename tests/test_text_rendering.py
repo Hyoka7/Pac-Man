@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 from PIL import Image, ImageFont
 
-from visualize.game import Game
+from game.game import Game
 from visualize.gui import GUI, GUIStateEnum
 from visualize.maze_visualizer import MazeVisualizer
 from visualize.visualizerutils import VisualizerUtils

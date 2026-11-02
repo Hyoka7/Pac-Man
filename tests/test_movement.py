@@ -2,7 +2,7 @@
 
 import unittest
 
-from visualize.movement import Movement
+from game.movement import Movement
 
 
 class MovementTests(unittest.TestCase):

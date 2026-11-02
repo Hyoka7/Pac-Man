@@ -8,10 +8,10 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
-from visualize.game import Game
+from game.game import Game
 from visualize.gui import GUIStateEnum
-from visualize.highscore import HighscoreManager
-from visualize.controls import KeyEnum
+from storage.highscore import HighscoreManager
+from controls.keys import KeyEnum
 from visualize.maze_visualizer import MazeVisualizer
 
 

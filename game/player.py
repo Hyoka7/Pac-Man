@@ -1,65 +1,13 @@
 """Player state, movement, queued turns and rendering."""
 
 from collections.abc import Callable
-from functools import cache
-from math import ceil, radians, tan
 
-from PIL import Image
-
-from .image_renderer import ImageRenderer
-from .maze import Maze
-from .movement import Movement
-from .pacgums import PacgumEatenEnum, Pacgums
-from .visualizerutils import VisualizerUtils
-
-
-@cache
-def player_image(
-    radius: float,
-    direction: str,
-    mouth_step: int,
-) -> Image.Image:
-    side = ceil(radius * 2) + 2
-    img = Image.new(
-        "RGBA",
-        (side, side),
-        (0, 0, 0, 0),
-    )
-    palette = Image.new(
-        "RGBA",
-        (16, 16),
-        (0, 0, 0, 0),
-    )
-
-    mouth_angle_half = 45 * mouth_step / 10
-    mouth_slope = tan(radians(mouth_angle_half))
-
-    def _is_in_mouth(dx: float, dy: float) -> bool:
-        """Return whether a point relative to the center is inside the mouth."""
-        if direction == "E":
-            forward, across = dx, dy
-        elif direction == "W":
-            forward, across = -dx, dy
-        elif direction == "S":
-            forward, across = dy, dx
-        else:
-            forward, across = -dy, dx
-        return (
-            mouth_step > 0
-            and forward > 0
-            and abs(across) <= forward * mouth_slope
-        )
-
-    for y in range(16):
-        for x in range(16):
-            dx = x - 7.5
-            dy = y - 7.5
-            if dx * dx + dy * dy <= 8 * 8 and not _is_in_mouth(dx, dy):
-                palette.putpixel((x, y), (255, 255, 0, 255))
-    zoomed = palette.resize((side - 2, side - 2), resample=Image.Resampling.NEAREST)
-    img.alpha_composite(zoomed, (1, 1))
-
-    return img
+from game.maze import Maze
+from game.movement import Movement
+from game.pacgums import PacgumEatenEnum, Pacgums
+from visualize.image_renderer import ImageRenderer
+from visualize.sprites import player_image
+from visualize.visualizerutils import VisualizerUtils
 
 
 class Player:
@@ -71,7 +19,7 @@ class Player:
         initial_lives: int = 3,
     ) -> None:
         """Start stopped at a cell, facing east."""
-        self.movement = Movement(pos, speed=6.5)
+        self.movement = Movement(pos, speed=5.5)
         self.renderer = ImageRenderer()
         self.radius: float = 0.0
         self.ult = False
