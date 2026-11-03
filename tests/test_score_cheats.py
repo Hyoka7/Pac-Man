@@ -23,7 +23,7 @@ class ScoreCheatTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         config = Config(
             highscore_filename=str(Path(directory.name) / 'scores.json'),
-            levels=[LevelConfig(width=5, height=1)],
+            levels=[LevelConfig.model_construct(width=5, height=1)],
             points_per_pacgum=11, points_per_super_pacgum=37, points_per_ghost=123,
         )
         self.viewer = MazeVisualizer([[13, 5, 5, 5, 7]], Mock(), config)

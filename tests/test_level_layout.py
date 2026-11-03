@@ -34,8 +34,8 @@ class LevelLayoutTests(unittest.TestCase):
             lives=4,
             levels=[
                 LevelConfig(width=15, height=15, max_time=90),
-                LevelConfig(width=25, height=15, max_time=80),
-                LevelConfig(width=15, height=25, max_time=70),
+                LevelConfig(width=25, height=15, max_time=120),
+                LevelConfig(width=15, height=25, max_time=150),
             ],
         )
         generator = MazeGenerator(size=(15, 15), seed=42)
@@ -85,7 +85,7 @@ class LevelLayoutTests(unittest.TestCase):
         viewer = self.make_viewer()
         strategies = [ghost.strategy for ghost in viewer.game.ghosts]
         viewer.game.player.score, viewer.game.player.lives = 123, 2
-        for expected_size, expected_time in (((25, 15), 80), ((15, 25), 70)):
+        for expected_size, expected_time in (((25, 15), 120), ((15, 25), 150)):
             with self.subTest(size=expected_size):
                 viewer.game.player.is_invincible = True
                 viewer.game.player.invincible_remain = 3
@@ -105,6 +105,22 @@ class LevelLayoutTests(unittest.TestCase):
         self.assertEqual((viewer.game.player.score, viewer.game.player.lives), (0, 4))
         self.assertEqual(viewer.game.remaining_time, 90)
         self.assert_placements_fit(viewer)
+
+    def test_first_level_seed_is_reused_on_restart_and_later_levels_use_random(self) -> None:
+        viewer = self.make_viewer()
+        original = [row[:] for row in viewer.game.maze.maze]
+        viewer.restart_game()
+        self.assertEqual(viewer.game.maze.maze, original)
+        viewer.game.config.seed = 99
+        viewer.restart_game()
+        expected = MazeGenerator(size=(15, 15), seed=99).maze
+        self.assertEqual(viewer.game.maze.maze, expected)
+        self.assertNotEqual(viewer.game.maze.maze, original)
+        with patch('pacman.game.game.MazeGenerator', wraps=MazeGenerator) as generator:
+            viewer.next_level()
+        generator.assert_called_once_with((25, 15), seed=0)
+        viewer.restart_game()
+        self.assertEqual(viewer.game.maze.maze, expected)
 
     def test_eaten_ghost_waits_after_reset_and_cannot_score_twice(self) -> None:
         viewer = self.make_viewer()

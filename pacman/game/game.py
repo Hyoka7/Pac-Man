@@ -198,7 +198,8 @@ class Game:
     def regenerate_maze(self) -> None:
         """Prepare the maze and spawn cells; place it after screen layout updates."""
         new_conf = self.config.levels[self.level - 1]
-        new_generator = MazeGenerator((new_conf.width, new_conf.height))
+        maze_seed = self.config.seed if self.level == 1 else 0
+        new_generator = MazeGenerator((new_conf.width, new_conf.height), seed=maze_seed)
         self.generator = new_generator
         self.maze = Maze(self.generator.maze)
         self.level_needs_placement = True

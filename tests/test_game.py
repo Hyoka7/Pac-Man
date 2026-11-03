@@ -91,7 +91,7 @@ class GameTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.config = Config(
             highscore_filename=str(Path(directory.name) / 'scores.json'),
-            levels=[LevelConfig(width=5, height=1)],
+            levels=[LevelConfig.model_construct(width=5, height=1)],
         )
         self.game = Game([[13, 5, 5, 5, 7]], Mock(), self.config)
         self.canvas = VisualizerUtils(

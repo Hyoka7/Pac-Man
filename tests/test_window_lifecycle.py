@@ -17,7 +17,7 @@ class WindowLifecycleTests(unittest.TestCase):
         self.enterContext(patch('pacman.visualize.maze_visualizer.AudioManager'))
         config = Config(
             highscore_filename=str(Path(directory) / 'scores.json'),
-            levels=[LevelConfig(width=5, height=1)],
+            levels=[LevelConfig.model_construct(width=5, height=1)],
         )
         self.viewer = MazeVisualizer([[13, 5, 5, 5, 7]], Mock(), config)
         self.mlx = Mock()

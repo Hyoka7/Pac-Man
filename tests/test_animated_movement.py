@@ -133,7 +133,7 @@ class AnimatedMovementTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             config = Config(
                 highscore_filename=str(Path(directory) / "scores.json"),
-                levels=[LevelConfig(width=5, height=1)],
+                levels=[LevelConfig.model_construct(width=5, height=1)],
             )
             viewer = MazeVisualizer([[13, 5, 5, 5, 7]], Mock(), config)
             viewer.game.state = GameState.Playing

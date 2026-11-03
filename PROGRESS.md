@@ -2,10 +2,21 @@
 
 最終更新：2026-11-03。
 
+## 設定ファイルの読み込み（2026-11-03）
+
+- ユーザーが起動スクリプトをmain.pyからpacman.pyへ変更。`python pacman.py config.json`、`python -m pacman config.json`、`make run` に対応。MakefileはCONFIG変数で別ファイルも指定可能。
+- Parserは行頭コメントを空行に置き換えてJSONのエラー行番号を保持。Config・LevelConfigで検証し、不足・不正な項目だけモデルの既定値へ戻してstderrに場所と理由を警告する。正常な値と他のレベルは維持し、未知のキーは無視する。
+- levelsの既定値は15×15・90秒の1ステージ。空配列・不正な配列は既定値へ戻し、不正なレベル要素だけを既定レベルへ置き換える。width・heightは15〜30、制限時間は90秒以上の有限値というユーザーの設定を維持。
+- ファイル・文字コード・JSON構文・最上位の型のエラーはmainでstderrに表示して終了コード1。正常な起動は終了コード0。
+- 同梱config.jsonは3ステージ。READMEに設定項目と既定値を記載。小規模なゲーム単体テスト用の盤面はmodel_constructで作り、設定ファイルの入力制限とは分けて検証する。
+- ユーザーが設定変更の実プレイを確認。開始・リスタート時の迷路再生成にもレベル1ではconfig.seedを渡し、レベル2以降はseed=0でランダム生成する修正を追加。
+- 全215テスト成功。両起動経路、不正な入力時の終了、設定値の個別補正、コメントとエラー行番号に加え、同じseedでの再開時の迷路一致、変更したseedの反映、次レベルでのランダム生成指定を確認。ユーザーの依頼でcommit・pushして中断する。scores.jsonとdocs/は含めない。
+- 次回は、存在しないファイル・壊れたJSONを起動時に指定し、理由の表示と終了コード1を手元でも確認する。設定ファイル名は固定せず、拡張子の制限も設けていない。以後は改善したいゲーム機能を選ぶ。新機能はユーザー自身が実装する形を基本とし、明示的に依頼された場合はアシスタントが実装する。
+
 ## 現在の構成（2026-11-03）
 
 - Pythonモジュールは `pacman/` に集約。内部は `game/`、`controls/`、`audio/`、`storage/`、`visualize/`、`models/`、`parser/` に分離。
-- `main.py` は起動用の薄い入口。`make run`・`python main.py` を維持し、`python -m pacman` でも同じ設定で起動できる。
+- `pacman.py` は起動用の薄い入口。`make run`・`python pacman.py config.json`・`python -m pacman config.json` で設定ファイルを読み込んで起動する。
 - `pacman/visualize/world_renderer.py` にMaze・Pacgums・Player・Ghostの描画を移動。ゲーム側は状態と更新を担当し、Pillow・描画モジュールを実行時にimportしない。Canvasは座標変換に引き続き使い、型としてのみ参照する。
 - `GameState` に命名を統一し、状態変更は `Game.set_state()` 経由。無敵時間HUDの綴りは `invincible_time()` に修正。
 - Ghostに `GhostRole` を追加。水色に渡す赤の座標は `GhostRole.RED` で識別し、戦略の型には依存しない。

@@ -9,7 +9,7 @@ PythonとMLXで制作中のPac-Manです。外部パッケージで生成した�
 ```bash
 uv sync
 uv pip install ./src/mazegenerator-2.1.0-py3-none-any.whl ./src/mlx-2.2-py3-none-any.whl
-.venv/bin/python main.py
+.venv/bin/python pacman.py config.json
 ```
 
 MLXと迷路生成パッケージは、現状では`pyproject.toml`の依存関係とは別に、同梱wheelからインストールします。
@@ -47,7 +47,7 @@ MLXと迷路生成パッケージは、現状では`pyproject.toml`の依存関�
 
 ## 現在のゲーム動作
 
-- レベル数と制限時間はConfigから取得します。現在のmain.pyの仮設定はサイズ変更確認用の10レベル、各90秒です。次レベルでは迷路を再生成します。
+- レベル数と制限時間はConfigから取得します。同梱config.jsonは3レベルで、制限時間は90・120・180秒です。次レベルでは迷路を再生成します。
 - プレイヤーは中央に最も近い通路から開始し、残機は3。次レベルへスコアと残機を引き継ぎます。
 - 通常gum・スーパーgum・敵の得点はConfigから取得します。現在の既定値は10・50・200点です。四隅のスーパーgumで5秒間敵を食べられます。
 - パワーアップ中は敵が青くなり、逃走Strategyで移動します。食べた敵は設定の得点を加算し、その敵の初期位置へ戻して5秒待機させます。待機中は描画・移動・接触判定を行わず、次レベルや死亡復帰などのリセットでは待機を解除します。
@@ -57,9 +57,23 @@ MLXと迷路生成パッケージは、現状では`pyproject.toml`の依存関�
 - HUDにレベル、得点、残機、制限時間を表示し、プレイ・ポーズ中のパワーアップ効果は下部の残り時間と中央へ縮むバーで示します。ホームや終了画面には効果表示を出しません。
 - チート有効中はHUDに`CHEAT ON`を表示します。通常のHUDは`Lv`・`Score`・`Life`・`Time`の短い表記を使います。
 
-`main.py`でPydanticの`Config`と`LevelConfig`を直接作成しています。JSONの読み込みはペアの担当で、まだ接続していません。保存先・残機・得点・レベル数・制限時間をゲームへ反映しています。
+設定ファイルを引数に1つ指定します。`python -m pacman config.json` または `make run`（既定はconfig.json）でも起動できます。別のファイルは `make run CONFIG=other.json` で指定します。
 
-ウィンドウは画面サイズから余裕を引いた固定サイズです。`_update_layout()`で迷路に収まるセルサイズと中央寄せの`offset_x`・`offset_y`を計算します。設定ごとの迷路サイズで生成し、レベル変更時には敵の初期位置・キャラクター半径・gumの行列数も更新します。main.pyのテスト設定は先頭3レベルが15×15・25×15・15×25、残り7レベルが15×15です。
+ParserはJSONを読み、行頭の空白を除いて `#` で始まるコメント行を無視します。文字列内の `#` は保持します。不足・不正な項目は警告をstderrへ出して、その項目だけ既定値へ戻します。未知のキーは無視し、ファイルが開けない・文字コードやJSON構文が不正・最上位がオブジェクトでない場合は、理由をstderrに表示して終了コード1で終了します。
+
+| キー | 既定値・制限 |
+| --- | --- |
+| `highscore_filename` | `scores.json` |
+| `lives` | 3、1以上 |
+| `seed` | 42、1以上 |
+| `points_per_pacgum` | 10、1以上 |
+| `points_per_super_pacgum` | 50、1以上 |
+| `points_per_ghost` | 200、1以上 |
+| `levels` | 15×15・90秒の1ステージ。空や不正な配列も既定値へ戻す |
+| 各レベルの `width` / `height` | 15、15〜30 |
+| 各レベルの `max_time` | 90.0秒、90以上の有限値 |
+
+ウィンドウは画面サイズから余裕を引いた固定サイズです。`_update_layout()`で迷路に収まるセルサイズと中央寄せの`offset_x`・`offset_y`を計算します。設定ごとの迷路サイズで生成し、レベル変更時には敵の初期位置・キャラクター半径・gumの行列数も更新します。同梱config.jsonのステージは15×15・25×15・25×25です。
 
 ホーム・操作説明・ランキング・ポーズ・ステージクリア・ゲームオーバー・全クリアは、`needs_redraw`が立ったときだけループから描画します。状態変更、メニュー選択、名前入力でフラグを立て、描画後に下ろします。ウィンドウ再表示イベントからは直接再描画します。プレイ中のFPS制限はありません。
 
@@ -98,8 +112,9 @@ Pydanticの`ScoreEntry`（名前と得点）と`HighscoreData`を使います。
 
 | モジュール | 役割 |
 | --- | --- |
-| `main.py` | 従来の起動コマンド用入口 |
-| `pacman/__main__.py` | Config作成、迷路生成と起動。`python -m pacman` にも対応 |
+| `pacman.py` | 設定ファイルを受け取る起動用入口 |
+| `pacman/__main__.py` | 設定の読み込み、迷路生成と起動。`python -m pacman config.json` にも対応 |
+| `pacman/parser/` | コメント付きJSONの読み込みと不正な項目の既定値への補正 |
 | `pacman/models/` | 共通設定・レベル別設定のPydanticモデル |
 | `pacman/game/game.py` | ゲーム進行、得点・衝突、復活、レベル準備 |
 | `pacman/game/state.py` | Home・Ready・Playingなどの共通状態 |
@@ -124,7 +139,7 @@ Pydanticの`ScoreEntry`（名前と得点）と`HighscoreData`を使います。
 
 ゲーム側のクラスから描画を分離し、`WorldRenderer` が迷路・gum・キャラクターを描きます。画像生成とキャッシュは `pacman.visualize.sprites` が担当します。移動とgumの配置は引き続きCanvasの座標変換を使いますが、型ヒントの参照だけなのでゲーム関連のimportでは描画・MLX・Pygameを読み込みません。
 
-状態は `GameState`、赤の識別は戦略の型ではなく `GhostRole.RED` を使います。Pythonのソースはすべて `pacman/` にまとめ、`main.py` と `playground.py` はルートの実行用スクリプトとして残しています。音源・フォントは引き続きルートの `assets/` に置きます。
+状態は `GameState`、赤の識別は戦略の型ではなく `GhostRole.RED` を使います。Pythonのソースはすべて `pacman/` にまとめ、`pacman.py` と `playground.py` はルートの実行用スクリプトとして残しています。音源・フォントは引き続きルートの `assets/` に置きます。
 
 ## 検証と今後の作業
 
