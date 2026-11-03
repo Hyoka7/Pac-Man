@@ -1,29 +1,29 @@
-"""Run the game with the current development configuration."""
+"""Run the game with a configuration file supplied on the command line."""
+
+import sys
 
 from mazegenerator import MazeGenerator
 
-from pacman.models import Config
-from pacman.models.models import LevelConfig
+from pacman.parser import Parser
 from pacman.visualize import MazeVisualizer
 
 
-def main() -> None:
-    config = Config(
-        highscore_filename="scores.json",
-        levels=[
-            LevelConfig(width=15, height=15),
-            LevelConfig(width=25, height=15),
-            LevelConfig(width=15, height=25),
-            *[LevelConfig(width=15, height=15) for _ in range(7)],
-        ],
-        lives=3,
-    )
-
-    first_level = config.levels[0]
-    m = MazeGenerator(size=(first_level.width, first_level.height))
-    m.generate(seed=config.seed)
-    MazeVisualizer(m.maze, m, config).run()
-
+def main() -> int:
+    try:
+        if len(sys.argv) != 2:
+            print(f"Usage: {sys.argv[0]} <config_file>", file=sys.stderr)
+            return 1
+        input_path = sys.argv[1]
+        parser = Parser(input_path)
+        config = parser.parse()
+        first_level = config.levels[0]
+        m = MazeGenerator(size=(first_level.width, first_level.height))
+        m.generate(seed=config.seed)
+        MazeVisualizer(m.maze, m, config).run()
+        return 0
+    except (OSError, ValueError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

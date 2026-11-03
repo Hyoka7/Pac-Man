@@ -1,5 +1,6 @@
 UV = uv
 VENV = .venv
+CONFIG ?= config.json
 FLAKE8 := .venv/bin/flake8
 MYPY := .venv/bin/mypy
 SRC = ./src
@@ -18,10 +19,10 @@ install: $(VENV)
 	$(UV) pip install flake8 mypy $(MLX) $(MAZEGEN)
 
 run:
-	$(UV) run main.py
+	$(UV) run pacman.py $(CONFIG)
 
 debug:
-	$(UV) run -m pdb main.py
+	$(UV) run -m pdb pacman.py $(CONFIG)
 
 $(VENV):
 	uv venv $(VENV)
