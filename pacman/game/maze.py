@@ -1,8 +1,9 @@
-"""Maze walls, navigation and rendering."""
+"""Maze walls, navigation and precomputed distances."""
+
+from __future__ import annotations
 
 from collections import deque
-
-from visualize.visualizerutils import VisualizerUtils
+from pacman.game.directions import DIRECTIONS, DIRECTION_OFFSETS, WALL_BITS
 
 
 class Maze:
@@ -52,7 +53,7 @@ class Maze:
         queue = deque([start])
         while queue:
             cell = queue.popleft()
-            for direction in ("N", "E", "S", "W"):
+            for direction in DIRECTIONS:
                 if not self.can_move(*cell, direction):
                     continue
                 neighbor = self.next_cell(*cell, direction)
@@ -65,15 +66,9 @@ class Maze:
 
     def next_cell(self, x: int, y: int, direction: str) -> tuple[int, int]:
         """Return the adjacent cell; walls and bounds are checked separately."""
-        offsets = {
-            "N": (0, -1),
-            "E": (1, 0),
-            "S": (0, 1),
-            "W": (-1, 0),
-        }
-        if direction not in offsets:
+        if direction not in DIRECTION_OFFSETS:
             raise ValueError("direction must be N, E, S or W")
-        dx, dy = offsets[direction]
+        dx, dy = DIRECTION_OFFSETS[direction]
         return x + dx, y + dy
 
     def can_move(
@@ -84,48 +79,14 @@ class Maze:
         wallhack: bool = False,
     ) -> bool:
         """Return whether a cell has an in-bounds passage in a direction."""
-        directions = {
-            "N": 1,
-            "E": 2,
-            "S": 4,
-            "W": 8,
-        }
-        if direction not in directions:
+        if direction not in WALL_BITS:
             return False
         if not (0 <= x < self.cols and 0 <= y < self.rows):
             return False
         next_x, next_y = self.next_cell(x, y, direction)
-        wall = directions[direction]
+        wall = WALL_BITS[direction]
         return (
             0 <= next_x < self.cols
             and 0 <= next_y < self.rows
             and (wallhack or self.maze[y][x] & wall == 0)
         )
-
-    def draw(
-        self,
-        canvas: VisualizerUtils,
-        wall_color: tuple[int, int, int],
-        landmark_color: tuple[int, int, int],
-    ) -> None:
-        """Draw the maze and enclosed 42 cells."""
-
-        def line(x0: int, y0: int, x1: int, y1: int) -> None:
-            canvas._fill_cell(x0, y0, x1 + 1, y1 + 1, wall_color)
-
-        for y, row in enumerate(self.maze):
-            for x, cell in enumerate(row):
-                x0 = canvas.offset_x + x * canvas.cell_size
-                y0 = canvas.offset_y + y * canvas.cell_size
-                x1 = x0 + canvas.cell_size
-                y1 = y0 + canvas.cell_size
-                if cell == 15:
-                    canvas._fill_cell(x0, y0, x1, y1, landmark_color)
-                if cell & 1:
-                    line(x0, y0, x1, y0)
-                if cell & 2:
-                    line(x1, y0, x1, y1)
-                if cell & 4:
-                    line(x0, y1, x1, y1)
-                if cell & 8:
-                    line(x0, y0, x0, y1)

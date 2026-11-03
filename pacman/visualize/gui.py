@@ -1,10 +1,10 @@
 from collections.abc import Sequence
 
-from game.state import GUIStateEnum
-from storage.highscore import ScoreEntry
-from visualize.image_renderer import ImageRenderer
-from visualize.sprites import ghost_image, player_image
-from visualize.visualizerutils import VisualizerUtils
+from pacman.game.state import GameState
+from pacman.storage.highscore import ScoreEntry
+from pacman.visualize.image_renderer import ImageRenderer
+from pacman.visualize.sprites import ghost_image, player_image
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class GUI:
@@ -45,7 +45,9 @@ class GUI:
         self.bar_width = min(self.font_size * 10, max(0, width - 2 * self.padding))
         self.bar_height = max(1, round(self.font_size / 2))
         self.bar_y = max(0, height - self.padding - self.bar_height)
-        footer_height = self.padding + self.bar_height + self.text_gap + self.text_height
+        footer_height = (
+            self.padding + self.bar_height + self.text_gap + self.text_height
+        )
         self.maze_margin = max(
             self.hud_y + self.text_height + self.padding,
             footer_height + self.padding,
@@ -96,7 +98,10 @@ class GUI:
         )
 
     def _block_top(
-        self, height: int, line_count: int, last_height: int | None = None,
+        self,
+        height: int,
+        line_count: int,
+        last_height: int | None = None,
     ) -> int:
         return (height - self._block_height(line_count, last_height)) // 2
 
@@ -124,24 +129,26 @@ class GUI:
         )
 
     def draw_backdrop(
-        self, canvas: VisualizerUtils, state: GUIStateEnum,
+        self,
+        canvas: VisualizerUtils,
+        state: GameState,
     ) -> None:
         """Draw a static screen's navy backdrop and centered bordered panel."""
         if state in (
-            GUIStateEnum.Playing,
-            GUIStateEnum.Pause,
-            GUIStateEnum.Ready,
+            GameState.Playing,
+            GameState.Pause,
+            GameState.Ready,
         ):
             return
         canvas.fill_rect(0, 0, canvas.width, canvas.height, self.BACKGROUND_COLOR)
         panel_heights = {
-            GUIStateEnum.Home: self.line_spacing * 15,
-            GUIStateEnum.Ranking: self.line_spacing * 16,
-            GUIStateEnum.Confirm_Clear: self.line_spacing * 5,
-            GUIStateEnum.Instruction: self.line_spacing * 7,
-            GUIStateEnum.GameOver: self.line_spacing * 6,
-            GUIStateEnum.All_Clear: self.line_spacing * 6,
-            GUIStateEnum.Stage_Clear: self.line_spacing * 4,
+            GameState.Home: self.line_spacing * 15,
+            GameState.Ranking: self.line_spacing * 16,
+            GameState.Confirm_Clear: self.line_spacing * 5,
+            GameState.Instruction: self.line_spacing * 7,
+            GameState.GameOver: self.line_spacing * 6,
+            GameState.All_Clear: self.line_spacing * 6,
+            GameState.Stage_Clear: self.line_spacing * 4,
         }
         width = min(
             max(
@@ -190,7 +197,7 @@ class GUI:
         scores: list[ScoreEntry],
         focusing: int,
     ) -> None:
-        lines, menu_start = self._home_content(scores, focusing)
+        lines, menu_start = self._home_content()
         title_size = self.font_size * 2
         image = self.text_renderer._text_image(
             lines[0],
@@ -251,7 +258,7 @@ class GUI:
         )
 
     def _home_content(
-        self, scores: list[ScoreEntry], focusing: int,
+        self,
     ) -> tuple[list[str], int]:
         """Build the home title, menu and controls."""
         menu = [
@@ -265,6 +272,37 @@ class GUI:
         lines.extend([*menu, "", "Up/Down: Select  Enter: OK"])
         return lines, menu_start
 
+    def cheat_info(
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        height: int,
+    ) -> None:
+        cheat_lines = [
+            "N: Next Level",
+            "F: Ghost Freeze",
+            "H: Wallhack",
+            "K: No Death",
+            "V: Speed Up",
+            "L: Life +1",
+            "T: Time +10",
+            "X: Score x10",
+        ]
+        text_size = max(1, self.font_size // 2)
+        text_height = self.text_renderer.text_size(cheat_lines[0], text_size)[1]
+        cheat_spacing = text_height + self.text_gap
+        base_y = height - self.padding - 4 * cheat_spacing
+        right_width = max(
+            self.text_renderer.text_size(line, text_size)[0]
+            for line in cheat_lines[1::2]
+        )
+        for index, item in enumerate(cheat_lines):
+            row = index // 2
+            col = index % 2
+            text_x = self.padding if col == 0 else width - self.padding - right_width
+            text_y = base_y + row * cheat_spacing
+            self.text_renderer.draw_text(canvas, text_x, text_y, item, size=text_size)
+
     def ranking(
         self,
         canvas: VisualizerUtils,
@@ -275,11 +313,18 @@ class GUI:
         entries = scores[: self.RANKING_LIMIT]
         footer = "C: Clear  Enter: Home"
         lines = [
-            "Highscore Ranking", "", *([""] * len(entries) if entries else ["No scores yet"]),
-            "", footer,
+            "Highscore Ranking",
+            "",
+            *([""] * len(entries) if entries else ["No scores yet"]),
+            "",
+            footer,
         ]
         self._put_lines_center(
-            canvas, width, height, lines, {0: self.ACCENT_COLOR},
+            canvas,
+            width,
+            height,
+            lines,
+            {0: self.ACCENT_COLOR},
         )
         if not entries:
             return
@@ -344,8 +389,12 @@ class GUI:
             x += img.width + self.text_gap
 
     def gameover(
-        self, canvas: VisualizerUtils, width: int, height: int,
-        score: int, name: str,
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        height: int,
+        score: int,
+        name: str,
     ) -> None:
         self._put_lines_center(
             canvas,
@@ -361,8 +410,12 @@ class GUI:
         )
 
     def all_clear(
-        self, canvas: VisualizerUtils, width: int, height: int,
-        score: int, name: str,
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        height: int,
+        score: int,
+        name: str,
     ) -> None:
         self._put_lines_center(
             canvas,
@@ -378,11 +431,21 @@ class GUI:
         )
 
     def stage_clear(
-        self, canvas: VisualizerUtils, width: int, height: int,
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        height: int,
     ) -> None:
-        self._put_lines_center(canvas, width, height, [
-            "Stage Clear!!", "Press any key to continue",
-        ], {0: self.ACCENT_COLOR})
+        self._put_lines_center(
+            canvas,
+            width,
+            height,
+            [
+                "Stage Clear!!",
+                "Press any key to continue",
+            ],
+            {0: self.ACCENT_COLOR},
+        )
 
     def draw_stats(
         self,
@@ -394,14 +457,11 @@ class GUI:
         lives: int,
         time: float,
         cheat_enabled: bool,
-        auto_enabled: bool = False,
         score_multiplier: int = 1,
     ) -> None:
         text = f"Lv:{level} Score:{score} Life:{lives} Time:{time:.1f}"
         if cheat_enabled:
             text += " CHEAT ON"
-        if auto_enabled:
-            text += " AUTO ON"
         if score_multiplier != 1:
             text += f" x{score_multiplier}"
         self.text_renderer.draw_numeric_text(
@@ -424,8 +484,12 @@ class GUI:
         left = x + (width - remain_width) // 2
         canvas.fill_rect(left, y, remain_width, height, self.BAR_COLOR)
 
-    def invinsible_time(
-        self, canvas: VisualizerUtils, width: int, bar_y: int, time: float,
+    def invincible_time(
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        bar_y: int,
+        time: float,
     ) -> None:
         text = f"Invincible {time:.1f}"
         image = self.text_renderer.numeric_text_image(
@@ -447,7 +511,10 @@ class GUI:
         )
 
     def pause(
-        self, canvas: VisualizerUtils, width: int, height: int,
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        height: int,
     ) -> None:
         pause_lines = ("PAUSED", "P: Resume", "H: Back to home")
         self._draw_panel_lines(
@@ -463,7 +530,10 @@ class GUI:
         )
 
     def instruction(
-        self, canvas: VisualizerUtils, width: int, height: int,
+        self,
+        canvas: VisualizerUtils,
+        width: int,
+        height: int,
     ) -> None:
         self._put_lines_center(canvas, width, height, self.INSTRUCTION_LINES)
 

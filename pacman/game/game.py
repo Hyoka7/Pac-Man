@@ -1,23 +1,32 @@
 """Game progression, input decisions and rules, independent of MLX lifecycle."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from mazegenerator import MazeGenerator
 
-from models import Config
+from pacman.controls.cheating import CheatHandler
+from pacman.controls.game_input import handle_key as handle_game_key
+from pacman.controls.game_input import release_key as release_game_key
+from pacman.controls.keys import WindowAction
+from pacman.game.collision import Collision
+from pacman.game.ghost import Ghost, GhostRole
+from pacman.game.maze import Maze
+from pacman.game.pacgums import PacgumEatenEnum, Pacgums
+from pacman.game.player import Player
+from pacman.game.state import GameState
+from pacman.game.strategy import (
+    AmbushStrategy,
+    BFSStrategy,
+    InkyStrategy,
+    ReverseAmbushStrategy,
+)
+from pacman.models import Config
+from pacman.storage.highscore import HighscoreManager, ScoreEntry
 
-from game.auto_player import AutoPlayer
-from controls.cheating import CheatHandler
-from game.collision import Collision
-from controls.keys import WindowAction
-from controls.game_input import handle_key as handle_game_key
-from controls.game_input import release_key as release_game_key
-from game.state import GUIStateEnum
-from game.ghost import Ghost
-from storage.highscore import HighscoreManager, ScoreEntry
-from game.maze import Maze
-from game.pacgums import PacgumEatenEnum, Pacgums
-from game.player import Player
-from game.strategy import AmbushStrategy, BFSStrategy, InkyStrategy, ReverseAmbushStrategy
-from visualize.visualizerutils import VisualizerUtils
+if TYPE_CHECKING:
+    from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class Game:
@@ -54,10 +63,8 @@ class Game:
         self.remaining_time = self.config.levels[0].max_time
         self.needs_redraw = True
         self.cheat_enabled = False
-        self.auto_enabled = False
-        self.auto_player = AutoPlayer()
         self.ghost_frozen = False
-        self.state: GUIStateEnum = GUIStateEnum.Home
+        self.state: GameState = GameState.Home
         self.player_name = ""
         self.shift_keys: set[int] = set()
         self.level_needs_placement = False
@@ -80,7 +87,7 @@ class Game:
         canvas: VisualizerUtils,
     ) -> tuple[PacgumEatenEnum, int]:
         """Advance gameplay and return pacgum and ghost-eating events."""
-        if self.state != GUIStateEnum.Playing:
+        if self.state != GameState.Playing:
             return PacgumEatenEnum.Neither, 0
         self.remaining_time = max(self.remaining_time - elapsed, 0.0)
         eaten = self._update_player(elapsed, canvas)
@@ -96,16 +103,7 @@ class Game:
         canvas: VisualizerUtils,
     ) -> PacgumEatenEnum:
         """Move the player and award points for consumed pacgums."""
-        if self.auto_enabled:
-            eaten = self.player.update(
-                elapsed,
-                self.maze,
-                canvas,
-                self.pacgums,
-                choose_auto_direction=lambda: self._choose_auto_direction(canvas),
-            )
-        else:
-            eaten = self.player.update(elapsed, self.maze, canvas, self.pacgums)
+        eaten = self.player.update(elapsed, self.maze, canvas, self.pacgums)
         points = self.pacgum_points.get(eaten, 0)
         if points:
             self.player.score += points * self.score_multiplier
@@ -114,29 +112,25 @@ class Game:
     def _check_level_end(self) -> bool:
         """Resolve clear before timeout; return whether gameplay has ended."""
         if len(self.pacgums) == 0:
-            self.state = (
-                GUIStateEnum.Stage_Clear
+            state = (
+                GameState.Stage_Clear
                 if self.level < self.max_level
-                else GUIStateEnum.All_Clear
+                else GameState.All_Clear
             )
         elif self.remaining_time == 0.0:
             self.player.is_alive = False
             self.player.lives = 0
-            self.state = GUIStateEnum.GameOver
+            state = GameState.GameOver
         else:
             return False
-        self.needs_redraw = True
+        self.set_state(state)
         return True
 
     def _update_ghosts(self, elapsed: float, canvas: VisualizerUtils) -> int:
         """Move ghosts, resolve contacts and return the number eaten."""
         ghost_eaten = 0
         red_pos = next(
-            (
-                ghost.cell
-                for ghost in self.ghosts
-                if type(ghost.strategy) is BFSStrategy
-            ),
+            (ghost.cell for ghost in self.ghosts if ghost.role == GhostRole.RED),
             None,
         )
         for ghost in self.ghosts:
@@ -168,30 +162,19 @@ class Game:
         """Award ghost points and begin its respawn wait."""
         self.player.score += self.ghost_points * self.score_multiplier
         ghost.reset(canvas)
-        ghost.respawn_remaining = 5.0
+        ghost.respawn_remaining = Ghost.RESPAWN_DELAY
 
     def _handle_player_hit(self, canvas: VisualizerUtils) -> None:
         """Lose one life, then enter GameOver or wait at the spawn positions."""
         self.player.lives -= 1
         if self.player.lives == 0:
             self.player.is_alive = False
-            self.state = GUIStateEnum.GameOver
+            self.set_state(GameState.GameOver)
         else:
             self.respawn(canvas)
-            self.state = GUIStateEnum.Ready
-        self.needs_redraw = True
+            self.set_state(GameState.Ready)
 
-    def _choose_auto_direction(self, canvas: VisualizerUtils) -> str | None:
-        return self.auto_player.choose_direction(
-            self.maze,
-            self.player,
-            self.pacgums,
-            self.ghosts,
-            canvas,
-            ghosts_frozen=self.ghost_frozen,
-        )
-
-    def set_state(self, state: GUIStateEnum) -> None:
+    def set_state(self, state: GameState) -> None:
         """Change the active screen and request its next redraw."""
         self.state = state
         self.needs_redraw = True
@@ -207,7 +190,7 @@ class Game:
             score=self.player.score,
         )
         self.player_name = ""
-        self.set_state(GUIStateEnum.Home)
+        self.set_state(GameState.Home)
 
     def release_key(self, key: int) -> None:
         release_game_key(self, key)
@@ -227,10 +210,17 @@ class Game:
         """Create the team with its existing strategies, colors and spawn order."""
         corners = self._ghost_spawn_cells()
         return [
-            Ghost(corners[0], InkyStrategy(), color=(0, 255, 255)),
-            Ghost(corners[1], BFSStrategy()),
-            Ghost(corners[2], AmbushStrategy(), color=(0, 255, 0)),
-            Ghost(corners[3], ReverseAmbushStrategy(), color=(0, 0, 255)),
+            Ghost(corners[0], InkyStrategy(), color=(0, 255, 255), role=GhostRole.CYAN),
+            Ghost(corners[1], BFSStrategy(), role=GhostRole.RED),
+            Ghost(
+                corners[2], AmbushStrategy(), color=(0, 255, 0), role=GhostRole.GREEN
+            ),
+            Ghost(
+                corners[3],
+                ReverseAmbushStrategy(),
+                color=(0, 0, 255),
+                role=GhostRole.BLUE,
+            ),
         ]
 
     def _ghost_spawn_cells(self) -> tuple[tuple[int, int], ...]:
@@ -242,7 +232,7 @@ class Game:
             (self.maze.cols - 1, self.maze.rows - 1),
         )
 
-    def _prepare_level(self, state: GUIStateEnum) -> None:
+    def _prepare_level(self, state: GameState) -> None:
         """Generate the selected level and initialize its timer and screen state."""
         self.regenerate_maze()
         self.remaining_time = self.config.levels[self.level - 1].max_time
@@ -250,17 +240,18 @@ class Game:
 
     def next_level(self) -> None:
         if self.level >= self.max_level:
-            self.set_state(GUIStateEnum.All_Clear)
+            self.set_state(GameState.All_Clear)
             return
         self.level += 1
-        self._prepare_level(GUIStateEnum.Playing)
+        self._prepare_level(GameState.Playing)
 
     def restart_game(self) -> None:
-        self.auto_enabled = False
+        self.ghost_frozen = False
         self.no_collision = False
         self.score_multiplier = 1
         self.player.movement.wallhack = False
+        self.player.movement.speed = Player.DEFAULT_SPEED
         self.level = 1
         self.player.score = 0
         self.player.lives = self.player.initial_lives
-        self._prepare_level(GUIStateEnum.Ready)
+        self._prepare_level(GameState.Ready)

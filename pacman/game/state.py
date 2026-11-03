@@ -3,7 +3,7 @@
 from enum import IntEnum, auto
 
 
-class GUIStateEnum(IntEnum):
+class GameState(IntEnum):
     Home = auto()
     Instruction = auto()
     Ranking = auto()
