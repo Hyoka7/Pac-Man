@@ -8,11 +8,11 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, Mock, patch
 
-from game.game import Game
-from controls.cheating import CheatHandler
-from visualize.gui import GUI, GUIStateEnum
-from controls.keys import KeyEnum
-from visualize.maze_visualizer import MazeVisualizer
+from pacman.game.game import Game
+from pacman.controls.cheating import CheatHandler
+from pacman.visualize.gui import GUI, GameState
+from pacman.controls.keys import KeyEnum
+from pacman.visualize.maze_visualizer import MazeVisualizer
 
 
 class CheatHandlerTests(unittest.TestCase):
@@ -43,6 +43,7 @@ class CheatHandlerTests(unittest.TestCase):
 class CheatInputTests(unittest.TestCase):
     def setUp(self) -> None:
         self.viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        self.viewer.world_renderer = Mock()
         self.viewer.audio = Mock()
         self.viewer.game = cast(Any, Game.__new__(Game))
         self.viewer.game.level_needs_placement = False
@@ -51,9 +52,8 @@ class CheatInputTests(unittest.TestCase):
         v = self.viewer
         v.closed = False
         v.game.shift_keys = set()
-        v.game.state = GUIStateEnum.Playing
+        v.game.state = GameState.Playing
         v.game.cheat_enabled = False
-        v.game.auto_enabled = False
         v.game.score_multiplier = 1
         v.game.pacgum_points = {}
         v.game.ghost_frozen = False
@@ -106,16 +106,16 @@ class CheatInputTests(unittest.TestCase):
         v = self.viewer
         v.game.cheat_enabled = True
         v.game.player.lives, v.game.remaining_time = 3, 12.5
-        for state in (GUIStateEnum.Home, GUIStateEnum.Instruction,
-                      GUIStateEnum.Ranking, GUIStateEnum.Pause,
-                      GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
+        for state in (GameState.Home, GameState.Instruction,
+                      GameState.Ranking, GameState.Pause,
+                      GameState.GameOver, GameState.All_Clear):
             with self.subTest(state=state):
                 v.game.state = state
                 v.game.player_name = ''
                 v._on_key(KeyEnum.L)
                 v._on_key(KeyEnum.T)
                 self.assertEqual((v.game.player.lives, v.game.remaining_time), (3, 12.5))
-                if state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
+                if state in (GameState.GameOver, GameState.All_Clear):
                     self.assertEqual(v.game.player_name, 'lt')
 
     def test_wrong_key_resets_command_and_keeps_normal_controls(self) -> None:
@@ -166,13 +166,13 @@ class CheatInputTests(unittest.TestCase):
         v.game.judge.is_collision.return_value = True
         v._draw = Mock()
         with redirect_stdout(StringIO()), patch(
-            'visualize.maze_visualizer.time.monotonic', return_value=10.05
+            'pacman.visualize.maze_visualizer.time.monotonic', return_value=10.05
         ):
             v._on_loop()
         ghost.update.assert_not_called()
         v.game.player.update.assert_called_once()
         v.game.judge.is_collision.assert_called_once_with(v.game.player, ghost)
-        self.assertEqual(v.game.state, GUIStateEnum.GameOver)
+        self.assertEqual(v.game.state, GameState.GameOver)
         self.assertEqual(v.game.player.lives, 0)
         v._draw.assert_called_once()
 
@@ -180,7 +180,7 @@ class CheatInputTests(unittest.TestCase):
 class CheatHudTests(unittest.TestCase):
     def test_cheat_label_is_only_shown_when_enabled(self) -> None:
         for enabled in (False, True):
-            with self.subTest(enabled=enabled), patch('visualize.image_renderer.ImageRenderer.draw_numeric_text') as draw:
+            with self.subTest(enabled=enabled), patch('pacman.visualize.image_renderer.ImageRenderer.draw_numeric_text') as draw:
                 gui = GUI()
                 gui.update_layout(800, 600)
                 gui.draw_stats(Mock(), 20, 15, 3, 120, 2, 42.5, enabled)

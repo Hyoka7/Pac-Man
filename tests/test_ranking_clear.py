@@ -6,12 +6,12 @@ from typing import Any, cast
 import unittest
 from unittest.mock import Mock, patch
 
-from game.game import Game
-from visualize.gui import GUI, GUIStateEnum
-from storage.highscore import HighscoreManager, ScoreEntry
-from controls.keys import KeyEnum
-from visualize.maze_visualizer import MazeVisualizer
-from visualize.visualizerutils import VisualizerUtils
+from pacman.game.game import Game
+from pacman.visualize.gui import GUI, GameState
+from pacman.storage.highscore import HighscoreManager, ScoreEntry
+from pacman.controls.keys import KeyEnum
+from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class RankingClearTests(unittest.TestCase):
@@ -23,6 +23,7 @@ class RankingClearTests(unittest.TestCase):
         self.manager += ScoreEntry(name="Alice", score=120)
         self.before = self.path.read_bytes()
         self.viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        self.viewer.world_renderer = Mock()
         self.viewer.audio = Mock()
         self.viewer.game = cast(Any, Game.__new__(Game))
         self.viewer.game.level_needs_placement = False
@@ -30,7 +31,7 @@ class RankingClearTests(unittest.TestCase):
         self.viewer.canvas = Mock()
         self.viewer.closed = False
         self.viewer.game.shift_keys = set()
-        self.viewer.game.state = GUIStateEnum.Ranking
+        self.viewer.game.state = GameState.Ranking
         self.viewer.game.needs_redraw = False
         self.viewer.game.score_manager = self.manager
 
@@ -38,7 +39,7 @@ class RankingClearTests(unittest.TestCase):
         with patch.object(self.manager, "clear", wraps=self.manager.clear) as clear:
             self.viewer._on_key(KeyEnum.C)
         clear.assert_not_called()
-        self.assertEqual(self.viewer.game.state, GUIStateEnum.Confirm_Clear)
+        self.assertEqual(self.viewer.game.state, GameState.Confirm_Clear)
         self.assertTrue(self.viewer.game.needs_redraw)
         self.assertEqual(self.path.read_bytes(), self.before)
 
@@ -50,7 +51,7 @@ class RankingClearTests(unittest.TestCase):
         self.viewer._on_key(KeyEnum.Y)
         self.assertEqual(self.manager.scores.scores, [])
         self.assertEqual(HighscoreManager(str(self.path)).scores.scores, [])
-        self.assertEqual(self.viewer.game.state, GUIStateEnum.Ranking)
+        self.assertEqual(self.viewer.game.state, GameState.Ranking)
         self.assertTrue(self.viewer.game.needs_redraw)
 
     def test_n_cancels_without_saving_or_deleting(self) -> None:
@@ -61,7 +62,7 @@ class RankingClearTests(unittest.TestCase):
         save.assert_not_called()
         self.assertEqual(self.path.read_bytes(), self.before)
         self.assertEqual(len(self.manager.scores.scores), 1)
-        self.assertEqual(self.viewer.game.state, GUIStateEnum.Ranking)
+        self.assertEqual(self.viewer.game.state, GameState.Ranking)
         self.assertTrue(self.viewer.game.needs_redraw)
 
     def test_other_keys_and_repeated_c_do_not_confirm(self) -> None:
@@ -69,20 +70,20 @@ class RankingClearTests(unittest.TestCase):
         self.viewer.game.needs_redraw = False
         for key in (KeyEnum.C, KeyEnum.ENTER, KeyEnum.A):
             self.viewer._on_key(key)
-        self.assertEqual(self.viewer.game.state, GUIStateEnum.Confirm_Clear)
+        self.assertEqual(self.viewer.game.state, GameState.Confirm_Clear)
         self.assertFalse(self.viewer.game.needs_redraw)
         self.assertEqual(self.path.read_bytes(), self.before)
 
     def test_instruction_keys_do_not_open_confirmation(self) -> None:
-        self.viewer.game.state = GUIStateEnum.Instruction
+        self.viewer.game.state = GameState.Instruction
         self.viewer._on_key(KeyEnum.C)
-        self.assertEqual(self.viewer.game.state, GUIStateEnum.Instruction)
+        self.assertEqual(self.viewer.game.state, GameState.Instruction)
         self.viewer._on_key(KeyEnum.ENTER)
-        self.assertEqual(self.viewer.game.state, GUIStateEnum.Home)
+        self.assertEqual(self.viewer.game.state, GameState.Home)
 
     def test_confirmation_screen_draws_panel_and_labels_once(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Confirm_Clear
+        v.game.state = GameState.Confirm_Clear
         v.width, v.height = 800, 600
         v.canvas = VisualizerUtils(
             800, 600, 20, 0, memoryview(bytearray(800 * 600 * 4)),

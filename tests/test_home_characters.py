@@ -3,8 +3,8 @@
 import unittest
 from unittest.mock import patch
 
-from visualize.gui import GUI
-from visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.gui import GUI
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 def canvas(width: int, height: int) -> VisualizerUtils:

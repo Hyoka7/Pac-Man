@@ -5,13 +5,13 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 @cache
 def _font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(
-        Path(__file__).resolve().parent.parent
+        Path(__file__).resolve().parents[2]
         / "assets/fonts/PressStart2P-Regular.ttf",
         size=size,
     )

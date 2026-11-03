@@ -10,19 +10,31 @@ from unittest.mock import Mock, patch
 
 from mazegenerator import MazeGenerator
 
-from models.models import Config, LevelConfig
-from controls.keys import KeyEnum, WindowAction
-from game.game import Game
-from game.state import GUIStateEnum
-from game.ghost import Ghost
-from game.maze import Maze
-from visualize.maze_visualizer import MazeVisualizer
-from game.pacgums import PacgumEatenEnum
-from game.strategy import BFSStrategy, ReverseAmbushStrategy, StrategyKwargs
-from visualize.visualizerutils import VisualizerUtils
+from pacman.models.models import Config, LevelConfig
+from pacman.controls.keys import KeyEnum, WindowAction
+from pacman.game.game import Game
+from pacman.game.state import GameState
+from pacman.game.ghost import Ghost, GhostRole
+from pacman.game.maze import Maze
+from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.game.pacgums import PacgumEatenEnum
+from pacman.game.strategy import BFSStrategy, ReverseAmbushStrategy, StrategyKwargs
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class GameTests(unittest.TestCase):
+    def test_o_leaves_manual_movement_and_reserved_turn_unchanged(self) -> None:
+        game = self.game
+        game.cheat_enabled = True
+        game.handle_key(KeyEnum.RIGHT, self.canvas)
+        game.handle_key(KeyEnum.UP, self.canvas)
+        self.assertEqual(game.player.reserved_move, 'N')
+        target = game.player.movement.target_cell
+        game.handle_key(KeyEnum.O, self.canvas)
+        self.assertEqual(game.player.reserved_move, 'N')
+        self.assertEqual(game.player.movement.target_cell, target)
+        self.assertEqual(game.state, GameState.Playing)
+
     def test_current_red_position_reaches_strategy_target_selection(self) -> None:
         class RedTargetStrategy(BFSStrategy):
             def choose_target(
@@ -39,7 +51,7 @@ class GameTests(unittest.TestCase):
         game.pacgums.reset(game.maze, self.canvas, (0, 0))
         game.no_collision = True
         observer = Ghost((1, 0), RedTargetStrategy())
-        red = Ghost((4, 0), BFSStrategy())
+        red = Ghost((4, 0), BFSStrategy(), role=GhostRole.RED)
         game.ghosts = [observer, red]
         for red_cell, expected in (((4, 0), (2, 0)), ((0, 0), (0, 0))):
             with self.subTest(red_cell=red_cell):
@@ -48,6 +60,13 @@ class GameTests(unittest.TestCase):
                 red.place(self.canvas)
                 game.update(0.0, self.canvas)
                 self.assertEqual(observer.movement.target_cell, expected)
+
+        red.strategy = ReverseAmbushStrategy()
+        red.movement.cell = (4, 0)
+        red.place(self.canvas)
+        observer.place(self.canvas)
+        game.update(0.0, self.canvas)
+        self.assertEqual(observer.movement.target_cell, (2, 0))
 
     def test_each_ghost_follows_its_own_strategy(self) -> None:
         game = self.game
@@ -60,14 +79,14 @@ class GameTests(unittest.TestCase):
         game.ghosts = [follower, leader]
         for ghost in game.ghosts:
             ghost.place(self.canvas)
-        with patch('game.strategy.random.choice', side_effect=lambda choices: choices[0]):
+        with patch('pacman.game.strategy.random.choice', side_effect=lambda choices: choices[0]):
             game.update(0.01, self.canvas)
         self.assertEqual(leader.movement.target_cell, (1, 0))
         self.assertEqual(follower.movement.target_cell, (0, 1))
         self.assertEqual(game.ghosts, [follower, leader])
 
     def setUp(self) -> None:
-        self.enterContext(patch('visualize.maze_visualizer.AudioManager'))
+        self.enterContext(patch('pacman.visualize.maze_visualizer.AudioManager'))
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.config = Config(
@@ -81,7 +100,7 @@ class GameTests(unittest.TestCase):
         )
         self.game.place(self.canvas)
         self.game.ghosts = []
-        self.game.state = GUIStateEnum.Playing
+        self.game.state = GameState.Playing
 
     def test_pause_freezes_time_and_motion_then_resume_advances(self) -> None:
         game = self.game
@@ -105,7 +124,7 @@ class GameTests(unittest.TestCase):
         game.handle_key(KeyEnum.RIGHT, self.canvas)
         eaten = game.update(step_time, self.canvas)
         self.assertEqual(eaten, (PacgumEatenEnum.Normal, 0))
-        self.assertEqual(game.state, GUIStateEnum.All_Clear)
+        self.assertEqual(game.state, GameState.All_Clear)
         self.assertEqual(game.remaining_time, 0.0)
         self.assertEqual(game.player.score, self.config.points_per_pacgum)
         self.assertEqual(game.player.lives, self.config.lives)
@@ -113,8 +132,8 @@ class GameTests(unittest.TestCase):
     def test_inactive_states_return_no_gum_event(self) -> None:
         center = self.game.player.movement.center
         remaining = self.game.remaining_time
-        for state in GUIStateEnum:
-            if state == GUIStateEnum.Playing:
+        for state in GameState:
+            if state == GameState.Playing:
                 continue
             with self.subTest(state=state):
                 self.game.state = state
@@ -124,9 +143,9 @@ class GameTests(unittest.TestCase):
 
     def test_ready_consumes_start_key_before_accepting_movement(self) -> None:
         game = self.game
-        game.set_state(GUIStateEnum.Ready)
+        game.set_state(GameState.Ready)
         game.handle_key(KeyEnum.RIGHT, self.canvas)
-        self.assertEqual(game.state, GUIStateEnum.Playing)
+        self.assertEqual(game.state, GameState.Playing)
         self.assertFalse(game.player.movement.moving)
         game.handle_key(KeyEnum.RIGHT, self.canvas)
         self.assertTrue(game.player.movement.moving)
@@ -154,7 +173,7 @@ class GameTests(unittest.TestCase):
     def test_timeout_with_gums_remaining_ends_game(self) -> None:
         self.game.remaining_time = 0.1
         self.game.update(0.2, self.canvas)
-        self.assertEqual(self.game.state, GUIStateEnum.GameOver)
+        self.assertEqual(self.game.state, GameState.GameOver)
         self.assertEqual(self.game.player.lives, 0)
         self.assertFalse(self.game.player.is_alive)
 
@@ -170,7 +189,7 @@ class GameTests(unittest.TestCase):
         before = set(game.pacgums.remain_gums)
         with redirect_stdout(StringIO()):
             game.update(0.0, self.canvas)
-        self.assertEqual(game.state, GUIStateEnum.Ready)
+        self.assertEqual(game.state, GameState.Ready)
         self.assertEqual((game.player.lives, game.player.score), (1, 123))
         self.assertEqual(game.pacgums.remain_gums, before)
         self.assertEqual(game.player.movement.center,
@@ -182,7 +201,7 @@ class GameTests(unittest.TestCase):
                          WindowAction.CycleColors)
         self.assertEqual(game.handle_key(KeyEnum.ESC, self.canvas),
                          WindowAction.Close)
-        game.state = GUIStateEnum.Home
+        game.state = GameState.Home
         game.home_focusing = 3
         self.assertEqual(game.handle_key(KeyEnum.ENTER, self.canvas),
                          WindowAction.Close)
@@ -201,11 +220,11 @@ class GameTests(unittest.TestCase):
         )
         viewer.game.place(viewer.canvas)
         viewer.closed = False
-        viewer.game.state = GUIStateEnum.Home
+        viewer.game.state = GameState.Home
         viewer._on_key(KeyEnum.ENTER)
-        self.assertEqual(viewer.game.state, GUIStateEnum.Ready)
+        self.assertEqual(viewer.game.state, GameState.Ready)
         self.assertFalse(viewer.game.level_needs_placement)
-        viewer.game.state = GUIStateEnum.Stage_Clear
+        viewer.game.state = GameState.Stage_Clear
         viewer._on_key(32)
         self.assertEqual((viewer.game.maze.cols, viewer.game.maze.rows), (25, 15))
         self.assertFalse(viewer.game.level_needs_placement)

@@ -7,10 +7,10 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 from PIL import ImageFont
 
-from game.game import Game
-from visualize.gui import GUI, GUIStateEnum
-from storage.highscore import ScoreEntry
-from visualize.maze_visualizer import MazeVisualizer
+from pacman.game.game import Game
+from pacman.visualize.gui import GUI, GameState
+from pacman.storage.highscore import ScoreEntry
+from pacman.visualize.maze_visualizer import MazeVisualizer
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 
@@ -26,14 +26,14 @@ class GUILayoutTests(unittest.TestCase):
     def setUp(self) -> None:
         self.gui = GUI()
         self.gui.update_layout(800, 600)
-        patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
+        patcher = patch('pacman.visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
-        image_patcher = patch('visualize.image_renderer.ImageRenderer.draw_image')
+        image_patcher = patch('pacman.visualize.image_renderer.ImageRenderer.draw_image')
         self.draw_image = image_patcher.start()
         self.addCleanup(image_patcher.stop)
         hud_patcher = patch(
-            'visualize.image_renderer.ImageRenderer.draw_numeric_text',
+            'pacman.visualize.image_renderer.ImageRenderer.draw_numeric_text',
             new=self.draw_text,
         )
         hud_patcher.start()
@@ -81,15 +81,15 @@ class GUILayoutTests(unittest.TestCase):
 
     def test_scaled_screens_keep_long_text_inside_their_panels(self) -> None:
         scores = [ScoreEntry(name='WWWWWWWWWW', score=9999999999)] * 10
-        screens: list[tuple[GUIStateEnum, Callable[..., None], tuple[Any, ...]]] = [
-            (GUIStateEnum.Home, self.gui.home, (scores, 0)),
-            (GUIStateEnum.Ranking, self.gui.ranking, (scores,)),
-            (GUIStateEnum.Instruction, self.gui.instruction, ()),
-            (GUIStateEnum.GameOver, self.gui.gameover, (9999999999, 'WWWWWWWWWW')),
-            (GUIStateEnum.All_Clear, self.gui.all_clear, (9999999999, 'WWWWWWWWWW')),
-            (GUIStateEnum.Stage_Clear, self.gui.stage_clear, ()),
-            (GUIStateEnum.Pause, self.gui.pause, ()),
-            (GUIStateEnum.Ready, self.gui.ready, ()),
+        screens: list[tuple[GameState, Callable[..., None], tuple[Any, ...]]] = [
+            (GameState.Home, self.gui.home, (scores, 0)),
+            (GameState.Ranking, self.gui.ranking, (scores,)),
+            (GameState.Instruction, self.gui.instruction, ()),
+            (GameState.GameOver, self.gui.gameover, (9999999999, 'WWWWWWWWWW')),
+            (GameState.All_Clear, self.gui.all_clear, (9999999999, 'WWWWWWWWWW')),
+            (GameState.Stage_Clear, self.gui.stage_clear, ()),
+            (GameState.Pause, self.gui.pause, ()),
+            (GameState.Ready, self.gui.ready, ()),
         ]
         for width, height in ((480, 320), (800, 600), (1280, 720),
                               (2460, 1340), (720, 1280), (4000, 2200)):
@@ -131,7 +131,7 @@ class GUILayoutTests(unittest.TestCase):
             self.assertFalse(any('player' in text for text in strings))
 
     def test_power_time_is_centered_above_bar(self) -> None:
-        self.gui.invinsible_time(Mock(), 801, 560, 3.25)
+        self.gui.invincible_time(Mock(), 801, 560, 3.25)
         _, x, y, text, _, size = self.draw_text.call_args.args
         w, _ = dimensions(text, size)
         self.assertEqual(text, 'Invincible 3.2')
@@ -140,13 +140,14 @@ class GUILayoutTests(unittest.TestCase):
 
     def test_pause_background_contains_pause_labels(self) -> None:
         v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        v.world_renderer = Mock()
         v.audio = Mock()
         v.game = cast(Any, Game.__new__(Game))
         v.game.level_needs_placement = False
         v.game.no_collision = False
         v.canvas = Mock()
         v.closed = False
-        v.game.state = GUIStateEnum.Pause
+        v.game.state = GameState.Pause
         v.canvas, v.m = Mock(width=1600, height=1200), Mock()
         v.gui = GUI()
         v.gui.update_layout(1600, 1200)
@@ -159,7 +160,6 @@ class GUILayoutTests(unittest.TestCase):
         v.game.ghosts = []
         v.game.player = SimpleNamespace(is_invincible=False, draw=Mock(), score=100, lives=3)
         v.game.level, v.game.remaining_time, v.game.cheat_enabled = 1, 30, False
-        v.game.auto_enabled = False
         v.game.score_multiplier = 1
         v.game.pacgum_points = {}
         v._draw()

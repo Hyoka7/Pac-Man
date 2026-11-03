@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Self
 
 from pydantic import BaseModel, Field, ValidationError
@@ -39,12 +41,28 @@ class HighscoreManager:
         return self
 
     def save(self) -> None:
+        temporary_path: Path | None = None
         try:
             json_data = self.scores.model_dump_json(indent=2)
-            with self.save_path.open("w", encoding="utf-8") as f:
+            with NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self.save_path.parent,
+                prefix=f".{self.save_path.name}.",
+                suffix=".tmp",
+                delete=False,
+            ) as f:
+                temporary_path = Path(f.name)
                 f.write(json_data)
+            os.replace(temporary_path, self.save_path)
         except OSError as err:
             print(f"Highscore data save failed: {err}")
+        finally:
+            if temporary_path is not None:
+                try:
+                    temporary_path.unlink(missing_ok=True)
+                except OSError as err:
+                    print(f"Highscore temporary file cleanup failed: {err}")
 
     def load(self) -> None:
         if not self.save_path.exists():

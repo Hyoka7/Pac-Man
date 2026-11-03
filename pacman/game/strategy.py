@@ -4,7 +4,8 @@ import random
 from abc import ABC, abstractmethod
 from typing import TypedDict, Unpack
 
-from game.maze import Maze
+from pacman.game.maze import Maze
+from pacman.game.directions import DIRECTIONS, DIRECTION_OFFSETS, OPPOSITE_DIRECTIONS
 
 
 class StrategyKwargs(TypedDict, total=False):
@@ -63,7 +64,7 @@ class BFSStrategy(Strategy):
         if best_distance is None or best_distance == 0:
             return None
         candidates: list[str] = []
-        for direction in ("N", "E", "S", "W"):
+        for direction in DIRECTIONS:
             if not maze.can_move(*ghost_pos, direction):
                 continue
             neighbor = maze.next_cell(*ghost_pos, direction)
@@ -111,13 +112,7 @@ class ReverseAmbushStrategy(AmbushStrategy):
         player_dir: str,
         **kwargs: Unpack[StrategyKwargs],
     ) -> tuple[int, int]:
-        reverse_dir = {
-            "N": "S",
-            "S": "N",
-            "E": "W",
-            "W": "E",
-        }
-        dir = reverse_dir[player_dir]
+        dir = OPPOSITE_DIRECTIONS[player_dir]
         return super().choose_target(maze, ghost_pos, player_pos, dir, **kwargs)
 
 class InkyStrategy(BFSStrategy):
@@ -130,15 +125,9 @@ class InkyStrategy(BFSStrategy):
         target: tuple[int, int] | None = None,
         **kwargs: Unpack[StrategyKwargs],
     ) -> tuple[int, int]:
-        ahead_coords = {
-            "N": (0, -2),
-            "S": (0, 2),
-            "W": (-2, 0),
-            "E": (2, 0),
-        }
         px, py = player_pos
-        ax, ay = ahead_coords[player_dir]
-        ahead_x, ahead_y = px + ax, py + ay
+        dx, dy = DIRECTION_OFFSETS[player_dir]
+        ahead_x, ahead_y = px + 2 * dx, py + 2 * dy
         red_pos = kwargs.get("red_pos")
         if red_pos is None:
             return player_pos
@@ -167,7 +156,7 @@ class FleeBFSStrategy(Strategy):
         """Look up distances without running BFS during gameplay."""
         best_distance = -1
         chosen: str | None = None
-        for direction in ("N", "E", "S", "W"):
+        for direction in DIRECTIONS:
             if not maze.can_move(*ghost_pos, direction):
                 continue
             neighbor = maze.next_cell(*ghost_pos, direction)

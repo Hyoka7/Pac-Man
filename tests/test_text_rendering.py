@@ -8,11 +8,11 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 from PIL import Image, ImageFont
 
-from game.game import Game
-from visualize.gui import GUI, GUIStateEnum
-from visualize.maze_visualizer import MazeVisualizer
-from visualize.visualizerutils import VisualizerUtils
-from visualize.image_renderer import ImageRenderer
+from pacman.game.game import Game
+from pacman.visualize.gui import GUI, GameState
+from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.image_renderer import ImageRenderer
 
 text_renderer = ImageRenderer()
 
@@ -83,10 +83,10 @@ class TextRenderingTests(unittest.TestCase):
         with patch.object(renderer, 'text_size', side_effect=AssertionError(
             'Timer measurement must not cache a whole changing string'
         )):
-            gui.invinsible_time(target, 800, gui.bar_y, 4.9)
+            gui.invincible_time(target, 800, gui.bar_y, 4.9)
         timer = renderer.numeric_cache['invincible'][3]
         with patch.object(renderer, 'draw_image') as draw:
-            gui.invinsible_time(target, 800, gui.bar_y, 4.9)
+            gui.invincible_time(target, 800, gui.bar_y, 4.9)
         draw.assert_called_once_with(
             target, (800 - timer.width) // 2,
             gui.bar_y - gui.text_height - gui.text_gap, timer,
@@ -112,12 +112,12 @@ class TextRenderingTests(unittest.TestCase):
         gui.update_layout(800, 600)
         renderer = gui.text_renderer
         with patch.object(renderer, '_split', wraps=renderer._split) as split:
-            gui.invinsible_time(canvas(), 800, gui.bar_y, 4.9)
+            gui.invincible_time(canvas(), 800, gui.bar_y, 4.9)
             split.assert_called_once_with('Invincible 4.9')
             split.reset_mock()
-            gui.invinsible_time(canvas(), 800, gui.bar_y, 4.9)
+            gui.invincible_time(canvas(), 800, gui.bar_y, 4.9)
             split.assert_not_called()
-            gui.invinsible_time(canvas(), 800, gui.bar_y, 4.8)
+            gui.invincible_time(canvas(), 800, gui.bar_y, 4.8)
             split.assert_called_once_with('Invincible 4.8')
 
     def test_lowercase_names_digits_and_capitals_share_one_baseline(self) -> None:
@@ -197,6 +197,7 @@ class TextRenderingTests(unittest.TestCase):
 
     def test_every_screen_presents_completed_text_once_without_native_strings_or_sync(self) -> None:
         v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        v.world_renderer = Mock()
         v.audio = Mock()
         v.game = cast(Any, Game.__new__(Game))
         v.game.level_needs_placement = False
@@ -216,13 +217,12 @@ class TextRenderingTests(unittest.TestCase):
             draw=Mock(), score=123, lives=3)
         v.game.level, v.game.remaining_time = 1, 30
         v.game.cheat_enabled = True
-        v.game.auto_enabled = False
         v.game.score_multiplier = 1
         v.game.pacgum_points = {}
         v.game.player_name = 'Player'
         v.game.home_focusing = 0
         v.game.score_manager = SimpleNamespace(scores=SimpleNamespace(scores=[]))
-        for state in GUIStateEnum:
+        for state in GameState:
             with self.subTest(state=state):
                 v.game.state = state
                 v.m = Mock()

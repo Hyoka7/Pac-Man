@@ -1,5 +1,7 @@
 """Level resizing keeps positions, radii and pickups in the fixed window."""
 
+from pacman.visualize.world_renderer import WorldRenderer
+
 from typing import Any, cast
 
 from contextlib import redirect_stdout
@@ -12,19 +14,19 @@ from unittest.mock import Mock, patch
 
 from mazegenerator import MazeGenerator
 
-from models.models import Config, LevelConfig
-from game.game import Game
-from game.ghost import Ghost
-from game.player import Player
-from visualize.gui import GUI, GUIStateEnum
-from game.maze import Maze
-from visualize.maze_visualizer import MazeVisualizer
-from visualize.visualizerutils import VisualizerUtils
+from pacman.models.models import Config, LevelConfig
+from pacman.game.game import Game
+from pacman.game.ghost import Ghost
+from pacman.game.player import Player
+from pacman.visualize.gui import GUI, GameState
+from pacman.game.maze import Maze
+from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class LevelLayoutTests(unittest.TestCase):
     def make_viewer(self) -> MazeVisualizer:
-        self.enterContext(patch('visualize.maze_visualizer.AudioManager'))
+        self.enterContext(patch('pacman.visualize.maze_visualizer.AudioManager'))
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         config = Config(
@@ -107,7 +109,7 @@ class LevelLayoutTests(unittest.TestCase):
     def test_eaten_ghost_waits_after_reset_and_cannot_score_twice(self) -> None:
         viewer = self.make_viewer()
         viewer.closed = False
-        viewer.game.state = GUIStateEnum.Playing
+        viewer.game.state = GameState.Playing
         viewer.last_time = 10.0
         self.enterContext(patch.object(viewer, "_draw", Mock()))
         viewer.game.player.is_invincible = True
@@ -118,13 +120,13 @@ class LevelLayoutTests(unittest.TestCase):
         ghost.movement.cell = viewer.game.player.movement.cell
         ghost.movement.place(viewer.canvas)
         with redirect_stdout(StringIO()), patch(
-            'visualize.maze_visualizer.time.monotonic', return_value=10.0
+            'pacman.visualize.maze_visualizer.time.monotonic', return_value=10.0
         ):
             viewer._on_loop()
         self.assertEqual(viewer.game.player.score, viewer.game.config.points_per_ghost)
         self.assertEqual(ghost.respawn_remaining, 5.0)
         self.assertEqual(ghost.movement.center, spawn_center)
-        with patch('visualize.maze_visualizer.time.monotonic', return_value=10.1):
+        with patch('pacman.visualize.maze_visualizer.time.monotonic', return_value=10.1):
             viewer._on_loop()
         self.assertEqual(viewer.game.player.score, viewer.game.config.points_per_ghost)
         self.assertAlmostEqual(ghost.respawn_remaining, 4.9)
@@ -136,7 +138,7 @@ class LevelLayoutTests(unittest.TestCase):
         viewer.game.needs_redraw = False
         original_maze = viewer.game.maze
         viewer.next_level()
-        self.assertEqual(viewer.game.state, GUIStateEnum.All_Clear)
+        self.assertEqual(viewer.game.state, GameState.All_Clear)
         self.assertTrue(viewer.game.needs_redraw)
         self.assertEqual(viewer.game.level, viewer.game.max_level)
         self.assertIs(viewer.game.maze, original_maze)
@@ -148,6 +150,7 @@ class LevelLayoutTests(unittest.TestCase):
 
     def test_layout_centers_both_axes_and_rejects_unrenderable_cells(self) -> None:
         viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        viewer.world_renderer = Mock()
         viewer.audio = Mock()
         viewer.game = cast(Any, Game.__new__(Game))
         viewer.game.level_needs_placement = False
@@ -172,6 +175,7 @@ class LevelLayoutTests(unittest.TestCase):
         for width, height in ((800, 600), (2460, 1340), (4000, 2200)):
             with self.subTest(size=(width, height)):
                 viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+                viewer.world_renderer = Mock()
                 viewer.audio = Mock()
                 viewer.game = cast(Any, Game.__new__(Game))
                 viewer.game.level_needs_placement = False
@@ -183,8 +187,8 @@ class LevelLayoutTests(unittest.TestCase):
                 viewer._update_layout()
                 maze_bottom = viewer.offset_y + viewer.game.maze.rows * viewer.cell_size
                 bar_y = viewer.gui.bar_y
-                with patch('visualize.image_renderer.ImageRenderer.draw_numeric_text') as draw:
-                    viewer.gui.invinsible_time(Mock(), width, bar_y, 3.2)
+                with patch('pacman.visualize.image_renderer.ImageRenderer.draw_numeric_text') as draw:
+                    viewer.gui.invincible_time(Mock(), width, bar_y, 3.2)
                 text_y = draw.call_args.args[2]
                 self.assertGreater(text_y, maze_bottom)
                 self.assertLessEqual(text_y + viewer.gui.font_size, bar_y)
@@ -194,7 +198,7 @@ class LevelLayoutTests(unittest.TestCase):
             100, 80, 20, 2, memoryview(bytearray(400*80)), 400, 0, 30, 25,
         )
         canvas.clear_image()
-        Maze([[15]]).draw(canvas, (255, 255, 255), (255, 0, 0))
+        WorldRenderer().draw_maze(Maze([[15]]), canvas, (255, 255, 255), (255, 0, 0))
         self.assertEqual(canvas.cell_center(0, 0), (40.0, 35.0))
         def pixel(x: int, y: int) -> bytes:
             index = y*canvas.line_size+x*4

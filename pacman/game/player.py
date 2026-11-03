@@ -1,17 +1,23 @@
-"""Player state, movement, queued turns and rendering."""
+"""Player state, movement, queued turns and power-ups."""
 
-from collections.abc import Callable
+from __future__ import annotations
 
-from game.maze import Maze
-from game.movement import Movement
-from game.pacgums import PacgumEatenEnum, Pacgums
-from visualize.image_renderer import ImageRenderer
-from visualize.sprites import player_image
-from visualize.visualizerutils import VisualizerUtils
+from typing import TYPE_CHECKING
+
+from pacman.game.maze import Maze
+from pacman.game.movement import Movement
+from pacman.game.pacgums import PacgumEatenEnum, Pacgums
+
+
+if TYPE_CHECKING:
+    from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class Player:
     """Own the player independently of the MLX event loop."""
+
+    DEFAULT_SPEED = 5.5
+    INVINCIBLE_DURATION = 5.0  # Seconds after eating a super pacgum.
 
     def __init__(
         self,
@@ -19,10 +25,8 @@ class Player:
         initial_lives: int = 3,
     ) -> None:
         """Start stopped at a cell, facing east."""
-        self.movement = Movement(pos, speed=5.5)
-        self.renderer = ImageRenderer()
+        self.movement = Movement(pos, speed=self.DEFAULT_SPEED)
         self.radius: float = 0.0
-        self.ult = False
         self.reserved_move: str | None = None
         self.mouth_half_angle = 45.0  # Degrees; 45 means a 90-degree opening.
         self.mouth_period = 0.3  # Seconds for one open-close cycle.
@@ -57,31 +61,18 @@ class Player:
         maze: Maze,
         canvas: VisualizerUtils,
         pacgums: Pacgums,
-        *,
-        choose_auto_direction: Callable[[], str | None] | None = None,
     ) -> PacgumEatenEnum:
         """Animate, apply power-ups, and report which gum the player ate."""
         if self.is_invincible:
             self.invincible_remain = max(0.0, self.invincible_remain - elapsed)
             if self.invincible_remain == 0.0:
                 self.is_invincible = False
-        if choose_auto_direction is not None and not self.movement.moving:
-            self.reserved_move = None
-            direction = choose_auto_direction()
-            if direction is not None:
-                self.movement.start(direction, maze, canvas)
         if not self.movement.update(elapsed, canvas):
             return PacgumEatenEnum.Neither
         eat_status = pacgums.consume(canvas.cell_center(*self.movement.cell))
         if eat_status == PacgumEatenEnum.Super:
             self.is_invincible = True
-            self.invincible_remain = 5.0
-        if choose_auto_direction is not None:
-            self.reserved_move = None
-            direction = choose_auto_direction()
-            if direction is not None:
-                self.movement.start(direction, maze, canvas)
-            return eat_status
+            self.invincible_remain = self.INVINCIBLE_DURATION
         if self.reserved_move is not None and self.movement.start(
             self.reserved_move, maze, canvas
         ):
@@ -97,14 +88,3 @@ class Player:
         self.invincible_remain = 0.0
         self.radius = canvas.cell_size * 0.375
         self.is_invincible = False
-
-    def draw(self, canvas: VisualizerUtils) -> None:
-        """Draw the player at its current interpolated center."""
-        center_x, center_y = self.movement.center or canvas.cell_center(
-            *self.movement.cell
-        )
-        mouth_step = round(self.mouth_half_angle / 45 * 10)
-        img = player_image(self.radius, self.movement.direction, mouth_step)
-        left = round(center_x - img.width / 2)
-        top = round(center_y - img.height / 2)
-        self.renderer.draw_image(canvas, left, top, img)

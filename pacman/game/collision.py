@@ -1,7 +1,7 @@
 import math
 
-from game.ghost import Ghost
-from game.player import Player
+from pacman.game.ghost import Ghost
+from pacman.game.player import Player
 
 
 class Collision:

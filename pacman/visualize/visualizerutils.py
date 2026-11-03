@@ -43,39 +43,6 @@ class VisualizerUtils:
         pixel_end = pixel_start + self.bytes_per_pixel
         self.img_data[pixel_start:pixel_end] = self.color_bytes(color)
 
-    def draw_pixel_aa(
-        self,
-        x: int,
-        y: int,
-        color: tuple[int, int, int],
-        coverage: float,
-    ) -> None:
-        """Blend a pixel with its background using coverage from 0 to 1.
-
-        Shape rendering calculates coverage; this method writes the result.
-        """
-        if not (0 <= x < self.width and 0 <= y < self.height):
-            return
-        coverage = max(0.0, min(1.0, coverage))
-        if coverage == 0:
-            return
-        if coverage == 1:
-            self.draw_pixel(x, y, color)
-            return
-        pixel_start = y * self.line_size + x * self.bytes_per_pixel
-        pixel_end = pixel_start + self.bytes_per_pixel
-        background = self.img_data[pixel_start:pixel_end]
-        if self.img_format == 0:
-            b, g, r, _ = background
-        else:
-            _, r, g, b = background
-        blended = (
-            round(r * (1 - coverage) + color[0] * coverage),
-            round(g * (1 - coverage) + color[1] * coverage),
-            round(b * (1 - coverage) + color[2] * coverage),
-        )
-        self.draw_pixel(x, y, blended)
-
     def cell_center(self, x: int, y: int) -> tuple[float, float]:
         """Convert a maze cell to its center in screen pixels."""
         center_x = self.offset_x + (x + 0.5) * self.cell_size

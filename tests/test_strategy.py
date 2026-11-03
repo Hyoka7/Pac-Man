@@ -3,9 +3,9 @@
 import unittest
 from unittest.mock import patch
 
-from game.maze import Maze
-from game.strategy import (
-    AmbushStrategy, BFSStrategy, InkyStrategy, ReverseAmbushStrategy,
+from pacman.game.maze import Maze
+from pacman.game.strategy import (
+    AmbushStrategy, BFSStrategy, FleeBFSStrategy, InkyStrategy, ReverseAmbushStrategy,
 )
 
 
@@ -31,7 +31,7 @@ class BFSStrategyTests(unittest.TestCase):
         strategy = BFSStrategy()
         for index, expected in ((0, 'E'), (-1, 'S')):
             with self.subTest(selection=index), patch(
-                'game.strategy.random.choice', side_effect=lambda choices: choices[index],
+                'pacman.game.strategy.random.choice', side_effect=lambda choices: choices[index],
             ):
                 direction = strategy.choose_direction(maze, (0, 0), (1, 1), player_dir="E")
                 self.assertEqual(direction, expected)
@@ -47,7 +47,7 @@ class BFSStrategyTests(unittest.TestCase):
             self.assertEqual(set(choices), {'N', 'E'})
             return choices[-1]
 
-        with patch('game.strategy.random.choice', side_effect=select_last_shortest):
+        with patch('pacman.game.strategy.random.choice', side_effect=select_last_shortest):
             direction = BFSStrategy().choose_direction(maze, (1, 1), (2, 0), player_dir="E")
         self.assertEqual(direction, 'E')
         assert direction is not None
@@ -85,6 +85,13 @@ class BFSStrategyTests(unittest.TestCase):
                                                    (0, 0), (1, 0), player_dir="E"), 'E')
         self.assertIsNone(strategy.choose_direction(Maze([[15, 15]]),
                                                     (0, 0), (1, 0), player_dir="E"))
+
+
+class FleeStrategyTests(unittest.TestCase):
+    def test_equal_distance_exits_keep_existing_north_first_priority(self) -> None:
+        maze = Maze([[9, 1, 3], [8, 0, 2], [12, 4, 6]])
+        self.assertEqual(FleeBFSStrategy().choose_direction(
+            maze, (1, 1), (1, 1), 'E'), 'N')
 
 
 class AmbushStrategyTests(unittest.TestCase):

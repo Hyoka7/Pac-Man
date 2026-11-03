@@ -4,7 +4,7 @@ import unittest
 
 from PIL import Image
 
-from visualize.sprites import ghost_image, player_image
+from pacman.visualize.sprites import ghost_image, player_image
 
 
 class PixelSpriteTests(unittest.TestCase):

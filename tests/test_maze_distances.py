@@ -2,8 +2,8 @@
 
 import unittest
 
-from game.maze import Maze
-from game.strategy import BFSStrategy
+from pacman.game.maze import Maze
+from pacman.game.strategy import BFSStrategy
 
 
 class CountingMaze(Maze):
@@ -22,6 +22,20 @@ class CountingMaze(Maze):
 
 class MazeDistanceTests(unittest.TestCase):
     """Verify complete distance tables and no searches while chasing."""
+
+    def test_each_wall_blocks_its_own_direction_and_keeps_neighbor_coordinates(self) -> None:
+        for direction, bit, neighbor in (
+            ('N', 1, (1, 0)), ('E', 2, (2, 1)),
+            ('S', 4, (1, 2)), ('W', 8, (0, 1)),
+        ):
+            with self.subTest(direction=direction):
+                cells = [[9, 1, 3], [8, bit, 2], [12, 4, 6]]
+                maze = Maze(cells)
+                self.assertEqual(maze.next_cell(1, 1, direction), neighbor)
+                self.assertFalse(maze.can_move(1, 1, direction))
+                for other in ('N', 'E', 'S', 'W'):
+                    if other != direction:
+                        self.assertTrue(maze.can_move(1, 1, other))
 
     def test_all_walkable_sources_are_ready_on_construction(self) -> None:
         """Each source already has distances to all its reachable cells."""

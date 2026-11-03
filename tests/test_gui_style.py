@@ -7,9 +7,9 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 from PIL import ImageFont
 
-from visualize.gui import GUI, GUIStateEnum
-from storage.highscore import ScoreEntry
-from visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.gui import GUI, GameState
+from pacman.storage.highscore import ScoreEntry
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 
@@ -78,10 +78,10 @@ class RectangleTests(unittest.TestCase):
 
 class GUIStyleTests(unittest.TestCase):
     def setUp(self) -> None:
-        patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
+        patcher = patch('pacman.visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
-        image_patcher = patch('visualize.image_renderer.ImageRenderer.draw_image')
+        image_patcher = patch('pacman.visualize.image_renderer.ImageRenderer.draw_image')
         self.draw_image = image_patcher.start()
         self.addCleanup(image_patcher.stop)
 
@@ -103,7 +103,7 @@ class GUIStyleTests(unittest.TestCase):
                 gui = GUI()
                 gui.update_layout(*size)
                 canvas = make_canvas(*size)
-                gui.draw_backdrop(canvas, GUIStateEnum.Home)
+                gui.draw_backdrop(canvas, GameState.Home)
                 left, top, right, bottom = edges
                 self.assertEqual(pixel(canvas, left, top), (73, 194, 221))
                 self.assertEqual(pixel(canvas, right, bottom), (73, 194, 221))
@@ -115,7 +115,7 @@ class GUIStyleTests(unittest.TestCase):
         gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
         canvas = make_canvas(800, 600)
-        gui.draw_backdrop(canvas, GUIStateEnum.Home)
+        gui.draw_backdrop(canvas, GameState.Home)
         self.assertEqual(pixel(canvas, 0, 0), (8, 13, 28))
         self.assertEqual(pixel(canvas, 80, 90), (73, 194, 221))
         self.assertEqual(pixel(canvas, 719, 509), (73, 194, 221))
@@ -127,13 +127,13 @@ class GUIStyleTests(unittest.TestCase):
         gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
         scores = [ScoreEntry(name="LONGESTNAM", score=1234567)] * 10
-        screens: list[tuple[GUIStateEnum, Callable[..., None], tuple[Any, ...]]] = [
-            (GUIStateEnum.Home, gui.home, (scores, 0)),
-            (GUIStateEnum.Ranking, gui.ranking, (scores,)),
-            (GUIStateEnum.Instruction, gui.instruction, ()),
-            (GUIStateEnum.GameOver, gui.gameover, (1234567, "LONGESTNAM")),
-            (GUIStateEnum.All_Clear, gui.all_clear, (1234567, "LONGESTNAM")),
-            (GUIStateEnum.Stage_Clear, gui.stage_clear, ()),
+        screens: list[tuple[GameState, Callable[..., None], tuple[Any, ...]]] = [
+            (GameState.Home, gui.home, (scores, 0)),
+            (GameState.Ranking, gui.ranking, (scores,)),
+            (GameState.Instruction, gui.instruction, ()),
+            (GameState.GameOver, gui.gameover, (1234567, "LONGESTNAM")),
+            (GameState.All_Clear, gui.all_clear, (1234567, "LONGESTNAM")),
+            (GameState.Stage_Clear, gui.stage_clear, ()),
         ]
         for state, renderer, args in screens:
             with self.subTest(state=state):
@@ -154,7 +154,7 @@ class GUIStyleTests(unittest.TestCase):
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
         canvas = make_canvas(8, 6)
         canvas.img_data[:] = bytes([37]) * len(canvas.img_data)
-        for state in (GUIStateEnum.Playing, GUIStateEnum.Pause):
+        for state in (GameState.Playing, GameState.Pause):
             gui.draw_backdrop(canvas, state)
             self.assertEqual(bytes(canvas.img_data), bytes([37]) * 8 * 6 * 4)
 
@@ -163,7 +163,7 @@ class GUIStyleTests(unittest.TestCase):
         gui.update_layout(800, 600)
         self.assertTrue(callable(getattr(gui, "draw_backdrop", None)))
         canvas = make_canvas(40, 30)
-        gui.draw_backdrop(canvas, GUIStateEnum.Ranking)
+        gui.draw_backdrop(canvas, GameState.Ranking)
         self.assertEqual(pixel(canvas, 0, 0), (8, 13, 28))
         canvas.clear_image()
         gui.background(canvas, -5, -5, 20, 20)

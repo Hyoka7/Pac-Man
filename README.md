@@ -28,7 +28,6 @@ MLXと迷路生成パッケージは、現状では`pyproject.toml`の依存関�
 | 削除確認 | Y / N | 全件削除して保存 / キャンセル |
 | プレイ中 | 矢印 / WASD | 移動、方向転換の予約 |
 | プレイ中 | P | ポーズ |
-| プレイ中（チート有効） | O | AutoのON/OFF（矢印キーで手動操作へ戻る） |
 | プレイ中 | C | 配色変更 |
 | プレイ中 | `3111696` を順に入力 | チートの有効・無効を切り替え |
 | プレイ中・チート有効 | N | 次レベルへ移動 |
@@ -44,7 +43,7 @@ MLXと迷路生成パッケージは、現状では`pyproject.toml`の依存関�
 
 ホームの項目はゲーム開始・操作説明・ランキング・終了の順です。初期選択はゲーム開始で、I/Hによる直接移動も使えます。ホームにはタイトル・メニュー・操作案内を表示し、ランキング専用画面に上位10件を1画面で表示します。Enterでホームへ戻ります。ランキングでCを押すと削除確認へ進み、Yで全件削除して保存、Nでキャンセルします。
 
-チートコマンドはShiftを押さずに入力します。途中まで一致したキーは移動やレベル移動へ渡さず、不一致なら入力位置をリセットします。プレイ中・チート有効時は、Lで残機を1、Tで残り時間を10秒追加できます。チート解除時は敵の停止・Auto・壁貫通を解除し、スコア倍率を1倍へ戻します。停止中の敵にも接触判定はあります。
+チートコマンドはShiftを押さずに入力します。途中まで一致したキーは移動やレベル移動へ渡さず、不一致なら入力位置をリセットします。プレイ中・チート有効時は、Lで残機を1、Tで残り時間を10秒追加できます。チート解除時は敵の停止・壁貫通を解除し、スコア倍率を1倍へ戻します。停止中の敵にも接触判定はあります。
 
 ## 現在のゲーム動作
 
@@ -68,7 +67,7 @@ MLXと迷路生成パッケージは、現状では`pyproject.toml`の依存関�
 
 メニューなどの静止画面は濃紺の背景とパネル、水色の枠で統一しています。本文は白、タイトルとホームの選択項目は黄色です。ポーズは迷路を残した上にパネルを重ね、パワーアップバーも暗い土台と黄色の残量で表示します。
 
-`visualize/image_renderer.py`の`ImageRenderer.draw_text(canvas, x, y, text, color, size)`で、Pillowの文字画像をCanvasへ合成します。共通の`ImageRenderer.draw_image(canvas, x, y, image)`が必要範囲の背景を取り出し、Pillowの`alpha_composite()`でまとめて合成して1行ずつ書き戻します。文字ごとのピクセルループを使わず、透明な背景と滑らかな縁を保ちます。画面外の部分は切り取ります。背景・ゲーム・文字をすべて描いた後、`mlx_put_image_to_window()`を1回だけ呼びます。`mlx_string_put()`、文字数のカウント、文字描画用の`mlx_sync()`は使いません。フォントと文字画像はクラス外の`@cache`関数で再利用し、クラス内のメソッドはそれを呼び出します。
+`pacman/visualize/image_renderer.py`の`ImageRenderer.draw_text(canvas, x, y, text, color, size)`で、Pillowの文字画像をCanvasへ合成します。共通の`ImageRenderer.draw_image(canvas, x, y, image)`が必要範囲の背景を取り出し、Pillowの`alpha_composite()`でまとめて合成して1行ずつ書き戻します。文字ごとのピクセルループを使わず、透明な背景と滑らかな縁を保ちます。画面外の部分は切り取ります。背景・ゲーム・文字をすべて描いた後、`mlx_put_image_to_window()`を1回だけ呼びます。`mlx_string_put()`、文字数のカウント、文字描画用の`mlx_sync()`は使いません。フォントと文字画像はクラス外の`@cache`関数で再利用し、クラス内のメソッドはそれを呼び出します。
 
 BFSで追跡する敵は、事前計算した距離表から最短距離を1縮める方向を集め、同距離の候補からランダムに選びます。
 
@@ -99,28 +98,33 @@ Pydanticの`ScoreEntry`（名前と得点）と`HighscoreData`を使います。
 
 | モジュール | 役割 |
 | --- | --- |
-| `main.py` | Config作成、迷路生成と起動 |
-| `models/` | 共通設定・レベル別設定のPydanticモデル |
-| `game/game.py` | ゲーム進行、得点・衝突、復活、レベル準備 |
-| `game/state.py` | Home・Ready・Playingなどの共通状態 |
-| `game/player.py` / `game/ghost.py` | キャラクターの状態と更新 |
-| `game/maze.py` / `game/movement.py` | 壁、全通路のBFS距離表、移動・方向変更 |
-| `game/strategy.py` / `game/auto_player.py` | 敵の目標選択と自動操作 |
-| `game/pacgums.py` / `game/collision.py` | gumの配置・消費、接触判定 |
-| `controls/game_input.py` | 状態別のキー処理、チート操作、名前入力 |
-| `controls/keys.py` / `controls/cheating.py` | キー・方向の対応、ウィンドウへの要求、チートの順番入力 |
-| `audio/manager.py` | BGMと効果音の再生 |
-| `storage/highscore.py` | 得点モデルとJSONの保存・読み込み |
-| `visualize/maze_visualizer.py` | MLXの管理、描画、ゲーム更新と音声の呼び出し |
-| `visualize/gui.py` | 各画面、ランキング、HUD、バー、パネル |
-| `visualize/sprites.py` | Player・Ghostのキャッシュ付き画像生成 |
-| `visualize/image_renderer.py` | 文字画像の生成・計測とRGBA画像の一括合成 |
-| `visualize/visualizerutils.py` | 画像バッファ、ピクセル描画、セルと画面座標の変換 |
+| `main.py` | 従来の起動コマンド用入口 |
+| `pacman/__main__.py` | Config作成、迷路生成と起動。`python -m pacman` にも対応 |
+| `pacman/models/` | 共通設定・レベル別設定のPydanticモデル |
+| `pacman/game/game.py` | ゲーム進行、得点・衝突、復活、レベル準備 |
+| `pacman/game/state.py` | Home・Ready・Playingなどの共通状態 |
+| `pacman/game/player.py` / `pacman/game/ghost.py` | キャラクターの状態・役割と更新 |
+| `pacman/game/maze.py` / `pacman/game/movement.py` | 壁、全通路のBFS距離表、移動・方向変更 |
+| `pacman/game/directions.py` | 方向の順序、座標差、反対方向、壁ビットの共通定義 |
+| `pacman/game/strategy.py` | 敵の目標選択と方向決定 |
+| `pacman/game/pacgums.py` / `pacman/game/collision.py` | gumの配置・消費、接触判定 |
+| `pacman/controls/game_input.py` | 状態別のキー処理、チート操作、名前入力 |
+| `pacman/controls/keys.py` / `pacman/controls/cheating.py` | キー・方向の対応、ウィンドウへの要求、チートの順番入力 |
+| `pacman/audio/manager.py` | BGMと効果音の再生 |
+| `pacman/storage/highscore.py` | 得点モデルとJSONの保存・読み込み |
+| `pacman/visualize/maze_visualizer.py` | MLXの管理、描画、ゲーム更新と音声の呼び出し |
+| `pacman/visualize/gui.py` | 各画面、ランキング、HUD、バー、パネル |
+| `pacman/visualize/sprites.py` | Player・Ghostのキャッシュ付き画像生成 |
+| `pacman/visualize/world_renderer.py` | 迷路・gum・Player・Ghostの描画 |
+| `pacman/visualize/image_renderer.py` | 文字画像の生成・計測とRGBA画像の一括合成 |
+| `pacman/visualize/visualizerutils.py` | 画像バッファ、ピクセル描画、セルと画面座標の変換 |
 | `playground.py` | ゲーム本体とは独立したPythonの練習用コード |
 
-キー入力は `Game.handle_key()` から `controls.game_input` へ渡し、ゲームの状態・得点・残機は引き続き `Game` と各キャラクターが保持します。画面遷移は `Game.set_state()` で再描画要求も更新します。
+キー入力は `Game.handle_key()` から `pacman.controls.game_input` へ渡し、ゲームの状態・得点・残機は引き続き `Game` と各キャラクターが保持します。画面遷移は `Game.set_state()` で再描画要求も更新します。
 
-キャラクターの既存の `draw()` は維持し、画像生成を `visualize.sprites` に分離しました。移動とgumの配置は引き続きCanvasの座標変換を使います。`from visualize import MazeVisualizer` は利用時に読み込むため、ゲーム関連だけのimportではMLXやPygameを読み込みません。
+ゲーム側のクラスから描画を分離し、`WorldRenderer` が迷路・gum・キャラクターを描きます。画像生成とキャッシュは `pacman.visualize.sprites` が担当します。移動とgumの配置は引き続きCanvasの座標変換を使いますが、型ヒントの参照だけなのでゲーム関連のimportでは描画・MLX・Pygameを読み込みません。
+
+状態は `GameState`、赤の識別は戦略の型ではなく `GhostRole.RED` を使います。Pythonのソースはすべて `pacman/` にまとめ、`main.py` と `playground.py` はルートの実行用スクリプトとして残しています。音源・フォントは引き続きルートの `assets/` に置きます。
 
 ## 検証と今後の作業
 
@@ -136,13 +140,6 @@ Pydanticの`ScoreEntry`（名前と得点）と`HighscoreData`を使います。
 
 HUDと無敵時間は数字・小数点の部品画像を再利用して合成し、表示項目ごとに最新の完成画像だけを保持します。中央揃えにも同じ完成画像の幅を使います。
 敵は復活まで残り1.5秒から表示・非表示を切り替えます。無敵終了まで残り1.5秒では敵の青色と通常色を切り替え、どちらも切り替え間隔は0.20秒です。
-
-## Auto操作
-
-プレイ中に`3111696`でチートを有効にしてから、OでAutoを切り替えます。動作中はHUDに`AUTO ON`を表示します。矢印キーによる手動入力、チート解除、新規ゲームでAutoを解除します。壁貫通はHで切り替え、Wはチート中も上移動に使えます。
-
-`game/auto_player.py`の`AutoPlayer`が、敵の速度・移動途中の位置・衝突半径・復活待ち時間から危険を見積もり、安全に進めるgumを最大8マス先まで探します。敵が出口を塞げる行き止まりを避け、安全な経路がなければ敵の到達に時間がかかる方向へ逃げます。無敵時間の残りと停止中の敵も判定に使います。
-方向はマスの中心で選び、移動・gum取得・無敵更新は既存のPlayerに任せます。Autoは通常の通路を対象にした局所探索で、ランダムな敵に対する生存やクリアを保証するものではありません。
 
 ## 加点値と倍率
 

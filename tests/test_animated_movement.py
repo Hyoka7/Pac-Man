@@ -1,21 +1,23 @@
 """Shared frame-by-frame movement and character integration checks."""
 
+from pacman.visualize.world_renderer import WorldRenderer
+
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
-from models.models import Config, LevelConfig
-from visualize.gui import GUIStateEnum
+from pacman.models.models import Config, LevelConfig
+from pacman.visualize.gui import GameState
 
-from visualize import MazeVisualizer
-from game.ghost import Ghost
-from game.maze import Maze
-from game.movement import Movement
-from game.pacgums import Pacgums
-from game.player import Player
-from game.strategy import BFSStrategy
-from visualize.visualizerutils import VisualizerUtils
+from pacman.visualize import MazeVisualizer
+from pacman.game.ghost import Ghost
+from pacman.game.maze import Maze
+from pacman.game.movement import Movement
+from pacman.game.pacgums import Pacgums
+from pacman.game.player import Player
+from pacman.game.strategy import BFSStrategy
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 def make_canvas() -> VisualizerUtils:
@@ -28,7 +30,7 @@ class AnimatedMovementTests(unittest.TestCase):
 
     def setUp(self) -> None:
         """Use a three-cell corridor with walls at both ends."""
-        self.enterContext(patch('visualize.maze_visualizer.AudioManager'))
+        self.enterContext(patch('pacman.visualize.maze_visualizer.AudioManager'))
         self.maze = Maze([[13, 5, 7]])
         self.canvas = make_canvas()
 
@@ -104,7 +106,7 @@ class AnimatedMovementTests(unittest.TestCase):
         self.assertLess(ghost.movement.center[0], 100.0)
         self.assertGreater(ghost.movement.center[0], 68.0)
         self.canvas.clear_image()
-        ghost.draw(self.canvas, eatable=False, eatable_remain=0.0)
+        WorldRenderer().draw_ghost(ghost, self.canvas, eatable=False, eatable_remain=0.0)
         offset = 30 * self.canvas.line_size + 105 * 4
         self.assertEqual(
             bytes(self.canvas.img_data[offset : offset + 4]), bytes([0, 0, 0, 255])
@@ -112,7 +114,7 @@ class AnimatedMovementTests(unittest.TestCase):
         ghost.update(0.3, self.maze, self.canvas, (0, 0), player_dir="E", eatable=False)
         self.assertEqual(ghost.cell, (1, 0))
         self.canvas.clear_image()
-        ghost.draw(self.canvas, eatable=False, eatable_remain=0.0)
+        WorldRenderer().draw_ghost(ghost, self.canvas, eatable=False, eatable_remain=0.0)
         offset = 36 * self.canvas.line_size + 68 * 4
         self.assertEqual(
             bytes(self.canvas.img_data[offset : offset + 4]), bytes([0, 0, 255, 255])
@@ -134,7 +136,7 @@ class AnimatedMovementTests(unittest.TestCase):
                 levels=[LevelConfig(width=5, height=1)],
             )
             viewer = MazeVisualizer([[13, 5, 5, 5, 7]], Mock(), config)
-            viewer.game.state = GUIStateEnum.Playing
+            viewer.game.state = GameState.Playing
             viewer.game.ghosts = [Ghost((0, 0), BFSStrategy())]
             viewer.game.player.movement.speed = 5.0
             viewer.game.ghosts[0].movement.speed = 3.0
@@ -146,7 +148,7 @@ class AnimatedMovementTests(unittest.TestCase):
             viewer.closed = False
             viewer.last_time = 10.0
             viewer._on_key(65363)
-            with patch("visualize.maze_visualizer.time.monotonic", return_value=10.05):
+            with patch("pacman.visualize.maze_visualizer.time.monotonic", return_value=10.05):
                 viewer._on_loop()
             self.assertAlmostEqual(viewer.game.player.movement.center[0], 108.0)
             self.assertAlmostEqual(viewer.game.ghosts[0].movement.center[0], 40.8)

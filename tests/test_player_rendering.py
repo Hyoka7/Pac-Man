@@ -1,9 +1,11 @@
 """Cached player sprites keep direction, mouth animation and placement."""
 
+from pacman.visualize.world_renderer import WorldRenderer
+
 import unittest
 
-from game.player import Player
-from visualize.visualizerutils import VisualizerUtils
+from pacman.game.player import Player
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 def make_canvas() -> VisualizerUtils:
@@ -29,7 +31,7 @@ class PlayerRenderingTests(unittest.TestCase):
                 player.place(target)
                 player.movement.direction = direction
                 player.mouth_half_angle = 45
-                player.draw(target)
+                WorldRenderer().draw_player(player, target)
                 for point_direction, (dx, dy) in cardinal.items():
                     self.assertEqual(rgb(target, 48+dx, 48+dy),
                         (0, 0, 0) if point_direction == direction else (255, 255, 0))
@@ -40,7 +42,7 @@ class PlayerRenderingTests(unittest.TestCase):
         player = Player((1, 1))
         player.place(target)
         player.mouth_half_angle = 0
-        player.draw(target)
+        WorldRenderer().draw_player(player, target)
         for dx, dy in ((6, 0), (-6, 0), (0, 6), (0, -6)):
             self.assertEqual(rgb(target, 48+dx, 48+dy), (255, 255, 0))
         self.assertEqual(rgb(target, 36, 36), (0, 0, 80))
@@ -54,7 +56,7 @@ class PlayerRenderingTests(unittest.TestCase):
         for expected in ((255, 255, 0), (0, 0, 0)):
             player.update_mouth(player.mouth_period / 2)
             target.clear_image()
-            player.draw(target)
+            WorldRenderer().draw_player(player, target)
             self.assertFalse(player.movement.moving)
             self.assertEqual(rgb(target, 54, 48), expected)
 
@@ -64,12 +66,12 @@ class PlayerRenderingTests(unittest.TestCase):
         player.place(target)
         player.mouth_half_angle = 0
         player.movement.center = (96.0, 48.0)
-        player.draw(target)
+        WorldRenderer().draw_player(player, target)
         self.assertEqual(rgb(target, 96, 48), (255, 255, 0))
         self.assertEqual(rgb(target, 48, 48), (0, 0, 0))
         target.cell_size = 48
         player.place(target)
         target.clear_image()
-        player.draw(target)
+        WorldRenderer().draw_player(player, target)
         self.assertEqual(rgb(target, 87, 72), (255, 255, 0))
         self.assertEqual(rgb(target, 92, 72), (0, 0, 0))

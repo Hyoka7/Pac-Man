@@ -11,26 +11,26 @@ from unittest.mock import MagicMock, Mock, patch
 
 from PIL import ImageFont
 
-from game.game import Game
-from controls.cheating import CheatHandler
-from visualize.gui import GUI, GUIStateEnum
-from storage.highscore import HighscoreManager, ScoreEntry
-from controls.keys import KeyEnum
-from visualize.maze_visualizer import MazeVisualizer
+from pacman.game.game import Game
+from pacman.controls.cheating import CheatHandler
+from pacman.visualize.gui import GUI, GameState
+from pacman.storage.highscore import HighscoreManager, ScoreEntry
+from pacman.controls.keys import KeyEnum
+from pacman.visualize.maze_visualizer import MazeVisualizer
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 
 
 class HomeRedrawTests(unittest.TestCase):
     def setUp(self) -> None:
-        patcher = patch('visualize.image_renderer.ImageRenderer.draw_text')
+        patcher = patch('pacman.visualize.image_renderer.ImageRenderer.draw_text')
         self.draw_text = patcher.start()
         self.addCleanup(patcher.stop)
-        image_patcher = patch('visualize.image_renderer.ImageRenderer.draw_image')
+        image_patcher = patch('pacman.visualize.image_renderer.ImageRenderer.draw_image')
         self.draw_image = image_patcher.start()
         self.addCleanup(image_patcher.stop)
         hud_patcher = patch(
-            'visualize.image_renderer.ImageRenderer.draw_numeric_text',
+            'pacman.visualize.image_renderer.ImageRenderer.draw_numeric_text',
             new=self.draw_text,
         )
         hud_patcher.start()
@@ -38,6 +38,7 @@ class HomeRedrawTests(unittest.TestCase):
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        self.viewer.world_renderer = Mock()
         self.viewer.audio = Mock()
         self.viewer.game = cast(Any, Game.__new__(Game))
         self.viewer.game.level_needs_placement = False
@@ -48,11 +49,10 @@ class HomeRedrawTests(unittest.TestCase):
         v.game.shift_keys = set()
         v.game.cheathandler = CheatHandler(list(map(ord, '3111696')))
         v.game.cheat_enabled = False
-        v.game.auto_enabled = False
         v.game.ghost_frozen = False
         v.game.score_multiplier = 1
         v.game.pacgum_points = {}
-        v.game.state = GUIStateEnum.Home
+        v.game.state = GameState.Home
         v.game.home_focusing = 0
         v.game.needs_redraw = True
         v.last_time = monotonic()
@@ -80,7 +80,7 @@ class HomeRedrawTests(unittest.TestCase):
 
     def test_invincible_bar_scales_and_keeps_its_center(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Playing
+        v.game.state = GameState.Playing
         v.game.player.is_invincible = True
         v.game.player.invincible_remain = 2.5
         v.gui = GUI()
@@ -100,7 +100,7 @@ class HomeRedrawTests(unittest.TestCase):
     def test_scaled_footer_and_hud_fit_between_maze_and_window_edges(self) -> None:
         v = self.viewer
         v.gui = GUI()
-        v.game.state = GUIStateEnum.Playing
+        v.game.state = GameState.Playing
         v.game.player.is_invincible = True
         v.game.player.invincible_remain = 2.5
         v.game.maze.cols = v.game.maze.rows = 15
@@ -160,7 +160,7 @@ class HomeRedrawTests(unittest.TestCase):
     def test_return_after_score_save_refreshes_home_once(self) -> None:
         v = self.viewer
         v._draw()
-        v.game.state = GUIStateEnum.GameOver
+        v.game.state = GameState.GameOver
         v._on_key(KeyEnum.ENTER)
         self.assertTrue(v.game.needs_redraw)
         v._on_loop()
@@ -178,7 +178,7 @@ class HomeRedrawTests(unittest.TestCase):
 
     def test_stage_clear_draws_once_then_remains_idle(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Stage_Clear
+        v.game.state = GameState.Stage_Clear
         v.game.needs_redraw = True
         v._on_loop()
         v._on_loop()
@@ -189,12 +189,12 @@ class HomeRedrawTests(unittest.TestCase):
         v = self.viewer
         v.game.restart_game = Mock()
         for focusing, expected in (
-            (0, GUIStateEnum.Playing),
-            (1, GUIStateEnum.Instruction),
-            (2, GUIStateEnum.Ranking),
+            (0, GameState.Playing),
+            (1, GameState.Instruction),
+            (2, GameState.Ranking),
         ):
             with self.subTest(focusing=focusing):
-                v.game.state = GUIStateEnum.Home
+                v.game.state = GameState.Home
                 v.game.home_focusing = focusing
                 v.game.needs_redraw = False
                 v.game.restart_game.reset_mock()
@@ -270,24 +270,24 @@ class HomeRedrawTests(unittest.TestCase):
         v.canvas.reset_mock()
         v._draw()  # Expose must rebuild the full frame after transparent clearing.
         v.canvas.clear_image.assert_called_once_with()
-        v.gui.draw_backdrop.assert_called_once_with(v.canvas, GUIStateEnum.Home)
+        v.gui.draw_backdrop.assert_called_once_with(v.canvas, GameState.Home)
         v.gui.home.assert_called_once()
 
     def test_stage_clear_transition_requests_a_draw(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Playing
+        v.game.state = GameState.Playing
         v.game.needs_redraw = False
         v.game.pacgums.__len__.return_value = 0
         v.game.max_level = 2
         v._on_loop()
-        self.assertEqual(v.game.state, GUIStateEnum.Stage_Clear)
+        self.assertEqual(v.game.state, GameState.Stage_Clear)
         v.gui.stage_clear.assert_called_once()
         v._on_loop()
         v.gui.stage_clear.assert_called_once()
 
     def test_pause_draws_once_without_updating_game(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Playing
+        v.game.state = GameState.Playing
         v.game.needs_redraw = False
         v._on_key(KeyEnum.P)
         self.assertTrue(v.game.needs_redraw)
@@ -300,7 +300,7 @@ class HomeRedrawTests(unittest.TestCase):
 
     def test_expose_can_redraw_pause(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Pause
+        v.game.state = GameState.Pause
         v._draw()
         self.assertFalse(v.game.needs_redraw)
         v._draw()
@@ -308,7 +308,7 @@ class HomeRedrawTests(unittest.TestCase):
 
     def test_pause_to_home_refreshes_home(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Pause
+        v.game.state = GameState.Pause
         v.game.needs_redraw = False
         v._on_key(KeyEnum.H)
         self.assertTrue(v.game.needs_redraw)
@@ -318,7 +318,7 @@ class HomeRedrawTests(unittest.TestCase):
 
     def test_resume_keeps_updating_and_drawing(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Pause
+        v.game.state = GameState.Pause
         v.game.needs_redraw = False
         v._on_key(KeyEnum.P)
         v._on_loop()
@@ -330,7 +330,7 @@ class HomeRedrawTests(unittest.TestCase):
         v = self.viewer
         v._draw()
         v._on_key(KeyEnum.I)
-        self.assertEqual(v.game.state, GUIStateEnum.Instruction)
+        self.assertEqual(v.game.state, GameState.Instruction)
         self.assertTrue(v.game.needs_redraw)
         v._on_loop()
         v._on_loop()
@@ -340,14 +340,14 @@ class HomeRedrawTests(unittest.TestCase):
         v._on_key(KeyEnum.RIGHT)
         self.assertFalse(v.game.needs_redraw)
         v._on_key(KeyEnum.ENTER)
-        self.assertEqual(v.game.state, GUIStateEnum.Home)
+        self.assertEqual(v.game.state, GameState.Home)
         self.assertTrue(v.game.needs_redraw)
         v._on_loop()
         self.assertEqual(v.gui.home.call_count, 2)
 
     def test_instructions_can_redraw_on_expose(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Instruction
+        v.game.state = GameState.Instruction
         v._draw()
         self.assertFalse(v.game.needs_redraw)
         v._draw()
@@ -357,7 +357,7 @@ class HomeRedrawTests(unittest.TestCase):
         v = self.viewer
         v._draw()
         v._on_key(KeyEnum.H)
-        self.assertEqual(v.game.state, GUIStateEnum.Ranking)
+        self.assertEqual(v.game.state, GameState.Ranking)
         self.assertTrue(v.game.needs_redraw)
         v._on_loop()
         v._on_loop()
@@ -367,14 +367,14 @@ class HomeRedrawTests(unittest.TestCase):
         v.game.player.update.assert_not_called()
         self.assertEqual(v.game.remaining_time, 42.0)
         v._on_key(KeyEnum.ENTER)
-        self.assertEqual(v.game.state, GUIStateEnum.Home)
+        self.assertEqual(v.game.state, GameState.Home)
         self.assertTrue(v.game.needs_redraw)
         v._on_loop()
         self.assertEqual(v.gui.home.call_count, 2)
 
     def test_ranking_can_redraw_on_expose(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Ranking
+        v.game.state = GameState.Ranking
         v._draw()
         self.assertFalse(v.game.needs_redraw)
         v._draw()
@@ -382,7 +382,7 @@ class HomeRedrawTests(unittest.TestCase):
 
     def test_ranking_arrows_do_not_change_the_screen_or_request_redraw(self) -> None:
         v = self.viewer
-        v.game.state = GUIStateEnum.Ranking
+        v.game.state = GameState.Ranking
         v.game.score_manager.scores.scores = [
             ScoreEntry(name=f'p{i}', score=100-i) for i in range(23)
         ]
@@ -390,7 +390,7 @@ class HomeRedrawTests(unittest.TestCase):
             with self.subTest(key=key):
                 v.game.needs_redraw = False
                 v._on_key(key)
-                self.assertEqual(v.game.state, GUIStateEnum.Ranking)
+                self.assertEqual(v.game.state, GameState.Ranking)
                 self.assertFalse(v.game.needs_redraw)
 
     def test_ranking_renders_only_top_ten_and_handles_empty_list(self) -> None:
@@ -421,7 +421,7 @@ class HomeRedrawTests(unittest.TestCase):
         v.gui = GUI()
         v.gui.update_layout(v.width, v.height)
         v.game.player.invincible_remain = 3.25
-        for state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
+        for state in (GameState.GameOver, GameState.All_Clear):
             for name in ('', 'A', 'ABCDEFGHIJ'):
                 for score in (0, 1234567, 9999999999):
                     for invincible in (False, True):
@@ -453,7 +453,7 @@ class HomeRedrawTests(unittest.TestCase):
         v = self.viewer
         v.gui = GUI()
         v.gui.update_layout(v.width, v.height)
-        for state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
+        for state in (GameState.GameOver, GameState.All_Clear):
             for key, expected_name in (
                 (ord('B'), 'AliceB'), (KeyEnum.BACKSPACE, 'Alic'),
             ):
@@ -484,7 +484,7 @@ class HomeRedrawTests(unittest.TestCase):
         v.gui = Mock(wraps=gui, bar_width=gui.bar_width, bar_height=gui.bar_height,
                      hud_x=gui.hud_x, hud_y=gui.hud_y, bar_y=gui.bar_y)
         v.game.player.invincible_remain = 3.25
-        for state in GUIStateEnum:
+        for state in GameState:
             for invincible in (False, True):
                 with self.subTest(state=state, invincible=invincible):
                     v.game.state = state
@@ -496,7 +496,7 @@ class HomeRedrawTests(unittest.TestCase):
                     v._draw()
                     expected = (
                         invincible
-                        and state in (GUIStateEnum.Playing, GUIStateEnum.Pause, GUIStateEnum.Ready)
+                        and state in (GameState.Playing, GameState.Pause, GameState.Ready)
                     )
                     strings = [
                         call.args[3]

@@ -11,14 +11,16 @@ class PackageImportTests(unittest.TestCase):
         result = subprocess.run(
             [sys.executable, '-B', '-c', '''
 import sys
-import game.game
-import game.strategy
-import controls.game_input
-import storage.highscore
+import pacman.game.game
+import pacman.game.strategy
+import pacman.controls.game_input
+import pacman.storage.highscore
 assert "mlx" not in sys.modules
 assert "pygame" not in sys.modules
-from visualize import MazeVisualizer
-from visualize.maze_visualizer import MazeVisualizer as DirectVisualizer
+assert "pacman.visualize" not in sys.modules
+assert "PIL" not in sys.modules
+from pacman.visualize import MazeVisualizer
+from pacman.visualize.maze_visualizer import MazeVisualizer as DirectVisualizer
 assert MazeVisualizer is DirectVisualizer
 '''],
             cwd=Path(__file__).resolve().parents[1],

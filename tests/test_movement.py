@@ -2,7 +2,7 @@
 
 import unittest
 
-from game.movement import Movement
+from pacman.game.movement import Movement
 
 
 class MovementTests(unittest.TestCase):

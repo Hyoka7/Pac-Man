@@ -2,10 +2,10 @@
 
 import unittest
 
-from game.maze import Maze
-from game.pacgums import Pacgums
-from game.player import Player
-from visualize.visualizerutils import VisualizerUtils
+from pacman.game.maze import Maze
+from pacman.game.pacgums import Pacgums
+from pacman.game.player import Player
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class PlayerControlTests(unittest.TestCase):
@@ -88,6 +88,19 @@ class PlayerControlTests(unittest.TestCase):
         before = p.movement.center
         p.request_move('E', self.maze, self.canvas)
         self.assertEqual(p.movement.center, before)
+
+
+class WallhackBoundaryTests(unittest.TestCase):
+    def test_wallhack_skips_only_walls_and_keeps_both_bounds_checks(self) -> None:
+        maze = Maze([[13, 7]])
+        self.assertFalse(maze.can_move(0, 0, 'W', True))
+        self.assertFalse(maze.can_move(1, 0, 'E', True))
+        self.assertFalse(maze.can_move(-1, 0, 'E', True))
+        self.assertFalse(maze.can_move(0, 0, 'invalid', True))
+        self.assertTrue(Maze([[15, 15]]).can_move(0, 0, 'E', True))
+        self.assertFalse(Maze([[15, 15]]).can_move(0, 0, 'E'))
+        # Even an open boundary cell cannot leave the map without wallhack.
+        self.assertFalse(Maze([[0]]).can_move(0, 0, 'E'))
 
 
 if __name__ == '__main__':

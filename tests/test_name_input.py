@@ -8,15 +8,16 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 
-from game.game import Game
-from visualize.gui import GUIStateEnum
-from storage.highscore import HighscoreManager
-from controls.keys import KeyEnum
-from visualize.maze_visualizer import MazeVisualizer
+from pacman.game.game import Game
+from pacman.visualize.gui import GameState
+from pacman.storage.highscore import HighscoreManager
+from pacman.controls.keys import KeyEnum
+from pacman.visualize.maze_visualizer import MazeVisualizer
 
 
-def viewer(state: GUIStateEnum = GUIStateEnum.GameOver) -> Any:
+def viewer(state: GameState = GameState.GameOver) -> Any:
     v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+    v.world_renderer = Mock()
     v.audio = Mock()
     v.game = cast(Any, Game.__new__(Game))
     v.game.level_needs_placement = False
@@ -32,7 +33,7 @@ def viewer(state: GUIStateEnum = GUIStateEnum.GameOver) -> Any:
 
 class NameInputTests(unittest.TestCase):
     def test_either_shift_uppercases_only_while_held_on_both_end_screens(self) -> None:
-        for state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
+        for state in (GameState.GameOver, GameState.All_Clear):
             for shift in (KeyEnum.SHIFT_L, KeyEnum.SHIFT_R):
                 with self.subTest(state=state, shift=shift):
                     v = viewer(state)
@@ -70,7 +71,7 @@ class NameInputTests(unittest.TestCase):
         self.assertFalse(v.game.shift_keys)
 
     def test_spaces_are_kept_and_eleventh_character_is_ignored(self) -> None:
-        for state in (GUIStateEnum.GameOver, GUIStateEnum.All_Clear):
+        for state in (GameState.GameOver, GameState.All_Clear):
             with self.subTest(state=state):
                 v = viewer(state)
                 for char in 'ab cd ef gh':
@@ -101,4 +102,4 @@ class NameInputTests(unittest.TestCase):
             v._on_key(KeyEnum.ENTER)
             saved = HighscoreManager(path).scores.scores[0]
             self.assertEqual((saved.name, saved.score), ('MOAE', 123))
-            self.assertEqual(v.game.state, GUIStateEnum.Home)
+            self.assertEqual(v.game.state, GameState.Home)

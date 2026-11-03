@@ -6,10 +6,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import json
 import unittest
+from unittest.mock import patch
 
 from pydantic import ValidationError
 
-from storage.highscore import HighscoreManager, ScoreEntry
+from pacman.storage.highscore import HighscoreManager, ScoreEntry
 
 
 class HighscoreTests(unittest.TestCase):
@@ -91,6 +92,32 @@ class HighscoreTests(unittest.TestCase):
             manager += entry
         self.assertTrue(output.getvalue())
         self.assertEqual(manager.scores.scores, [entry])
+
+    def test_failed_open_or_replace_preserves_original_and_removes_temporary_file(self) -> None:
+        for failure in ('pacman.storage.highscore.NamedTemporaryFile', 'os.replace'):
+            for exists in (False, True):
+                with self.subTest(failure=failure, original_exists=exists):
+                    self.path.unlink(missing_ok=True)
+                    original = b'{"scores":[{"name":"old","score":10}]}'
+                    if exists:
+                        self.path.write_bytes(original)
+                    manager = HighscoreManager(str(self.path))
+                    entry = ScoreEntry(name='new', score=100)
+                    with patch(failure, side_effect=OSError('simulated save failure')), redirect_stdout(StringIO()) as output:
+                        manager += entry
+                    self.assertIn('Highscore data save failed:', output.getvalue())
+                    self.assertEqual(manager.scores.scores[0], entry)
+                    if exists:
+                        self.assertEqual(self.path.read_bytes(), original)
+                    else:
+                        self.assertFalse(self.path.exists())
+                    self.assertEqual(set(self.path.parent.iterdir()), {self.path} if exists else set())
+
+    def test_successful_save_leaves_only_the_completed_json(self) -> None:
+        manager = HighscoreManager(str(self.path))
+        manager += ScoreEntry(name='new', score=100)
+        self.assertEqual(HighscoreManager(str(self.path)).scores.scores, manager.scores.scores)
+        self.assertEqual(list(self.path.parent.iterdir()), [self.path])
 
     def test_score_entry_boundaries(self) -> None:
         for name in ('a', 'a'*10, 'A B'):

@@ -1,25 +1,37 @@
 # Pac-Man 開発メモ
 
-最終更新：2026-11-02。
+最終更新：2026-11-03。
 
-## 現在の構成（2026-11-02）
+## 現在の構成（2026-11-03）
 
-- `game/`：Game、状態、Player・Ghost、迷路、移動、gum、衝突、Strategy、自動操作。
-- `controls/`：キー定義、状態別入力、順番入力のチート判定。
-- `audio/`：AudioManager。BGMの共通再生処理と既存の公開メソッドを維持。
-- `storage/`：ランキングのPydanticモデルとJSON保存・読み込み。
-- `visualize/`：MLX、GUI、文字・画像合成、画像バッファ、キャラクター画像生成。
-- 旧importとテストのpatch先を新しい配置へ更新。`from visualize import MazeVisualizer` は維持し、ゲーム側のimportではウィンドウ・音声モジュールを読み込まない。
-- Planner・移動先予約・BlockStrategy・RandomStrategyは削除済み。敵はBFS・Ambush・ReverseAmbush・Inkyを使用。Inkyはプレイヤーの2マス先と赤の現在地から目標を計算し、到達可能な最寄りのマスへ補正する。
-- プレイヤー速度は5.5、敵は4。開始・残機あり復活後はReadyで入力待ち。次レベルは従来どおりPlayingへ進む。
-- 描画・入力・更新・初期化を関数分割済み。Ready/Pauseは文字から共通の背景サイズを計算する。
-- Gameの公開入口とキャラクターのdraw()は維持。Canvasによる座標変換も現状維持。
-- Pixabay音源5ファイルのgitignore除外を解除し、ゲームの実行用assetsとして同梱する方針へ変更。READMEに全6音源の作品名・作者・出典と、Press Start 2Pのクレジットを記載した。
-- 保存前の検証：`.venv/bin/python -B -m unittest discover -s tests -q`で全204テスト成功。画面・音声を使わないimport、Readyでの入力待ち、MLX初期化と失敗時の後片付けも確認した。
+- Pythonモジュールは `pacman/` に集約。内部は `game/`、`controls/`、`audio/`、`storage/`、`visualize/`、`models/`、`parser/` に分離。
+- `main.py` は起動用の薄い入口。`make run`・`python main.py` を維持し、`python -m pacman` でも同じ設定で起動できる。
+- `pacman/visualize/world_renderer.py` にMaze・Pacgums・Player・Ghostの描画を移動。ゲーム側は状態と更新を担当し、Pillow・描画モジュールを実行時にimportしない。Canvasは座標変換に引き続き使い、型としてのみ参照する。
+- `GameState` に命名を統一し、状態変更は `Game.set_state()` 経由。無敵時間HUDの綴りは `invincible_time()` に修正。
+- Ghostに `GhostRole` を追加。水色に渡す赤の座標は `GhostRole.RED` で識別し、戦略の型には依存しない。
+- import・テストのpatch先・フォントの読み込みパス・READMEを更新済み。テストは実際のRenderer経由の画像を検証する。
+- 敵はBFS・Ambush・ReverseAmbush・Inky。Inkyはプレイヤーの2マス先と赤の現在地から計算し、到達可能な最寄りのマスへ目標を補正。Planner・予約処理は削除済み。
+- プレイヤー速度5.5、敵4。開始・残機あり復活後はReady、次レベルはPlayingという既存動作を維持。
+- 音源6ファイルを同梱。READMEには全音源とPress Start 2Pのクレジットを記載。フォント・音源はルートの `assets/` に維持。
+- 新規ゲーム開始時に敵停止を解除し、プレイヤー速度を `Player.DEFAULT_SPEED`（5.5）へ戻す修正を追加。
+- ユーザーの希望でAuto機能を削除。Oキーの自動操作、Playerへの判断コールバック、AUTO ONのHUD表示、Auto専用テストを除去。壁貫通の範囲チェックは手動操作のテストへ移して維持。
+- ランキング保存はNamedTemporaryFile（保存先と同じディレクトリ、delete=False）へ書き、withで閉じてからos.replace()で置き換える。明示的なflush・fsyncは使わない。失敗時は既存ファイルとメモリ上の得点を維持し、一時ファイルを片付ける。
+- 起動処理全体をtry/finallyに含め、MLX初期化・配置計算・ウィンドウ/画像作成の失敗時も音声を終了する。画像・ウィンドウは作成済みのものだけ解放し、二重終了を防ぐ。
+- 通常gum・スーパーgumの円描画をWorldRenderer._draw_gum()へ共通化。色・半径・描画順・画面外の切り取りを維持。チート表示で参照されていないレイアウト属性を削除し、右列の幅の変数名を明確化した。表示位置・文字サイズ・迷路の余白は変更していない。
+- `pacman/game/directions.py` に方向の順序・座標差・反対方向・壁ビットを集約。Maze・Movement・各Strategyで共有し、探索順と既存の方向文字列インタフェースを維持した。
+- 無敵時間はPlayer.INVINCIBLE_DURATION、敵の復帰待ちはGhost.RESPAWN_DELAYへ定数化。無敵バーも同じ無敵時間を参照する。WorldRendererには復帰前・無敵終了前それぞれの点滅開始時間と点滅間隔を定義し、5秒・1.5秒・0.2秒という既存値を維持。全205テスト成功。
+- デッドコードを整理。未使用のPlayer.ult、Movement.previous_cellと更新処理、MazeVisualizer.bytes_per_pixel、旧VisualizerUtils.draw_pixel_aa()、Mazeの未使用型importを削除。現在の描画・移動経路は維持し、削除後も全205テスト成功。
+- 最終検証：`.venv/bin/python -B -m unittest discover -s tests -q` で全205テスト成功。描画結果・起動と後片付け・ゲーム側importの独立性・赤の戦略変更後の識別・2種類の起動入口・新規ゲームのチート解除・ランキング保存失敗時の元ファイル保持に加え、gumの描画ピクセル・2色形式・画面外と行末余白、4方向の壁判定と逃走方向の同距離時の優先順位を確認した。
+- 実MLXウィンドウとイベントループでも、Home→Ready→Playing→Pause→衝突後Ready→Home→終了を検証済み。入力待ち・ポーズ中の時間停止、開始キーの消費、残機減少と復活位置を確認。キーはアプリのハンドラへ送り、スコアは一時保存先を使用した。音声はダミーデバイスのため実音の確認は未実施。
 
-次は実プレイで開始・復活・次レベル・水色の追跡・BGM切り替えを確認する。ユーザー自身で実装する進め方を基本とし、今回のリファクタリングは一括実装の依頼に基づく。
+ユーザーが今回の整理後の動作を確認済み。次回は改善したいゲーム機能を選んで再開する。機能を変えないリファクタリングとテストはアシスタントへ委任済み。新しいゲーム機能はユーザー自身の実装を基本に支援する。
 
-push対象外：scores.jsonのプレイ記録、PACMAN.pdf、未追跡docs/。Pixabayの音源ファイルは今回から含める。
+push対象外：scores.jsonのプレイ記録、PACMAN.pdf、未追跡docs/。ユーザーの依頼により、今回のパッケージ集約・責務分割・デッドコード削除・定数整理をcommit・pushする。
+
+## 保存履歴（2026-11-02）
+
+- `ab54bd5`：ゲーム・入力・音声・保存・描画をトップレベルの各モジュールへ分割。全204テスト成功を確認後、mainへpush済み。
+- Pixabay音源5ファイルのgitignore除外を解除して同梱。READMEに音源・フォントのクレジットを追加。
 
 ## 保存履歴（2026-10-31）
 

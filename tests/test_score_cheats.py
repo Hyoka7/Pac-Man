@@ -7,18 +7,18 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import Mock, patch
 
-from models.models import Config, LevelConfig
-from game.ghost import Ghost
-from visualize.gui import GUIStateEnum
-from controls.keys import KeyEnum
-from visualize.maze_visualizer import MazeVisualizer
-from game.strategy import BFSStrategy
-from visualize.visualizerutils import VisualizerUtils
+from pacman.models.models import Config, LevelConfig
+from pacman.game.ghost import Ghost
+from pacman.visualize.gui import GameState
+from pacman.controls.keys import KeyEnum
+from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.game.strategy import BFSStrategy
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class ScoreCheatTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.enterContext(patch('visualize.maze_visualizer.AudioManager'))
+        self.enterContext(patch('pacman.visualize.maze_visualizer.AudioManager'))
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         config = Config(
@@ -34,14 +34,14 @@ class ScoreCheatTests(unittest.TestCase):
         v.game.ghosts = []
         v.closed = False
         v.game.cheat_enabled = True
-        v.game.state = GUIStateEnum.Playing
+        v.game.state = GameState.Playing
         v.last_time = 10.0
         self.enterContext(patch.object(v, '_draw'))
 
     def tick(self, now: float | None = None) -> None:
         if now is None:
             now = self.viewer.last_time + 1 / self.viewer.game.player.movement.speed + 1e-6
-        with patch('visualize.maze_visualizer.time.monotonic', return_value=now):
+        with patch('pacman.visualize.maze_visualizer.time.monotonic', return_value=now):
             self.viewer._on_loop()
 
     def test_gum_rewards_use_configured_values_and_multiplier_including_last_gum(self) -> None:
@@ -49,7 +49,7 @@ class ScoreCheatTests(unittest.TestCase):
         for boosted in (False, True):
             for super_gum, base in ((False, 11), (True, 37)):
                 with self.subTest(boosted=boosted, super_gum=super_gum):
-                    v.game.state = GUIStateEnum.Playing
+                    v.game.state = GameState.Playing
                     v.last_time = 10.0
                     v.game.player.reset(v.canvas)
                     v.game.player.score = 77
@@ -64,7 +64,7 @@ class ScoreCheatTests(unittest.TestCase):
                     v.game.player.request_move('E', v.game.maze, v.canvas)
                     self.tick()
                     self.assertEqual(v.game.player.score, 77 + base * (10 if boosted else 1))
-                    self.assertEqual(v.game.state, GUIStateEnum.All_Clear)
+                    self.assertEqual(v.game.state, GameState.All_Clear)
                     self.assertEqual(v.game.player.is_invincible, super_gum)
 
     def test_ghost_reward_is_multiplied_once_during_invincible_collision(self) -> None:
@@ -93,7 +93,7 @@ class ScoreCheatTests(unittest.TestCase):
         self.assertEqual(v.game.score_multiplier, 10)
         v._on_key(KeyEnum.X)
         self.assertEqual(v.game.score_multiplier, 1)
-        for state in (GUIStateEnum.Home, GUIStateEnum.Pause, GUIStateEnum.Ranking):
+        for state in (GameState.Home, GameState.Pause, GameState.Ranking):
             v.game.state = state
             v._on_key(KeyEnum.X)
             self.assertEqual(v.game.score_multiplier, 1)
@@ -137,3 +137,15 @@ class ScoreCheatTests(unittest.TestCase):
         self.assertEqual(v.game.score_multiplier, 1)
         self.assertFalse(v.game.player.movement.wallhack)
         self.assertFalse(v.game.no_collision)
+
+    def test_new_game_restores_normal_speed_and_unfreezes_ghosts(self) -> None:
+        v = self.viewer
+        normal_speed = v.game.player.movement.speed
+        v._on_key(KeyEnum.F)
+        v._on_key(KeyEnum.V)
+        self.assertTrue(v.game.ghost_frozen)
+        self.assertNotEqual(v.game.player.movement.speed, normal_speed)
+        with patch.object(v.game, 'regenerate_maze'):
+            v.restart_game()
+        self.assertFalse(v.game.ghost_frozen)
+        self.assertEqual(v.game.player.movement.speed, normal_speed)

@@ -1,7 +1,15 @@
 """Pixel-coordinate movement shared by players and ghosts."""
 
-from game.maze import Maze
-from visualize.visualizerutils import VisualizerUtils
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from pacman.game.maze import Maze
+from pacman.game.directions import OPPOSITE_DIRECTIONS
+
+
+if TYPE_CHECKING:
+    from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class Movement:
@@ -15,7 +23,6 @@ class Movement:
     ) -> None:
         """Set the initial cell and speed in cells per second."""
         self.cell = cell
-        self.previous_cell: tuple[int, int] | None = None
         self.initial_cell = cell
         # place() sets the actual pixel coordinates before drawing or movement.
         self.center: tuple[float, float] = (0.0, 0.0)
@@ -55,7 +62,6 @@ class Movement:
 
     def place(self, canvas: VisualizerUtils) -> None:
         """Place the character at its cell center once layout is available."""
-        self.previous_cell = None
         self.center = canvas.cell_center(*self.cell)
         self.target = self.center
         self.target_cell = self.cell
@@ -80,8 +86,6 @@ class Movement:
         self.center = self.move_towards(self.center, self.target, distance)
         if self.center != self.target:
             return False
-        if self.cell != self.target_cell:
-            self.previous_cell = self.cell
         self.cell = self.target_cell
         self.moving = False
         return True
@@ -99,13 +103,7 @@ class Movement:
         if req_dir == self.direction:
             return False
         else:
-            against_dict = {
-                "N": "S",
-                "S": "N",
-                "E": "W",
-                "W": "E",
-            }
-            if req_dir == against_dict[self.direction]:
+            if req_dir == OPPOSITE_DIRECTIONS[self.direction]:
                 new_target = maze.next_cell(
                     *self.target_cell,
                     req_dir,

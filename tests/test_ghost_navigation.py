@@ -1,11 +1,13 @@
 """Ghost movement delegates direction selection to its Strategy instance."""
 
+from pacman.visualize.world_renderer import WorldRenderer
+
 import unittest
 
-from game.ghost import Ghost
-from game.maze import Maze
-from game.strategy import AmbushStrategy, BFSStrategy
-from visualize.visualizerutils import VisualizerUtils
+from pacman.game.ghost import Ghost
+from pacman.game.maze import Maze
+from pacman.game.strategy import AmbushStrategy, BFSStrategy
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 def make_canvas() -> VisualizerUtils:
@@ -112,10 +114,10 @@ class GhostNavigationTests(unittest.TestCase):
         ghost.respawn_remaining = 5.0
         canvas.clear_image()
         background = bytes(canvas.img_data)
-        ghost.draw(canvas, eatable=False, eatable_remain=0.0)
+        WorldRenderer().draw_ghost(ghost, canvas, eatable=False, eatable_remain=0.0)
         self.assertEqual(bytes(canvas.img_data), background)
         ghost.update(5.0, maze, canvas, (2, 0), player_dir="E", eatable=False)
-        ghost.draw(canvas, eatable=False, eatable_remain=0.0)
+        WorldRenderer().draw_ghost(ghost, canvas, eatable=False, eatable_remain=0.0)
         index = 36 * canvas.line_size + 36 * 4
         self.assertEqual(bytes(canvas.img_data[index:index+4]),
                          canvas.color_bytes(ghost.color))
@@ -125,7 +127,7 @@ class GhostNavigationTests(unittest.TestCase):
         ghost = Ghost((0, 0), BFSStrategy(), color=(255, 0, 0))
         ghost.place(target)
         target.clear_image()
-        ghost.draw(target, eatable=False, eatable_remain=0.0)
+        WorldRenderer().draw_ghost(ghost, target, eatable=False, eatable_remain=0.0)
         old_center = 36 * target.line_size + 36 * 4
         new_center = 36 * target.line_size + 68 * 4
         self.assertEqual(bytes(target.img_data[old_center:old_center+4]),
@@ -134,7 +136,7 @@ class GhostNavigationTests(unittest.TestCase):
                                   (False, bytes([0, 0, 255, 255]))):
             target.clear_image()
             ghost.movement.center = (68.0, 36.0)
-            ghost.draw(target, eatable=eatable, eatable_remain=5.0 if eatable else 0.0)
+            WorldRenderer().draw_ghost(ghost, target, eatable=eatable, eatable_remain=5.0 if eatable else 0.0)
             self.assertEqual(bytes(target.img_data[new_center:new_center+4]), expected)
             self.assertEqual(bytes(target.img_data[old_center:old_center+4]),
                              bytes([0, 0, 0, 255]))
@@ -153,7 +155,7 @@ class GhostNavigationTests(unittest.TestCase):
         ):
             with self.subTest(eatable=eatable, remaining=remaining):
                 target.clear_image()
-                ghost.draw(target, eatable, remaining)
+                WorldRenderer().draw_ghost(ghost, target, eatable, remaining)
                 offset = 36 * target.line_size + 36 * 4
                 self.assertEqual(bytes(target.img_data[offset:offset+4]),
                                  target.color_bytes(expected))
@@ -167,7 +169,7 @@ class GhostNavigationTests(unittest.TestCase):
             with self.subTest(remaining=remaining):
                 target.clear_image()
                 ghost.respawn_remaining = remaining
-                ghost.draw(target, False, 0.0)
+                WorldRenderer().draw_ghost(ghost, target, False, 0.0)
                 offset = 36 * target.line_size + 36 * 4
                 expected = ghost.color if visible else (0, 0, 0)
                 self.assertEqual(bytes(target.img_data[offset:offset+4]),
