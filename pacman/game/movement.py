@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pacman.game.maze import Maze
 from pacman.game.directions import OPPOSITE_DIRECTIONS
-
+from pacman.game.maze import Maze
 
 if TYPE_CHECKING:
     from pacman.visualize.visualizerutils import VisualizerUtils

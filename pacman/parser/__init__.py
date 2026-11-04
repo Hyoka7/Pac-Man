@@ -1,5 +1,5 @@
 """Configuration parsing entry points."""
 
-from .parse import Parser
+from .parse import ConfigParser
 
-__all__ = ["Parser"]
+__all__ = ["ConfigParser"]

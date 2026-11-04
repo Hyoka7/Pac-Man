@@ -4,8 +4,8 @@ import random
 from abc import ABC, abstractmethod
 from typing import TypedDict, Unpack
 
+from pacman.game.directions import DIRECTION_OFFSETS, DIRECTIONS, OPPOSITE_DIRECTIONS
 from pacman.game.maze import Maze
-from pacman.game.directions import DIRECTIONS, DIRECTION_OFFSETS, OPPOSITE_DIRECTIONS
 
 
 class StrategyKwargs(TypedDict, total=False):

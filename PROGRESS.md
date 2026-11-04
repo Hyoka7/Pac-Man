@@ -1,6 +1,16 @@
 # Pac-Man 開発メモ
 
-最終更新：2026-11-03。
+最終更新：2026-11-04。
+
+## コードの理解と初期化の整理（2026-11-04）
+
+- 機能追加をいったん止め、起動・設定読み込み・描画初期化のコードを順に理解する段階。
+- ParserをConfigParser、parse()をparse_config()へ変更。Config用とLevelConfig用の検証を_validate_config()・_validate_level()に分け、型変数Tを使う共通関数を廃止。
+- GameVisualizerとGameはgenerator・configの2引数で初期化。Game内でMaze(generator.maze)を作り、迷路データを重複して引数に渡さない。
+- Parserの最上位の型エラーがTypeErrorになったため、mainの例外処理とテストを更新。
+- MazeVisualizerをGameVisualizerへ改名し、ファイル名もgame_visualizer.pyへ変更。import・公開名・テストのpatch先・READMEを更新。
+- 次はGameVisualizer.__init__()の続きからrun()へ進み、ウィンドウ作成とループ開始を読む。
+- 改名・初期化変更後も全215テスト成功。ユーザーの依頼で今回の変更をcommit・pushして中断する。scores.json・docs/は保存対象外。
 
 ## 設定ファイルの読み込み（2026-11-03）
 

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from mlx import Mlx
 
 
-class MazeVisualizer:
+class GameVisualizer:
     """Own MLX resources, screen layout and presentation of the game."""
 
     m: Mlx
@@ -36,12 +36,11 @@ class MazeVisualizer:
 
     def __init__(
         self,
-        maze: list[list[int]],
         generator: MazeGenerator,
         config: Config,
     ) -> None:
         """Connect game state to the GUI before opening a graphics window."""
-        self.game = Game(maze, generator, config)
+        self.game = Game(generator, config)
         self.gui = GUI()
         self.world_renderer = WorldRenderer()
         self.audio = AudioManager()

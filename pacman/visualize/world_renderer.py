@@ -2,10 +2,10 @@
 
 from math import ceil, floor
 
-from pacman.game.player import Player
 from pacman.game.ghost import Ghost
 from pacman.game.maze import Maze
 from pacman.game.pacgums import Pacgums
+from pacman.game.player import Player
 from pacman.visualize.image_renderer import ImageRenderer
 from pacman.visualize.sprites import ghost_image, player_image
 from pacman.visualize.visualizerutils import VisualizerUtils

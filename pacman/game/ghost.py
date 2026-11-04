@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from typing import Unpack
 from enum import Enum, auto
+from typing import TYPE_CHECKING, Unpack
 
 from pacman.game.maze import Maze
 from pacman.game.movement import Movement
 from pacman.game.strategy import FleeBFSStrategy, Strategy, StrategyKwargs
-
 
 if TYPE_CHECKING:
     from pacman.visualize.visualizerutils import VisualizerUtils

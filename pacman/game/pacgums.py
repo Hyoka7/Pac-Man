@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
+from enum import IntEnum
 from typing import TYPE_CHECKING
 
-from enum import IntEnum
-
 from pacman.game.maze import Maze
-
 
 if TYPE_CHECKING:
     from pacman.visualize.visualizerutils import VisualizerUtils

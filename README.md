@@ -127,19 +127,18 @@ Pydanticの`ScoreEntry`（名前と得点）と`HighscoreData`を使います。
 | `pacman/controls/keys.py` / `pacman/controls/cheating.py` | キー・方向の対応、ウィンドウへの要求、チートの順番入力 |
 | `pacman/audio/manager.py` | BGMと効果音の再生 |
 | `pacman/storage/highscore.py` | 得点モデルとJSONの保存・読み込み |
-| `pacman/visualize/maze_visualizer.py` | MLXの管理、描画、ゲーム更新と音声の呼び出し |
+| `pacman/visualize/game_visualizer.py` | MLXの管理、描画、ゲーム更新と音声の呼び出し |
 | `pacman/visualize/gui.py` | 各画面、ランキング、HUD、バー、パネル |
 | `pacman/visualize/sprites.py` | Player・Ghostのキャッシュ付き画像生成 |
 | `pacman/visualize/world_renderer.py` | 迷路・gum・Player・Ghostの描画 |
 | `pacman/visualize/image_renderer.py` | 文字画像の生成・計測とRGBA画像の一括合成 |
 | `pacman/visualize/visualizerutils.py` | 画像バッファ、ピクセル描画、セルと画面座標の変換 |
-| `playground.py` | ゲーム本体とは独立したPythonの練習用コード |
 
 キー入力は `Game.handle_key()` から `pacman.controls.game_input` へ渡し、ゲームの状態・得点・残機は引き続き `Game` と各キャラクターが保持します。画面遷移は `Game.set_state()` で再描画要求も更新します。
 
 ゲーム側のクラスから描画を分離し、`WorldRenderer` が迷路・gum・キャラクターを描きます。画像生成とキャッシュは `pacman.visualize.sprites` が担当します。移動とgumの配置は引き続きCanvasの座標変換を使いますが、型ヒントの参照だけなのでゲーム関連のimportでは描画・MLX・Pygameを読み込みません。
 
-状態は `GameState`、赤の識別は戦略の型ではなく `GhostRole.RED` を使います。Pythonのソースはすべて `pacman/` にまとめ、`pacman.py` と `playground.py` はルートの実行用スクリプトとして残しています。音源・フォントは引き続きルートの `assets/` に置きます。
+状態は `GameState`、赤の識別は戦略の型ではなく `GhostRole.RED` を使います。Pythonのソースはすべて `pacman/` にまとめ、`pacman.py` はルートの起動用スクリプトとして残しています。音源・フォントは引き続きルートの `assets/` に置きます。
 
 ## 検証と今後の作業
 
@@ -160,7 +159,7 @@ HUDと無敵時間は数字・小数点の部品画像を再利用して合成�
 
 通常gum・スーパーgumの加点値は`Game.pacgum_points`、敵は`Game.ghost_points`に設定値から初期化して保持します。`Player.update()`は食べたgumの種類を返し、`Game.update()`がその値と`score_multiplier`を使って加点します。累計得点は引き続き`player.score`で保持します。Visualizerからは`self.game.player`や`self.game.state`で参照します。
 
-`MazeVisualizer._on_loop()`は経過秒数を`Game.update(elapsed, canvas)`へ渡し、その結果を描画します。キーは`Game.handle_key(key, canvas)`へ渡し、終了や配色変更の要求だけVisualizerが実行します。レベル変更時はGameが迷路を生成し、VisualizerがCanvasのセルサイズ・オフセットを更新してから`Game.place(canvas)`でキャラクターとgumを配置します。`Game`はMLXやGUIを直接操作しません。
+`GameVisualizer._on_loop()`は経過秒数を`Game.update(elapsed, canvas)`へ渡し、その結果を描画します。キーは`Game.handle_key(key, canvas)`へ渡し、終了や配色変更の要求だけVisualizerが実行します。レベル変更時はGameが迷路を生成し、VisualizerがCanvasのセルサイズ・オフセットを更新してから`Game.place(canvas)`でキャラクターとgumを配置します。`Game`はMLXやGUIを直接操作しません。
 Xで倍率を切り替えても獲得済みの得点は変えず、以降の3種類の加点に適用します。10倍中はHUDに`x10`を表示します。チート解除・新規ゲームで倍率は1倍に戻ります。数字コマンドとの衝突がなくなったため、次レベル操作は通常のNです。
 
 ## ドットフォント
