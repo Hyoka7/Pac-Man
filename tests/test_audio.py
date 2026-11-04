@@ -1,14 +1,14 @@
 """Menu music survives screen changes without requiring a real audio device."""
 
+import unittest
 from types import SimpleNamespace
 from typing import Any, cast
-import unittest
 from unittest.mock import Mock, call, patch
 
 from pacman.audio.manager import AudioManager, AudioState
+from pacman.game.pacgums import PacgumEatenEnum
 from pacman.game.state import GameState
 from pacman.visualize.game_visualizer import GameVisualizer
-from pacman.game.pacgums import PacgumEatenEnum
 
 
 class AudioTests(unittest.TestCase):

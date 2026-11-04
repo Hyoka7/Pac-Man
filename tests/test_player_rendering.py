@@ -1,11 +1,10 @@
 """Cached player sprites keep direction, mouth animation and placement."""
 
-from pacman.visualize.world_renderer import WorldRenderer
-
 import unittest
 
 from pacman.game.player import Player
 from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.world_renderer import WorldRenderer
 
 
 def make_canvas() -> VisualizerUtils:

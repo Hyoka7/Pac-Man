@@ -1,11 +1,11 @@
 """Score validation, ordering, persistence and recoverable file errors."""
 
+import json
+import unittest
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import json
-import unittest
 from unittest.mock import patch
 
 from pydantic import ValidationError

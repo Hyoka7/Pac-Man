@@ -1,27 +1,25 @@
 """Level resizing keeps positions, radii and pickups in the fixed window."""
 
-from pacman.visualize.world_renderer import WorldRenderer
-
-from typing import Any, cast
-
+import unittest
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-import unittest
+from typing import Any, cast
 from unittest.mock import Mock, patch
 
 from mazegenerator import MazeGenerator
 
-from pacman.models.models import Config, LevelConfig
 from pacman.game.game import Game
 from pacman.game.ghost import Ghost
-from pacman.game.player import Player
-from pacman.visualize.gui import GUI, GameState
 from pacman.game.maze import Maze
+from pacman.game.player import Player
+from pacman.models.models import Config, LevelConfig
 from pacman.visualize.game_visualizer import GameVisualizer
+from pacman.visualize.gui import GUI, GameState
 from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.world_renderer import WorldRenderer
 
 
 class LevelLayoutTests(unittest.TestCase):

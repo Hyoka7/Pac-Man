@@ -1,11 +1,11 @@
 """Recover configuration fields without discarding valid user settings."""
 
+import json
+import unittest
 from contextlib import redirect_stderr
 from io import StringIO
-import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from pacman.models import Config
 from pacman.parser import ConfigParser

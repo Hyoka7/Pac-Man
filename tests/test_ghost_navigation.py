@@ -1,13 +1,12 @@
 """Ghost movement delegates direction selection to its Strategy instance."""
 
-from pacman.visualize.world_renderer import WorldRenderer
-
 import unittest
 
 from pacman.game.ghost import Ghost
 from pacman.game.maze import Maze
 from pacman.game.strategy import AmbushStrategy, BFSStrategy
 from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.world_renderer import WorldRenderer
 
 
 def make_canvas() -> VisualizerUtils:

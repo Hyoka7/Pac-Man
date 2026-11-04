@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pacman.controls.keys import KeyEnum, MOVEMENT_DIRECTIONS, WindowAction
+from pacman.controls.keys import MOVEMENT_DIRECTIONS, KeyEnum, WindowAction
 from pacman.game.state import GameState
-
 
 if TYPE_CHECKING:
     from pacman.visualize.visualizerutils import VisualizerUtils

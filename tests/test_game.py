@@ -1,24 +1,24 @@
 """Game rules run without a window; the viewer applies new screen geometry."""
 
+import unittest
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 from typing import Unpack
 from unittest.mock import Mock, patch
 
 from mazegenerator import MazeGenerator
 
-from pacman.models.models import Config, LevelConfig
 from pacman.controls.keys import KeyEnum, WindowAction
 from pacman.game.game import Game
-from pacman.game.state import GameState
 from pacman.game.ghost import Ghost, GhostRole
 from pacman.game.maze import Maze
-from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.game.pacgums import PacgumEatenEnum
+from pacman.game.state import GameState
 from pacman.game.strategy import BFSStrategy, ReverseAmbushStrategy, StrategyKwargs
+from pacman.models.models import Config, LevelConfig
+from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.visualize.visualizerutils import VisualizerUtils
 
 

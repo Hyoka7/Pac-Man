@@ -1,9 +1,9 @@
 """Exercise window startup and cleanup without a display or audio device."""
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-import unittest
 from unittest.mock import Mock, call, patch
 
 from pacman.models import Config

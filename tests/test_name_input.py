@@ -1,18 +1,17 @@
 """Name entry preserves uppercase while tracking both Shift keys."""
 
-from typing import Any, cast
-
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-import unittest
+from typing import Any, cast
 from unittest.mock import Mock
 
-from pacman.game.game import Game
-from pacman.visualize.gui import GameState
-from pacman.storage.highscore import HighscoreManager
 from pacman.controls.keys import KeyEnum
+from pacman.game.game import Game
+from pacman.storage.highscore import HighscoreManager
 from pacman.visualize.game_visualizer import GameVisualizer
+from pacman.visualize.gui import GameState
 
 
 def viewer(state: GameState = GameState.GameOver) -> Any:

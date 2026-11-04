@@ -1,22 +1,21 @@
 """Home rendering should persist until its content needs refreshing."""
 
-from typing import Any, cast
-
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import monotonic
 from types import SimpleNamespace
-import unittest
+from typing import Any, cast
 from unittest.mock import MagicMock, Mock, patch
 
 from PIL import ImageFont
 
-from pacman.game.game import Game
 from pacman.controls.cheating import CheatHandler
-from pacman.visualize.gui import GUI, GameState
-from pacman.storage.highscore import HighscoreManager, ScoreEntry
 from pacman.controls.keys import KeyEnum
+from pacman.game.game import Game
+from pacman.storage.highscore import HighscoreManager, ScoreEntry
 from pacman.visualize.game_visualizer import GameVisualizer
+from pacman.visualize.gui import GUI, GameState
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 

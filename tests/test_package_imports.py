@@ -1,9 +1,9 @@
 """Game modules can load independently of the window and audio adapters."""
 
-from pathlib import Path
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 
 
 class PackageImportTests(unittest.TestCase):

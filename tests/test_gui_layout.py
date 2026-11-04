@@ -1,16 +1,18 @@
 """Pillow metrics keep text blocks and pause labels inside their panels."""
 
-from typing import Any, Callable, cast
-from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock, patch
+from collections.abc import Callable
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, cast
+from unittest.mock import Mock, patch
+
 from PIL import ImageFont
 
 from pacman.game.game import Game
-from pacman.visualize.gui import GUI, GameState
 from pacman.storage.highscore import ScoreEntry
 from pacman.visualize.game_visualizer import GameVisualizer
+from pacman.visualize.gui import GUI, GameState
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 

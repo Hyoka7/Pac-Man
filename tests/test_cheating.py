@@ -1,18 +1,17 @@
 """Cheat commands require a complete ordered sequence and reset on mistakes."""
 
-from typing import Any, cast
-
+import unittest
 from contextlib import redirect_stdout
 from io import StringIO
 from types import SimpleNamespace
-import unittest
+from typing import Any, cast
 from unittest.mock import MagicMock, Mock, patch
 
-from pacman.game.game import Game
 from pacman.controls.cheating import CheatHandler
-from pacman.visualize.gui import GUI, GameState
 from pacman.controls.keys import KeyEnum
+from pacman.game.game import Game
 from pacman.visualize.game_visualizer import GameVisualizer
+from pacman.visualize.gui import GUI, GameState
 
 
 class CheatHandlerTests(unittest.TestCase):

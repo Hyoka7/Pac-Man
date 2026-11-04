@@ -1,14 +1,15 @@
 """The GUI palette and panels are rendered into the real image buffer."""
 
-from typing import Any, Callable
-
 import unittest
-from unittest.mock import Mock, patch
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
+from unittest.mock import Mock, patch
+
 from PIL import ImageFont
 
-from pacman.visualize.gui import GUI, GameState
 from pacman.storage.highscore import ScoreEntry
+from pacman.visualize.gui import GUI, GameState
 from pacman.visualize.visualizerutils import VisualizerUtils
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"

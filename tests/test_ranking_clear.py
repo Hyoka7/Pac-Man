@@ -1,16 +1,16 @@
 """Ranking deletion requires confirmation and persists an empty score list."""
 
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, cast
-import unittest
 from unittest.mock import Mock, patch
 
-from pacman.game.game import Game
-from pacman.visualize.gui import GUI, GameState
-from pacman.storage.highscore import HighscoreManager, ScoreEntry
 from pacman.controls.keys import KeyEnum
+from pacman.game.game import Game
+from pacman.storage.highscore import HighscoreManager, ScoreEntry
 from pacman.visualize.game_visualizer import GameVisualizer
+from pacman.visualize.gui import GUI, GameState
 from pacman.visualize.visualizerutils import VisualizerUtils
 
 

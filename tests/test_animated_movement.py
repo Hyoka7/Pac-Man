@@ -1,23 +1,21 @@
 """Shared frame-by-frame movement and character integration checks."""
 
-from pacman.visualize.world_renderer import WorldRenderer
-
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
-from pacman.models.models import Config, LevelConfig
-from pacman.visualize.gui import GameState
-
-from pacman.visualize import GameVisualizer
 from pacman.game.ghost import Ghost
 from pacman.game.maze import Maze
 from pacman.game.movement import Movement
 from pacman.game.pacgums import Pacgums
 from pacman.game.player import Player
 from pacman.game.strategy import BFSStrategy
+from pacman.models.models import Config, LevelConfig
+from pacman.visualize import GameVisualizer
+from pacman.visualize.gui import GameState
 from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.world_renderer import WorldRenderer
 
 
 def make_canvas() -> VisualizerUtils:

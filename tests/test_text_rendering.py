@@ -1,18 +1,18 @@
 """Pillow text blends into the image before the single native presentation."""
 
-from typing import Any, cast
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import Mock, patch
 
-from pathlib import Path
 from PIL import Image, ImageFont
 
 from pacman.game.game import Game
-from pacman.visualize.gui import GUI, GameState
 from pacman.visualize.game_visualizer import GameVisualizer
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.gui import GUI, GameState
 from pacman.visualize.image_renderer import ImageRenderer
+from pacman.visualize.visualizerutils import VisualizerUtils
 
 text_renderer = ImageRenderer()
 

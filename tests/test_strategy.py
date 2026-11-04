@@ -5,7 +5,11 @@ from unittest.mock import patch
 
 from pacman.game.maze import Maze
 from pacman.game.strategy import (
-    AmbushStrategy, BFSStrategy, FleeBFSStrategy, InkyStrategy, ReverseAmbushStrategy,
+    AmbushStrategy,
+    BFSStrategy,
+    FleeBFSStrategy,
+    InkyStrategy,
+    ReverseAmbushStrategy,
 )
 
 
