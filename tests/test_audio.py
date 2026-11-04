@@ -7,7 +7,7 @@ from unittest.mock import Mock, call, patch
 
 from pacman.audio.manager import AudioManager, AudioState
 from pacman.game.state import GameState
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.game.pacgums import PacgumEatenEnum
 
 
@@ -20,7 +20,7 @@ class AudioTests(unittest.TestCase):
         self.audio = AudioManager()
 
     def viewer(self) -> Any:
-        viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        viewer = cast(Any, GameVisualizer.__new__(GameVisualizer))
         viewer.world_renderer = Mock()
         viewer.audio = self.audio
         viewer.closed = False
@@ -57,7 +57,7 @@ class AudioTests(unittest.TestCase):
                   GameState.Home, GameState.Ready, GameState.Playing,
                   GameState.Pause, GameState.Ready, GameState.Stage_Clear,
                   GameState.All_Clear)
-        with patch('pacman.visualize.maze_visualizer.time.monotonic', return_value=1.0):
+        with patch('pacman.visualize.game_visualizer.time.monotonic', return_value=1.0):
             for state in states:
                 viewer.game.state = state
                 viewer._on_loop()

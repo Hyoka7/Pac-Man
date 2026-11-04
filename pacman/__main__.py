@@ -4,8 +4,8 @@ import sys
 
 from mazegenerator import MazeGenerator
 
-from pacman.parser import Parser
-from pacman.visualize import MazeVisualizer
+from pacman.parser import ConfigParser
+from pacman.visualize import GameVisualizer
 
 
 def main() -> int:
@@ -14,14 +14,14 @@ def main() -> int:
             print(f"Usage: {sys.argv[0]} <config_file>", file=sys.stderr)
             return 1
         input_path = sys.argv[1]
-        parser = Parser(input_path)
-        config = parser.parse()
+        parser = ConfigParser(input_path)
+        config = parser.parse_config()
         first_level = config.levels[0]
         m = MazeGenerator(size=(first_level.width, first_level.height))
         m.generate(seed=config.seed)
-        MazeVisualizer(m.maze, m, config).run()
+        GameVisualizer(m, config).run()
         return 0
-    except (OSError, ValueError) as e:
+    except (OSError, ValueError, TypeError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 

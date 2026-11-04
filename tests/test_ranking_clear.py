@@ -10,7 +10,7 @@ from pacman.game.game import Game
 from pacman.visualize.gui import GUI, GameState
 from pacman.storage.highscore import HighscoreManager, ScoreEntry
 from pacman.controls.keys import KeyEnum
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.visualize.visualizerutils import VisualizerUtils
 
 
@@ -22,7 +22,7 @@ class RankingClearTests(unittest.TestCase):
         self.manager = HighscoreManager(str(self.path))
         self.manager += ScoreEntry(name="Alice", score=120)
         self.before = self.path.read_bytes()
-        self.viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        self.viewer = cast(Any, GameVisualizer.__new__(GameVisualizer))
         self.viewer.world_renderer = Mock()
         self.viewer.audio = Mock()
         self.viewer.game = cast(Any, Game.__new__(Game))

@@ -16,7 +16,7 @@ from pacman.controls.cheating import CheatHandler
 from pacman.visualize.gui import GUI, GameState
 from pacman.storage.highscore import HighscoreManager, ScoreEntry
 from pacman.controls.keys import KeyEnum
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 
@@ -37,7 +37,7 @@ class HomeRedrawTests(unittest.TestCase):
         self.addCleanup(hud_patcher.stop)
         self.directory = TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
-        self.viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        self.viewer = cast(Any, GameVisualizer.__new__(GameVisualizer))
         self.viewer.world_renderer = Mock()
         self.viewer.audio = Mock()
         self.viewer.game = cast(Any, Game.__new__(Game))

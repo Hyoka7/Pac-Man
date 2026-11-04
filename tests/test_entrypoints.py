@@ -29,13 +29,14 @@ class EntrypointTests(unittest.TestCase):
             for mode in ('module', 'script'):
                 with self.subTest(mode=mode), redirect_stderr(StringIO()), patch(
                     'mazegenerator.MazeGenerator'
-                ) as generator, patch('pacman.visualize.MazeVisualizer') as visualizer:
+                ) as generator, patch('pacman.visualize.GameVisualizer') as visualizer:
                     with patch('pacman.__main__.MazeGenerator', generator), patch(
-                        'pacman.__main__.MazeVisualizer', visualizer
+                        'pacman.__main__.GameVisualizer', visualizer
                     ):
                         self.assertEqual(self.launch(mode, [str(path)]), 0)
                     generator.assert_called_once_with(size=(25, 15))
-                    config = visualizer.call_args.args[2]
+                    config = visualizer.call_args.args[1]
+                    visualizer.assert_called_once_with(generator.return_value, config)
                     self.assertEqual(config.lives, 4)
                     generator.return_value.generate.assert_called_once_with(seed=99)
                     visualizer.return_value.run.assert_called_once_with()
@@ -55,9 +56,9 @@ class EntrypointTests(unittest.TestCase):
                     output = StringIO()
                     with self.subTest(mode=mode, args=args), redirect_stderr(output), patch(
                         'mazegenerator.MazeGenerator'
-                    ) as generator, patch('pacman.visualize.MazeVisualizer') as visualizer:
+                    ) as generator, patch('pacman.visualize.GameVisualizer') as visualizer:
                         with patch('pacman.__main__.MazeGenerator', generator), patch(
-                            'pacman.__main__.MazeVisualizer', visualizer
+                            'pacman.__main__.GameVisualizer', visualizer
                         ):
                             self.assertEqual(self.launch(mode, args), 1)
                         self.assertTrue(output.getvalue())

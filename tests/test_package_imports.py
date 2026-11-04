@@ -19,9 +19,9 @@ assert "mlx" not in sys.modules
 assert "pygame" not in sys.modules
 assert "pacman.visualize" not in sys.modules
 assert "PIL" not in sys.modules
-from pacman.visualize import MazeVisualizer
-from pacman.visualize.maze_visualizer import MazeVisualizer as DirectVisualizer
-assert MazeVisualizer is DirectVisualizer
+from pacman.visualize import GameVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer as DirectVisualizer
+assert GameVisualizer is DirectVisualizer
 '''],
             cwd=Path(__file__).resolve().parents[1],
             capture_output=True,

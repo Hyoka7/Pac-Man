@@ -10,7 +10,7 @@ from PIL import ImageFont
 from pacman.game.game import Game
 from pacman.visualize.gui import GUI, GameState
 from pacman.storage.highscore import ScoreEntry
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 
@@ -139,7 +139,7 @@ class GUILayoutTests(unittest.TestCase):
         self.assertLessEqual(abs(x-(801-x-w)), 1)
 
     def test_pause_background_contains_pause_labels(self) -> None:
-        v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        v = cast(Any, GameVisualizer.__new__(GameVisualizer))
         v.world_renderer = Mock()
         v.audio = Mock()
         v.game = cast(Any, Game.__new__(Game))

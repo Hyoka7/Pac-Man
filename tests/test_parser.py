@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from pacman.models import Config
-from pacman.parser import Parser
+from pacman.parser import ConfigParser
 
 
 class ParserTests(unittest.TestCase):
@@ -18,7 +18,7 @@ class ParserTests(unittest.TestCase):
             path.write_text(text, encoding='utf-8')
             output = StringIO()
             with redirect_stderr(output):
-                config = Parser(path).parse()
+                config = ConfigParser(path).parse_config()
             return config, output.getvalue()
 
     def test_valid_config_preserves_values_and_ignores_unknown_keys(self) -> None:
@@ -83,5 +83,5 @@ class ParserTests(unittest.TestCase):
 
     def test_non_object_root_is_rejected(self) -> None:
         for text in ('[]', 'null', '42', '"text"'):
-            with self.subTest(text=text), self.assertRaisesRegex(ValueError, 'JSON object'):
+            with self.subTest(text=text), self.assertRaisesRegex(TypeError, 'JSON object'):
                 self.parse_text(text)

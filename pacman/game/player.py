@@ -8,7 +8,6 @@ from pacman.game.maze import Maze
 from pacman.game.movement import Movement
 from pacman.game.pacgums import PacgumEatenEnum, Pacgums
 
-
 if TYPE_CHECKING:
     from pacman.visualize.visualizerutils import VisualizerUtils
 

@@ -34,7 +34,6 @@ class Game:
 
     def __init__(
         self,
-        maze: list[list[int]],
         generator: MazeGenerator,
         config: Config,
     ) -> None:
@@ -46,7 +45,7 @@ class Game:
         }
         self.ghost_points = config.points_per_ghost
         self.score_multiplier = 1
-        self.maze = Maze(maze)
+        self.maze = Maze(generator.maze)
         self.player = Player(
             self.maze.central_cell(),
             self.config.lives,

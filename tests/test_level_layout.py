@@ -20,13 +20,13 @@ from pacman.game.ghost import Ghost
 from pacman.game.player import Player
 from pacman.visualize.gui import GUI, GameState
 from pacman.game.maze import Maze
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class LevelLayoutTests(unittest.TestCase):
-    def make_viewer(self) -> MazeVisualizer:
-        self.enterContext(patch('pacman.visualize.maze_visualizer.AudioManager'))
+    def make_viewer(self) -> GameVisualizer:
+        self.enterContext(patch('pacman.visualize.game_visualizer.AudioManager'))
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         config = Config(
@@ -39,7 +39,7 @@ class LevelLayoutTests(unittest.TestCase):
             ],
         )
         generator = MazeGenerator(size=(15, 15), seed=42)
-        viewer = MazeVisualizer(generator.maze, generator, config)
+        viewer = GameVisualizer(generator, config)
         viewer.width, viewer.height, viewer.margin = 1000, 800, 100
         viewer._update_layout()
         viewer.canvas = VisualizerUtils(
@@ -53,7 +53,7 @@ class LevelLayoutTests(unittest.TestCase):
         viewer.game.pacgums.reset(viewer.game.maze, viewer.canvas, viewer.game.player.movement.cell)
         return viewer
 
-    def assert_placements_fit(self, viewer: MazeVisualizer) -> None:
+    def assert_placements_fit(self, viewer: GameVisualizer) -> None:
         maze, canvas = viewer.game.maze, viewer.canvas
         corners = [(0, 0), (0, maze.rows-1), (maze.cols-1, 0),
                    (maze.cols-1, maze.rows-1)]
@@ -136,13 +136,13 @@ class LevelLayoutTests(unittest.TestCase):
         ghost.movement.cell = viewer.game.player.movement.cell
         ghost.movement.place(viewer.canvas)
         with redirect_stdout(StringIO()), patch(
-            'pacman.visualize.maze_visualizer.time.monotonic', return_value=10.0
+            'pacman.visualize.game_visualizer.time.monotonic', return_value=10.0
         ):
             viewer._on_loop()
         self.assertEqual(viewer.game.player.score, viewer.game.config.points_per_ghost)
         self.assertEqual(ghost.respawn_remaining, 5.0)
         self.assertEqual(ghost.movement.center, spawn_center)
-        with patch('pacman.visualize.maze_visualizer.time.monotonic', return_value=10.1):
+        with patch('pacman.visualize.game_visualizer.time.monotonic', return_value=10.1):
             viewer._on_loop()
         self.assertEqual(viewer.game.player.score, viewer.game.config.points_per_ghost)
         self.assertAlmostEqual(ghost.respawn_remaining, 4.9)
@@ -165,7 +165,7 @@ class LevelLayoutTests(unittest.TestCase):
         self.assertEqual(results, [False] * 6 + [True])
 
     def test_layout_centers_both_axes_and_rejects_unrenderable_cells(self) -> None:
-        viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        viewer = cast(Any, GameVisualizer.__new__(GameVisualizer))
         viewer.world_renderer = Mock()
         viewer.audio = Mock()
         viewer.game = cast(Any, Game.__new__(Game))
@@ -190,7 +190,7 @@ class LevelLayoutTests(unittest.TestCase):
     def test_large_window_reserves_space_for_invincible_label(self) -> None:
         for width, height in ((800, 600), (2460, 1340), (4000, 2200)):
             with self.subTest(size=(width, height)):
-                viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+                viewer = cast(Any, GameVisualizer.__new__(GameVisualizer))
                 viewer.world_renderer = Mock()
                 viewer.audio = Mock()
                 viewer.game = cast(Any, Game.__new__(Game))

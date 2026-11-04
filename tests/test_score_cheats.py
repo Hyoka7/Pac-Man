@@ -11,14 +11,14 @@ from pacman.models.models import Config, LevelConfig
 from pacman.game.ghost import Ghost
 from pacman.visualize.gui import GameState
 from pacman.controls.keys import KeyEnum
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.game.strategy import BFSStrategy
 from pacman.visualize.visualizerutils import VisualizerUtils
 
 
 class ScoreCheatTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.enterContext(patch('pacman.visualize.maze_visualizer.AudioManager'))
+        self.enterContext(patch('pacman.visualize.game_visualizer.AudioManager'))
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         config = Config(
@@ -26,7 +26,7 @@ class ScoreCheatTests(unittest.TestCase):
             levels=[LevelConfig.model_construct(width=5, height=1)],
             points_per_pacgum=11, points_per_super_pacgum=37, points_per_ghost=123,
         )
-        self.viewer = MazeVisualizer([[13, 5, 5, 5, 7]], Mock(), config)
+        self.viewer = GameVisualizer(Mock(maze=[[13, 5, 5, 5, 7]]), config)
         v = self.viewer
         v.canvas = VisualizerUtils(120, 60, 20, 10,
             memoryview(bytearray(120 * 60 * 4)), 480, 0, 10, 10)
@@ -41,7 +41,7 @@ class ScoreCheatTests(unittest.TestCase):
     def tick(self, now: float | None = None) -> None:
         if now is None:
             now = self.viewer.last_time + 1 / self.viewer.game.player.movement.speed + 1e-6
-        with patch('pacman.visualize.maze_visualizer.time.monotonic', return_value=now):
+        with patch('pacman.visualize.game_visualizer.time.monotonic', return_value=now):
             self.viewer._on_loop()
 
     def test_gum_rewards_use_configured_values_and_multiplier_including_last_gum(self) -> None:

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections import deque
-from pacman.game.directions import DIRECTIONS, DIRECTION_OFFSETS, WALL_BITS
+
+from pacman.game.directions import DIRECTION_OFFSETS, DIRECTIONS, WALL_BITS
 
 
 class Maze:

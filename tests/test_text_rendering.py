@@ -10,7 +10,7 @@ from PIL import Image, ImageFont
 
 from pacman.game.game import Game
 from pacman.visualize.gui import GUI, GameState
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.visualize.visualizerutils import VisualizerUtils
 from pacman.visualize.image_renderer import ImageRenderer
 
@@ -196,7 +196,7 @@ class TextRenderingTests(unittest.TestCase):
             self.assertEqual(bytes(target.img_data), before)
 
     def test_every_screen_presents_completed_text_once_without_native_strings_or_sync(self) -> None:
-        v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        v = cast(Any, GameVisualizer.__new__(GameVisualizer))
         v.world_renderer = Mock()
         v.audio = Mock()
         v.game = cast(Any, Game.__new__(Game))

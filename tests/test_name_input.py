@@ -12,11 +12,11 @@ from pacman.game.game import Game
 from pacman.visualize.gui import GameState
 from pacman.storage.highscore import HighscoreManager
 from pacman.controls.keys import KeyEnum
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 
 
 def viewer(state: GameState = GameState.GameOver) -> Any:
-    v = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+    v = cast(Any, GameVisualizer.__new__(GameVisualizer))
     v.world_renderer = Mock()
     v.audio = Mock()
     v.game = cast(Any, Game.__new__(Game))

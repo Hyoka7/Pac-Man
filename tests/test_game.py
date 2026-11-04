@@ -16,7 +16,7 @@ from pacman.game.game import Game
 from pacman.game.state import GameState
 from pacman.game.ghost import Ghost, GhostRole
 from pacman.game.maze import Maze
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.game.pacgums import PacgumEatenEnum
 from pacman.game.strategy import BFSStrategy, ReverseAmbushStrategy, StrategyKwargs
 from pacman.visualize.visualizerutils import VisualizerUtils
@@ -86,14 +86,14 @@ class GameTests(unittest.TestCase):
         self.assertEqual(game.ghosts, [follower, leader])
 
     def setUp(self) -> None:
-        self.enterContext(patch('pacman.visualize.maze_visualizer.AudioManager'))
+        self.enterContext(patch('pacman.visualize.game_visualizer.AudioManager'))
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.config = Config(
             highscore_filename=str(Path(directory.name) / 'scores.json'),
             levels=[LevelConfig.model_construct(width=5, height=1)],
         )
-        self.game = Game([[13, 5, 5, 5, 7]], Mock(), self.config)
+        self.game = Game(Mock(maze=[[13, 5, 5, 5, 7]]), self.config)
         self.canvas = VisualizerUtils(
             120, 60, 20, 10, memoryview(bytearray(120 * 60 * 4)),
             480, 0, 10, 10,
@@ -210,7 +210,7 @@ class GameTests(unittest.TestCase):
         self.config.levels = [LevelConfig(width=15, height=15),
                               LevelConfig(width=25, height=15)]
         generator = MazeGenerator(size=(15, 15), seed=42)
-        viewer = MazeVisualizer(generator.maze, generator, self.config)
+        viewer = GameVisualizer(generator, self.config)
         viewer.width, viewer.height = 1000, 800
         viewer._update_layout()
         viewer.canvas = VisualizerUtils(

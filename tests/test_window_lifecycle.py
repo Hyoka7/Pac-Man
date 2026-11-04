@@ -8,18 +8,18 @@ from unittest.mock import Mock, call, patch
 
 from pacman.models import Config
 from pacman.models.models import LevelConfig
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 
 
 class WindowLifecycleTests(unittest.TestCase):
     def setUp(self) -> None:
         directory = self.enterContext(TemporaryDirectory())
-        self.enterContext(patch('pacman.visualize.maze_visualizer.AudioManager'))
+        self.enterContext(patch('pacman.visualize.game_visualizer.AudioManager'))
         config = Config(
             highscore_filename=str(Path(directory) / 'scores.json'),
             levels=[LevelConfig.model_construct(width=5, height=1)],
         )
-        self.viewer = MazeVisualizer([[13, 5, 5, 5, 7]], Mock(), config)
+        self.viewer = GameVisualizer(Mock(maze=[[13, 5, 5, 5, 7]]), config)
         self.mlx = Mock()
         self.mlx.mlx_init.return_value = 1
         self.mlx.mlx_get_screen_size.return_value = (0, 320, 240)

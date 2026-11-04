@@ -12,7 +12,7 @@ from pacman.game.game import Game
 from pacman.controls.cheating import CheatHandler
 from pacman.visualize.gui import GUI, GameState
 from pacman.controls.keys import KeyEnum
-from pacman.visualize.maze_visualizer import MazeVisualizer
+from pacman.visualize.game_visualizer import GameVisualizer
 
 
 class CheatHandlerTests(unittest.TestCase):
@@ -42,7 +42,7 @@ class CheatHandlerTests(unittest.TestCase):
 
 class CheatInputTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.viewer = cast(Any, MazeVisualizer.__new__(MazeVisualizer))
+        self.viewer = cast(Any, GameVisualizer.__new__(GameVisualizer))
         self.viewer.world_renderer = Mock()
         self.viewer.audio = Mock()
         self.viewer.game = cast(Any, Game.__new__(Game))
@@ -166,7 +166,7 @@ class CheatInputTests(unittest.TestCase):
         v.game.judge.is_collision.return_value = True
         v._draw = Mock()
         with redirect_stdout(StringIO()), patch(
-            'pacman.visualize.maze_visualizer.time.monotonic', return_value=10.05
+            'pacman.visualize.game_visualizer.time.monotonic', return_value=10.05
         ):
             v._on_loop()
         ghost.update.assert_not_called()
