@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from mazegenerator import MazeGenerator
 
 from pacman.controls.cheating import CheatHandler
-from pacman.controls.game_input import handle_key as handle_game_key
+from pacman.controls.game_input import dispatch_key
 from pacman.controls.game_input import release_key as release_game_key
 from pacman.controls.keys import WindowAction
 from pacman.game.collision import Collision
@@ -26,7 +26,7 @@ from pacman.models import Config
 from pacman.storage.highscore import HighscoreManager, ScoreEntry
 
 if TYPE_CHECKING:
-    from pacman.visualize.visualizerutils import VisualizerUtils
+    from pacman.visualize.canvas import Canvas
 
 
 class Game:
@@ -66,43 +66,43 @@ class Game:
         self.state: GameState = GameState.Home
         self.player_name = ""
         self.shift_keys: set[int] = set()
-        self.level_needs_placement = False
+        self.new_level_needs_placement = False
         self.no_collision = False
 
-    def place(self, canvas: VisualizerUtils) -> None:
+    def place_level(self, canvas: Canvas) -> None:
         """Place a new level after the renderer has updated the canvas layout."""
         self.respawn(canvas)
-        self.pacgums.reset(self.maze, canvas, self.player.movement.cell)
-        self.level_needs_placement = False
+        self.pacgums.reset_pacgums(self.maze, canvas, self.player.movement.cell)
+        self.new_level_needs_placement = False
 
-    def respawn(self, canvas: VisualizerUtils) -> None:
-        self.player.reset(canvas)
+    def respawn(self, canvas: Canvas) -> None:
+        self.player.reset_player(canvas)
         for ghost in self.ghosts:
-            ghost.reset(canvas)
+            ghost.reset_ghost(canvas)
 
-    def update(
+    def update_game(
         self,
         elapsed: float,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
     ) -> tuple[PacgumEatenEnum, int]:
         """Advance gameplay and return pacgum and ghost-eating events."""
         if self.state != GameState.Playing:
             return PacgumEatenEnum.Neither, 0
         self.remaining_time = max(self.remaining_time - elapsed, 0.0)
-        eaten = self._update_player(elapsed, canvas)
+        gum_eaten = self._update_player(elapsed, canvas)
         if self._check_level_end():
-            return eaten, 0
+            return gum_eaten, 0
         ghost_eaten = self._update_ghosts(elapsed, canvas)
         self.player.update_mouth(elapsed)
-        return eaten, ghost_eaten
+        return gum_eaten, ghost_eaten
 
     def _update_player(
         self,
         elapsed: float,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
     ) -> PacgumEatenEnum:
         """Move the player and award points for consumed pacgums."""
-        eaten = self.player.update(elapsed, self.maze, canvas, self.pacgums)
+        eaten = self.player.update_player(elapsed, self.maze, canvas, self.pacgums)
         points = self.pacgum_points.get(eaten, 0)
         if points:
             self.player.score += points * self.score_multiplier
@@ -125,7 +125,7 @@ class Game:
         self.set_state(state)
         return True
 
-    def _update_ghosts(self, elapsed: float, canvas: VisualizerUtils) -> int:
+    def _update_ghosts(self, elapsed: float, canvas: Canvas) -> int:
         """Move ghosts, resolve contacts and return the number eaten."""
         ghost_eaten = 0
         red_pos = next(
@@ -134,7 +134,7 @@ class Game:
         )
         for ghost in self.ghosts:
             if not self.ghost_frozen:
-                ghost.update(
+                ghost.update_ghost(
                     elapsed,
                     self.maze,
                     canvas,
@@ -145,9 +145,7 @@ class Game:
                 )
             if ghost.respawn_remaining > 0.0:
                 continue
-            if not self.player.is_alive or not self.judge.is_collision(
-                self.player, ghost
-            ):
+            if not self.judge.is_collision(self.player, ghost):
                 continue
             if self.player.is_invincible:
                 self._eat_ghost(ghost, canvas)
@@ -157,13 +155,13 @@ class Game:
                 break
         return ghost_eaten
 
-    def _eat_ghost(self, ghost: Ghost, canvas: VisualizerUtils) -> None:
+    def _eat_ghost(self, ghost: Ghost, canvas: Canvas) -> None:
         """Award ghost points and begin its respawn wait."""
         self.player.score += self.ghost_points * self.score_multiplier
-        ghost.reset(canvas)
+        ghost.reset_ghost(canvas)
         ghost.respawn_remaining = Ghost.RESPAWN_DELAY
 
-    def _handle_player_hit(self, canvas: VisualizerUtils) -> None:
+    def _handle_player_hit(self, canvas: Canvas) -> None:
         """Lose one life, then enter GameOver or wait at the spawn positions."""
         self.player.lives -= 1
         if self.player.lives == 0:
@@ -178,9 +176,9 @@ class Game:
         self.state = state
         self.needs_redraw = True
 
-    def handle_key(self, key: int, canvas: VisualizerUtils) -> WindowAction | None:
+    def handle_key(self, key: int, canvas: Canvas) -> WindowAction | None:
         """Delegate keyboard interpretation to the input module."""
-        return handle_game_key(self, key, canvas)
+        return dispatch_key(self, key, canvas)
 
     def submit_score(self) -> None:
         """Save the result, clear the entered name and return to Home."""
@@ -201,7 +199,7 @@ class Game:
         new_generator = MazeGenerator((new_conf.width, new_conf.height), seed=maze_seed)
         self.generator = new_generator
         self.maze = Maze(self.generator.maze)
-        self.level_needs_placement = True
+        self.new_level_needs_placement = True
         self.player.movement.initial_cell = self.maze.central_cell()
         for ghost, corner in zip(self.ghosts, self._ghost_spawn_cells()):
             ghost.movement.initial_cell = corner

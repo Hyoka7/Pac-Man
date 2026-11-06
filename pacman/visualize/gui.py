@@ -4,7 +4,7 @@ from pacman.game.state import GameState
 from pacman.storage.highscore import ScoreEntry
 from pacman.visualize.image_renderer import ImageRenderer
 from pacman.visualize.sprites import ghost_image, player_image
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 
 
 class GUI:
@@ -55,7 +55,7 @@ class GUI:
 
     def _put_string_center(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         window_width: int,
         y: int,
         text: str,
@@ -68,7 +68,7 @@ class GUI:
 
     def _put_lines_center(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
         lines: Sequence[str],
@@ -107,7 +107,7 @@ class GUI:
 
     def _draw_panel_lines(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         lines: Sequence[str],
     ) -> None:
         panel_width = min(
@@ -130,7 +130,7 @@ class GUI:
 
     def draw_backdrop(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         state: GameState,
     ) -> None:
         """Draw a static screen's navy backdrop and centered bordered panel."""
@@ -174,7 +174,7 @@ class GUI:
 
     def background(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         x: int,
         y: int,
         width: int,
@@ -191,7 +191,7 @@ class GUI:
 
     def home(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
         scores: list[ScoreEntry],
@@ -240,7 +240,7 @@ class GUI:
 
     def ready(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
     ) -> None:
@@ -274,7 +274,7 @@ class GUI:
 
     def cheat_info(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
     ) -> None:
@@ -305,7 +305,7 @@ class GUI:
 
     def ranking(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
         scores: list[ScoreEntry],
@@ -363,7 +363,7 @@ class GUI:
 
     def _draw_home_characters(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         y: int,
     ) -> None:
@@ -390,7 +390,7 @@ class GUI:
 
     def gameover(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
         score: int,
@@ -411,7 +411,7 @@ class GUI:
 
     def all_clear(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
         score: int,
@@ -432,7 +432,7 @@ class GUI:
 
     def stage_clear(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
     ) -> None:
@@ -449,7 +449,7 @@ class GUI:
 
     def draw_stats(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         x: int,
         y: int,
         level: int,
@@ -470,7 +470,7 @@ class GUI:
 
     def draw_invincible_bar(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         x: int,
         y: int,
         width: int,
@@ -486,7 +486,7 @@ class GUI:
 
     def invincible_time(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         bar_y: int,
         time: float,
@@ -512,7 +512,7 @@ class GUI:
 
     def pause(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
     ) -> None:
@@ -531,7 +531,7 @@ class GUI:
 
     def instruction(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
     ) -> None:
@@ -539,7 +539,7 @@ class GUI:
 
     def confirm_clear(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         width: int,
         height: int,
     ) -> None:

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from pacman.game.maze import Maze
 
 if TYPE_CHECKING:
-    from pacman.visualize.visualizerutils import VisualizerUtils
+    from pacman.visualize.canvas import Canvas
 
 
 class PacgumEatenEnum(IntEnum):
@@ -33,8 +33,8 @@ class Pacgums:
     def _is_edge(self, x: int, y: int) -> bool:
         return (x == 0 or x == self.cols - 1) and (y == 0 or y == self.rows - 1)
 
-    def reset(
-        self, maze: Maze, canvas: VisualizerUtils, player_pos: tuple[int, int]
+    def reset_pacgums(
+        self, maze: Maze, canvas: Canvas, player_pos: tuple[int, int]
     ) -> None:
         """Replace the level's pacgums, excluding walls and the start cell."""
         self.rows = maze.rows
@@ -52,7 +52,7 @@ class Pacgums:
             if cell != 15 and (x, y) != player_pos and self._is_edge(x, y)
         }
 
-    def consume(self, center: tuple[float, float]) -> PacgumEatenEnum:
+    def consume_pacgum(self, center: tuple[float, float]) -> PacgumEatenEnum:
         """Remove the pacgum at an arrived cell center."""
         if center in self.remain_gums:
             self.remain_gums.discard(center)

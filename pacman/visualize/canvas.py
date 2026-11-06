@@ -1,7 +1,7 @@
 """Shared image-buffer drawing and screen-coordinate conversion."""
 
 
-class VisualizerUtils:
+class Canvas:
     """Own the image buffer and layout used by all renderers."""
 
     def __init__(

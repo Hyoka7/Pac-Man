@@ -1,6 +1,24 @@
 # Pac-Man 開発メモ
 
-最終更新：2026-11-04。
+最終更新：2026-11-06。
+
+## 起動から終了までの理解（2026-11-06）
+
+- 現在は機能追加を止めて既存コードを理解している。起動→MLX/Canvas作成→初期配置→イベント登録→ループ→描画要求→終了の流れを確認済み。
+- Game.update_game()のプレイヤー更新・クリア/時間切れ優先順位・Ghost更新と衝突・得点/復活・口の開閉まで読んだ。口の角度は周期0.3秒の三角波で0→45→0度と変化する。Ghost.update_ghost()内部やStrategyの詳細はまだ追っていない。
+- 入力は_on_key()→Game.handle_key()→game_input.dispatch_key()→状態別ハンドラの順。dispatch_keyへ改名し、プレイ中のC判定もKeyEnum.Cへ統一（大文字Cの特別扱いを削除）。共通Shiftは名前の大文字入力用。
+- 移動キー→request_move()→Movement.redirect()/start()→update_movement()/move_towards()を確認。距離はpx、セル中心はoffset+(座標+0.5)*cell_size。移動先を通り越さず中心へ止める。曲がれない入力は予約し、マス到着時に試す。停止中はキー入力から再開する。
+- redirect()の逆方向は通過中の同じ道を戻す。直角方向はマス中心から縦横ともcell_size/4以内かつ通行可能なら曲がる。中心を少し通り過ぎていても対象で、start()が中心へ座標をそろえる。赤Ghost探索のnext(ジェネレータ式, None)は理解したうえで維持。
+- Game._update_ghosts()の不要な死亡済みチェックを削除。時間切れはGhost更新前に戻り、衝突で残機を失ったらbreakし、GameOverではゲーム更新自体を行わない既存の流れを確認。
+- Game・Player・Ghost・Movementで同名だったupdate()を、それぞれupdate_game()・update_player()・update_ghost()・update_movement()へ改名。呼び出し元・テスト・READMEを更新し、全216テスト成功。
+- 重複メソッド名も整理。place_level・place_player・place_ghost・place_movement、reset_player・reset_ghost・reset_movement・reset_pacgums、consume_pacgum・consume_keyへ改名。Visualizerのレベル操作はdisplay_next_level・restart_game_viewとしてGame側と区別。Strategyのchoose_direction・choose_targetは共通インタフェースのため維持。全216テスト成功。
+- start_visualization()から、ウィンドウ・Canvas作成、game.place_level()、イベント登録、初回描画、mlx_loop()、_on_loop()、_close()までの呼び出し順を確認。各描画関数の詳細は後で読む。
+- closedをwindow_closed、level_needs_placementをnew_level_needs_placementへ変更。_on_loop()はwindow_closedを最初に確認する。画面サイズの余裕はwindow_marginへ改名。
+- mlx_hookのイベント番号とマスクはmlx_events.pyのMlxEvent・MlxEventMaskへ定数化。
+- _close()はユーザーの希望により単純なtry/finallyに統一。画像・ウィンドウ・ループの終了は各1回だけ試し、失敗時はその時点で例外を伝える。音声はfinallyで終了する。再試行や終了処理一覧は使わない。
+- 全216テスト成功。各終了処理の失敗時に後続のMLX処理を実行せず例外を伝えること、音声終了と再呼び出し時の二重終了防止を検証。
+- 次回はGhost.update_ghost()から敵の方向選択と移動を読む。その後、未読の画面別キー処理・描画関数へ進む。GUIのレイアウト計算、32ビット以外の画像対応、itch.ioへの配布は保留。
+- 本日の整理・改名と11月4日以降の未保存変更を、ユーザーの依頼でまとめてcommit・pushする。scores.jsonのプレイ記録とdocs/は含めない。
 
 ## コードの理解と初期化の整理（2026-11-04）
 
@@ -9,7 +27,10 @@
 - GameVisualizerとGameはgenerator・configの2引数で初期化。Game内でMaze(generator.maze)を作り、迷路データを重複して引数に渡さない。
 - Parserの最上位の型エラーがTypeErrorになったため、mainの例外処理とテストを更新。
 - MazeVisualizerをGameVisualizerへ改名し、ファイル名もgame_visualizer.pyへ変更。import・公開名・テストのpatch先・READMEを更新。
-- 次はGameVisualizer.__init__()の続きからrun()へ進み、ウィンドウ作成とループ開始を読む。
+- 起動処理をまとめるrun()をstart_visualization()へ改名し、GameVisualizerクラスの一番下に移動。呼び出し元・起動テストも更新。
+- GameVisualizerの短い変数名を整理。m→mlx、p→mlx_pointer、win→window_pointer、img→image_pointer、img_data→image_data、line_size→bytes_per_row、img_format→pixel_format、cmodes→color_modes、cm→color_mode_index、last_time→previous_frame_time。起動側の生成器mもgeneratorへ変更し、参照するテストを更新。全215テスト成功。
+- 次はGameVisualizer.__init__()の続きからstart_visualization()へ進み、ウィンドウ作成とループ開始を読む。
+- VisualizerUtilsをCanvasへ改名し、ファイル名もcanvas.pyへ変更。画像メモリ・描画・セル座標変換という責務に合わせ、import・型ヒント・テスト・READMEを更新。32ビット以外の画像形式への対応とitch.io配布は後回し。
 - 改名・初期化変更後も全215テスト成功。ユーザーの依頼で今回の変更をcommit・pushして中断する。scores.json・docs/は保存対象外。
 
 ## 設定ファイルの読み込み（2026-11-03）

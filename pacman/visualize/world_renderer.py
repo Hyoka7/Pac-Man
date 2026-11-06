@@ -8,7 +8,7 @@ from pacman.game.pacgums import Pacgums
 from pacman.game.player import Player
 from pacman.visualize.image_renderer import ImageRenderer
 from pacman.visualize.sprites import ghost_image, player_image
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 
 
 class WorldRenderer:
@@ -19,7 +19,7 @@ class WorldRenderer:
     def __init__(self) -> None:
         self.images = ImageRenderer()
 
-    def draw_player(self, player: Player, canvas: VisualizerUtils) -> None:
+    def draw_player(self, player: Player, canvas: Canvas) -> None:
         """Draw the player at its current interpolated center."""
         center_x, center_y = player.movement.center or canvas.cell_center(
             *player.movement.cell
@@ -33,7 +33,7 @@ class WorldRenderer:
     def draw_ghost(
         self,
         ghost: Ghost,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         eatable: bool,
         eatable_remain: float,
     ) -> None:
@@ -62,7 +62,7 @@ class WorldRenderer:
     def draw_maze(
         self,
         maze: Maze,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         wall_color: tuple[int, int, int],
         landmark_color: tuple[int, int, int],
     ) -> None:
@@ -90,7 +90,7 @@ class WorldRenderer:
 
     def _draw_gum(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         center_x: float,
         center_y: float,
         radius: float,
@@ -111,7 +111,7 @@ class WorldRenderer:
                     continue
                 canvas.draw_pixel(x, y, color)
 
-    def draw_pacgums(self, pacgums: Pacgums, canvas: VisualizerUtils) -> None:
+    def draw_pacgums(self, pacgums: Pacgums, canvas: Canvas) -> None:
         """Draw only the pacgums that have not been eaten."""
         for x, y in pacgums.remain_gums:
             self._draw_gum(canvas, x, y, canvas.cell_size * 0.05, (255, 255, 255))
