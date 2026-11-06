@@ -3,7 +3,7 @@ class CheatHandler:
         self.command = command
         self.index = 0
 
-    def consume(self, key: int) -> bool:
+    def consume_key(self, key: int) -> bool:
         if self.command[self.index] == key:
             self.index += 1
             if self.index == len(self.command):

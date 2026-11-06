@@ -39,7 +39,7 @@ class EntrypointTests(unittest.TestCase):
                     visualizer.assert_called_once_with(generator.return_value, config)
                     self.assertEqual(config.lives, 4)
                     generator.return_value.generate.assert_called_once_with(seed=99)
-                    visualizer.return_value.run.assert_called_once_with()
+                    visualizer.return_value.start_visualization.assert_called_once_with()
 
     def test_input_failures_exit_without_starting_the_game(self) -> None:
         with TemporaryDirectory() as directory:

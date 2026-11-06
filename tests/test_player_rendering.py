@@ -3,18 +3,18 @@
 import unittest
 
 from pacman.game.player import Player
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 from pacman.visualize.world_renderer import WorldRenderer
 
 
-def make_canvas() -> VisualizerUtils:
-    target = VisualizerUtils(160, 120, 32, 0,
+def make_canvas() -> Canvas:
+    target = Canvas(160, 120, 32, 0,
         memoryview(bytearray(160 * 120 * 4)), 160 * 4, 0, 0, 0)
     target.clear_image()
     return target
 
 
-def rgb(target: VisualizerUtils, x: int, y: int) -> tuple[int, int, int]:
+def rgb(target: Canvas, x: int, y: int) -> tuple[int, int, int]:
     start = y * target.line_size + x * 4
     b, g, r, _ = target.img_data[start:start+4]
     return r, g, b
@@ -27,7 +27,7 @@ class PlayerRenderingTests(unittest.TestCase):
             with self.subTest(direction=direction):
                 target = make_canvas()
                 player = Player((1, 1))
-                player.place(target)
+                player.place_player(target)
                 player.movement.direction = direction
                 player.mouth_half_angle = 45
                 WorldRenderer().draw_player(player, target)
@@ -39,7 +39,7 @@ class PlayerRenderingTests(unittest.TestCase):
         target = make_canvas()
         target.fill_rect(0, 0, 160, 120, (0, 0, 80))
         player = Player((1, 1))
-        player.place(target)
+        player.place_player(target)
         player.mouth_half_angle = 0
         WorldRenderer().draw_player(player, target)
         for dx, dy in ((6, 0), (-6, 0), (0, 6), (0, -6)):
@@ -51,7 +51,7 @@ class PlayerRenderingTests(unittest.TestCase):
     def test_stopped_player_still_animates_mouth(self) -> None:
         target = make_canvas()
         player = Player((1, 1))
-        player.place(target)
+        player.place_player(target)
         for expected in ((255, 255, 0), (0, 0, 0)):
             player.update_mouth(player.mouth_period / 2)
             target.clear_image()
@@ -62,14 +62,14 @@ class PlayerRenderingTests(unittest.TestCase):
     def test_sprite_follows_interpolated_center_and_new_cell_size(self) -> None:
         target = make_canvas()
         player = Player((1, 1))
-        player.place(target)
+        player.place_player(target)
         player.mouth_half_angle = 0
         player.movement.center = (96.0, 48.0)
         WorldRenderer().draw_player(player, target)
         self.assertEqual(rgb(target, 96, 48), (255, 255, 0))
         self.assertEqual(rgb(target, 48, 48), (0, 0, 0))
         target.cell_size = 48
-        player.place(target)
+        player.place_player(target)
         target.clear_image()
         WorldRenderer().draw_player(player, target)
         self.assertEqual(rgb(target, 87, 72), (255, 255, 0))

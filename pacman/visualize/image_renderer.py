@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 
 
 @cache
@@ -56,7 +56,7 @@ class ImageRenderer:
         return self._text_image(text, (255, 255, 255), size).size
 
     def draw_image(
-        self, canvas: VisualizerUtils, x: int, y: int, image: Image.Image
+        self, canvas: Canvas, x: int, y: int, image: Image.Image
     ) -> None:
 
         row_bytes: list[bytes] = []
@@ -130,7 +130,7 @@ class ImageRenderer:
 
     def draw_text(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         x: int,
         y: int,
         text: str,
@@ -171,7 +171,7 @@ class ImageRenderer:
 
     def draw_numeric_text(
         self,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         x: int,
         y: int,
         text: str,

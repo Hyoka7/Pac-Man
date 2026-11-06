@@ -10,19 +10,19 @@ from PIL import ImageFont
 
 from pacman.storage.highscore import ScoreEntry
 from pacman.visualize.gui import GUI, GameState
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 
 
-def make_canvas(width: int, height: int, img_format: int = 0) -> VisualizerUtils:
-    return VisualizerUtils(
+def make_canvas(width: int, height: int, img_format: int = 0) -> Canvas:
+    return Canvas(
         width, height, 20, 20,
         memoryview(bytearray(width * height * 4)), width * 4, img_format, 0, 0,
     )
 
 
-def pixel(canvas: VisualizerUtils, x: int, y: int) -> tuple[int, int, int]:
+def pixel(canvas: Canvas, x: int, y: int) -> tuple[int, int, int]:
     index = y * canvas.line_size + x * 4
     data = canvas.img_data[index:index+4]
     if canvas.img_format == 0:
@@ -37,7 +37,7 @@ class RectangleTests(unittest.TestCase):
         for img_format in (0, 1):
             with self.subTest(img_format=img_format):
                 image = bytearray([37] * 24 * 4)
-                canvas = VisualizerUtils(
+                canvas = Canvas(
                     5, 4, 20, 0, memoryview(image), 24, img_format, 0, 0,
                 )
                 canvas.clear_image(transparent=True)
@@ -62,7 +62,7 @@ class RectangleTests(unittest.TestCase):
             for rectangle, expected in cases:
                 with self.subTest(img_format=img_format, rectangle=rectangle):
                     image = bytearray([7] * 24 * 4)
-                    canvas = VisualizerUtils(
+                    canvas = Canvas(
                         5, 4, 20, 0, memoryview(image), 24, img_format, 0, 0,
                     )
                     self.assertTrue(callable(getattr(canvas, "fill_rect", None)))

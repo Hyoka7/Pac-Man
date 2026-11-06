@@ -9,7 +9,7 @@ from pacman.game.movement import Movement
 from pacman.game.pacgums import PacgumEatenEnum, Pacgums
 
 if TYPE_CHECKING:
-    from pacman.visualize.visualizerutils import VisualizerUtils
+    from pacman.visualize.canvas import Canvas
 
 
 class Player:
@@ -43,22 +43,22 @@ class Player:
         phase = self._mouth_elapsed / self.mouth_period
         self.mouth_half_angle = 45.0 * (1.0 - abs(2.0 * phase - 1.0))
 
-    def place(self, canvas: VisualizerUtils) -> None:
+    def place_player(self, canvas: Canvas) -> None:
         """Initialize the shared movement's drawing position."""
-        self.movement.place(canvas)
+        self.movement.place_movement(canvas)
         self.radius = canvas.cell_size * 0.375
 
-    def request_move(self, direction: str, maze: Maze, canvas: VisualizerUtils) -> None:
+    def request_move(self, direction: str, maze: Maze, canvas: Canvas) -> None:
         """Queue a turn, or start a cell-to-cell animation when stopped."""
         self.reserved_move = direction
         if self.movement.redirect(direction, maze, canvas):
             self.reserved_move = None
 
-    def update(
+    def update_player(
         self,
         elapsed: float,
         maze: Maze,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         pacgums: Pacgums,
     ) -> PacgumEatenEnum:
         """Animate, apply power-ups, and report which gum the player ate."""
@@ -66,9 +66,9 @@ class Player:
             self.invincible_remain = max(0.0, self.invincible_remain - elapsed)
             if self.invincible_remain == 0.0:
                 self.is_invincible = False
-        if not self.movement.update(elapsed, canvas):
+        if not self.movement.update_movement(elapsed, canvas):
             return PacgumEatenEnum.Neither
-        eat_status = pacgums.consume(canvas.cell_center(*self.movement.cell))
+        eat_status = pacgums.consume_pacgum(canvas.cell_center(*self.movement.cell))
         if eat_status == PacgumEatenEnum.Super:
             self.is_invincible = True
             self.invincible_remain = self.INVINCIBLE_DURATION
@@ -80,8 +80,8 @@ class Player:
             self.movement.start(self.movement.direction, maze, canvas)
         return eat_status
 
-    def reset(self, canvas: VisualizerUtils) -> None:
-        self.movement.reset(canvas)
+    def reset_player(self, canvas: Canvas) -> None:
+        self.movement.reset_movement(canvas)
         self.reserved_move = None
         self.is_alive = True
         self.invincible_remain = 0.0

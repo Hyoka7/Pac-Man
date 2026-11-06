@@ -12,15 +12,15 @@ from pacman.game.game import Game
 from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.visualize.gui import GUI, GameState
 from pacman.visualize.image_renderer import ImageRenderer
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 
 text_renderer = ImageRenderer()
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets/fonts/PressStart2P-Regular.ttf"
 
 
-def canvas(width: int = 800, height: int = 600, img_format: int = 0) -> VisualizerUtils:
-    return VisualizerUtils(width, height, 20, 0,
+def canvas(width: int = 800, height: int = 600, img_format: int = 0) -> Canvas:
+    return Canvas(width, height, 20, 0,
         memoryview(bytearray(width * height * 4)), width * 4, img_format, 0, 0)
 
 
@@ -171,7 +171,7 @@ class TextRenderingTests(unittest.TestCase):
         for fmt in (0, 1):
             with self.subTest(fmt=fmt):
                 data = bytearray([37] * 24)
-                target = VisualizerUtils(2, 2, 1, 0, memoryview(data), 12, fmt, 0, 0)
+                target = Canvas(2, 2, 1, 0, memoryview(data), 12, fmt, 0, 0)
                 target.fill_rect(0, 0, 2, 2, (16, 25, 48))
                 text_renderer.draw_image(target, 0, 0, overlay)
                 expected = [(255, 0, 0), (16, 25, 48), (116, 75, 48), (0, 0, 255)]
@@ -200,17 +200,17 @@ class TextRenderingTests(unittest.TestCase):
         v.world_renderer = Mock()
         v.audio = Mock()
         v.game = cast(Any, Game.__new__(Game))
-        v.game.level_needs_placement = False
+        v.game.new_level_needs_placement = False
         v.game.no_collision = False
         v.canvas = Mock()
-        v.closed = False
+        v.window_closed = False
         v.width, v.height = 800, 600
         v.canvas = canvas()
         v.gui = GUI()
         v.gui.update_layout(v.width, v.height)
-        v.p = v.win = v.img = 1
-        v.cm = 0
-        v.cmodes = [((0, 0, 0), (0, 0, 0), (0, 0, 0))]
+        v.mlx_pointer = v.window_pointer = v.image_pointer = 1
+        v.color_mode_index = 0
+        v.color_modes = [((0, 0, 0), (0, 0, 0), (0, 0, 0))]
         v.game.maze, v.game.pacgums = Mock(), Mock()
         v.game.ghosts = []
         v.game.player = SimpleNamespace(is_invincible=True, invincible_remain=3,
@@ -225,12 +225,12 @@ class TextRenderingTests(unittest.TestCase):
         for state in GameState:
             with self.subTest(state=state):
                 v.game.state = state
-                v.m = Mock()
+                v.mlx = Mock()
                 presented = []
-                v.m.mlx_put_image_to_window.side_effect = lambda *args: presented.append(bytes(v.canvas.img_data))
+                v.mlx.mlx_put_image_to_window.side_effect = lambda *args: presented.append(bytes(v.canvas.img_data))
                 v._draw()
                 self.assertEqual(len(presented), 1)
                 self.assertEqual(presented[0], bytes(v.canvas.img_data))
                 self.assertTrue(any(presented[0]))
-                v.m.mlx_string_put.assert_not_called()
-                v.m.mlx_sync.assert_not_called()
+                v.mlx.mlx_string_put.assert_not_called()
+                v.mlx.mlx_sync.assert_not_called()

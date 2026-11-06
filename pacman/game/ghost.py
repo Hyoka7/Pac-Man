@@ -10,7 +10,7 @@ from pacman.game.movement import Movement
 from pacman.game.strategy import FleeBFSStrategy, Strategy, StrategyKwargs
 
 if TYPE_CHECKING:
-    from pacman.visualize.visualizerutils import VisualizerUtils
+    from pacman.visualize.canvas import Canvas
 
 
 class GhostRole(Enum):
@@ -52,16 +52,16 @@ class Ghost:
         """Return the direction of the current animation."""
         return self.movement.direction
 
-    def place(self, canvas: VisualizerUtils) -> None:
+    def place_ghost(self, canvas: Canvas) -> None:
         """Initialize the shared movement's drawing position."""
-        self.movement.place(canvas)
+        self.movement.place_movement(canvas)
         self.radius = canvas.cell_size * 0.375
 
-    def update(
+    def update_ghost(
         self,
         elapsed: float,
         maze: Maze,
-        canvas: VisualizerUtils,
+        canvas: Canvas,
         player_cell: tuple[int, int],
         player_dir: str,
         eatable: bool,
@@ -91,10 +91,10 @@ class Ghost:
                 if direction is None:
                     return
                 self.movement.start(direction, maze, canvas)
-        self.movement.update(elapsed, canvas)
+        self.movement.update_movement(elapsed, canvas)
 
 
-    def reset(self, canvas: VisualizerUtils) -> None:
+    def reset_ghost(self, canvas: Canvas) -> None:
         self.radius = canvas.cell_size * 0.375
         self.respawn_remaining = 0.0
-        return self.movement.reset(canvas)
+        return self.movement.reset_movement(canvas)

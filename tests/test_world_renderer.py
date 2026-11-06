@@ -3,7 +3,7 @@
 import unittest
 
 from pacman.game.pacgums import Pacgums
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 from pacman.visualize.world_renderer import WorldRenderer
 
 
@@ -14,7 +14,7 @@ class PacgumRenderingTests(unittest.TestCase):
         large |= {(x, y) for y in range(8, 12) for x in range(27, 33)}
         for img_format in (0, 1):
             with self.subTest(img_format=img_format):
-                canvas = VisualizerUtils(40, 20, 20, 0,
+                canvas = Canvas(40, 20, 20, 0,
                     memoryview(bytearray(160 * 20)), 160, img_format, 0, 0)
                 canvas.clear_image()
                 gums = Pacgums(1, 2)
@@ -32,7 +32,7 @@ class PacgumRenderingTests(unittest.TestCase):
 
     def test_clipped_supergum_preserves_scanline_padding(self) -> None:
         expected = {(x, y) for y in (0, 1) for x in range(3)} | {(0, 2), (1, 2)}
-        canvas = VisualizerUtils(8, 6, 20, 0,
+        canvas = Canvas(8, 6, 20, 0,
             memoryview(bytearray([37] * (40 * 6))), 40, 0, 0, 0)
         canvas.clear_image()
         gums = Pacgums(1, 1)

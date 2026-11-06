@@ -8,13 +8,13 @@ from pacman.controls.keys import MOVEMENT_DIRECTIONS, KeyEnum, WindowAction
 from pacman.game.state import GameState
 
 if TYPE_CHECKING:
-    from pacman.visualize.visualizerutils import VisualizerUtils
+    from pacman.visualize.canvas import Canvas
 
 if TYPE_CHECKING:
     from pacman.game.game import Game
 
 
-def handle_key(game: Game, key: int, canvas: VisualizerUtils) -> WindowAction | None:
+def dispatch_key(game: Game, key: int, canvas: Canvas) -> WindowAction | None:
     """Handle common controls, then dispatch to the current state's handler."""
     if key in (KeyEnum.SHIFT_L, KeyEnum.SHIFT_R):
         game.shift_keys.add(key)
@@ -41,7 +41,7 @@ def handle_key(game: Game, key: int, canvas: VisualizerUtils) -> WindowAction | 
 def _handle_home_key(
     game: Game,
     key: int,
-    _canvas: VisualizerUtils,
+    _canvas: Canvas,
 ) -> WindowAction | None:
     if key == KeyEnum.ENTER:
         if game.home_focusing == 0:
@@ -67,7 +67,7 @@ def _handle_home_key(
 def _handle_ranking_key(
     game: Game,
     key: int,
-    _canvas: VisualizerUtils,
+    _canvas: Canvas,
 ) -> WindowAction | None:
     if key == KeyEnum.ENTER:
         game.set_state(GameState.Home)
@@ -78,7 +78,7 @@ def _handle_ranking_key(
 def _handle_instruction_key(
     game: Game,
     key: int,
-    _canvas: VisualizerUtils,
+    _canvas: Canvas,
 ) -> WindowAction | None:
     if key == KeyEnum.ENTER:
         game.set_state(GameState.Home)
@@ -87,7 +87,7 @@ def _handle_instruction_key(
 def _handle_confirm_clear_key(
     game: Game,
     key: int,
-    _canvas: VisualizerUtils,
+    _canvas: Canvas,
 ) -> WindowAction | None:
     if key == KeyEnum.Y:
         game.score_manager.clear()
@@ -99,14 +99,14 @@ def _handle_confirm_clear_key(
 def _handle_playing_key(
     game: Game,
     key: int,
-    canvas: VisualizerUtils,
+    canvas: Canvas,
 ) -> WindowAction | None:
     if _handle_cheat_sequence(game, key):
         return
     if key == KeyEnum.P:
         game.set_state(GameState.Pause)
         return
-    if key in (99, 67):
+    if key == KeyEnum.C:
         return WindowAction.CycleColors
     if _handle_cheat_key(game, key):
         return
@@ -115,7 +115,7 @@ def _handle_playing_key(
 
 def _handle_cheat_sequence(game: Game, key: int) -> bool:
     """Consume activation keys before ordinary gameplay controls."""
-    if game.cheathandler.consume(key):
+    if game.cheathandler.consume_key(key):
         game.cheat_enabled = not game.cheat_enabled
         if not game.cheat_enabled:
             game.ghost_frozen = False
@@ -151,7 +151,7 @@ def _handle_cheat_key(game: Game, key: int) -> bool:
     return True
 
 
-def _handle_movement_key(game: Game, key: int, canvas: VisualizerUtils) -> None:
+def _handle_movement_key(game: Game, key: int, canvas: Canvas) -> None:
     """Translate movement keys and hand the requested direction to Player."""
     direction = MOVEMENT_DIRECTIONS.get(key)
     if direction is not None:
@@ -161,7 +161,7 @@ def _handle_movement_key(game: Game, key: int, canvas: VisualizerUtils) -> None:
 def _handle_ready_key(
     game: Game,
     key: int,
-    _canvas: VisualizerUtils,
+    _canvas: Canvas,
 ) -> WindowAction | None:
     game.set_state(GameState.Playing)
 
@@ -169,7 +169,7 @@ def _handle_ready_key(
 def _handle_pause_key(
     game: Game,
     key: int,
-    _canvas: VisualizerUtils,
+    _canvas: Canvas,
 ) -> WindowAction | None:
     if key == KeyEnum.P:
         game.set_state(GameState.Playing)
@@ -180,7 +180,7 @@ def _handle_pause_key(
 def _handle_result_key(
     game: Game,
     key: int,
-    _canvas: VisualizerUtils,
+    _canvas: Canvas,
 ) -> WindowAction | None:
     if key == KeyEnum.ENTER:
         game.submit_score()
@@ -209,7 +209,7 @@ def _handle_name_key(game: Game, key: int) -> None:
 def _handle_stage_clear_key(
     game: Game,
     key: int,
-    _canvas: VisualizerUtils,
+    _canvas: Canvas,
 ) -> WindowAction | None:
     game.next_level()
 

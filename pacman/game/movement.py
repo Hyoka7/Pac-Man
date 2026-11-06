@@ -8,7 +8,7 @@ from pacman.game.directions import OPPOSITE_DIRECTIONS
 from pacman.game.maze import Maze
 
 if TYPE_CHECKING:
-    from pacman.visualize.visualizerutils import VisualizerUtils
+    from pacman.visualize.canvas import Canvas
 
 
 class Movement:
@@ -59,14 +59,14 @@ class Movement:
             y = max(y - distance, target_y)
         return x, y
 
-    def place(self, canvas: VisualizerUtils) -> None:
+    def place_movement(self, canvas: Canvas) -> None:
         """Place the character at its cell center once layout is available."""
         self.center = canvas.cell_center(*self.cell)
         self.target = self.center
         self.target_cell = self.cell
         self.moving = False
 
-    def start(self, direction: str, maze: Maze, canvas: VisualizerUtils) -> bool:
+    def start(self, direction: str, maze: Maze, canvas: Canvas) -> bool:
         """Begin an allowed neighboring-cell animation when stopped."""
         if self.moving or not maze.can_move(*self.cell, direction, self.wallhack):
             return False
@@ -77,7 +77,7 @@ class Movement:
         self.moving = True
         return True
 
-    def update(self, elapsed: float, canvas: VisualizerUtils) -> bool:
+    def update_movement(self, elapsed: float, canvas: Canvas) -> bool:
         """Advance one frame; return True only on arrival at the target cell."""
         if not self.moving:
             return False
@@ -89,14 +89,14 @@ class Movement:
         self.moving = False
         return True
 
-    def reset(self, canvas: VisualizerUtils) -> None:
+    def reset_movement(self, canvas: Canvas) -> None:
         self.cell = self.initial_cell
-        self.place(canvas)
+        self.place_movement(canvas)
 
     def _cell_distance(self, p1: float, p2: float) -> float:
         return abs(p1 - p2)
 
-    def redirect(self, req_dir: str, maze: Maze, canvas: VisualizerUtils) -> bool:
+    def redirect(self, req_dir: str, maze: Maze, canvas: Canvas) -> bool:
         if not self.moving:
             return self.start(req_dir, maze, canvas)
         if req_dir == self.direction:

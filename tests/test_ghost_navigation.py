@@ -5,13 +5,13 @@ import unittest
 from pacman.game.ghost import Ghost
 from pacman.game.maze import Maze
 from pacman.game.strategy import AmbushStrategy, BFSStrategy
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 from pacman.visualize.world_renderer import WorldRenderer
 
 
-def make_canvas() -> VisualizerUtils:
+def make_canvas() -> Canvas:
     """Create the layout used by cell-to-cell movement tests."""
-    return VisualizerUtils(
+    return Canvas(
         137, 137, 32, 20, memoryview(bytearray(548 * 137)), 548, 0, 20, 20
     )
 
@@ -23,16 +23,16 @@ class GhostNavigationTests(unittest.TestCase):
         maze = Maze([[13, 5, 7]])
         canvas = make_canvas()
         ghost = Ghost((1, 0), BFSStrategy())
-        ghost.place(canvas)
-        ghost.update(0.01, maze, canvas, (0, 0), 'E', True)
+        ghost.place_ghost(canvas)
+        ghost.update_ghost(0.01, maze, canvas, (0, 0), 'E', True)
         self.assertEqual(ghost.movement.target_cell, (2, 0))
 
     def test_player_heading_reaches_ambush_strategy(self) -> None:
         maze = Maze([[13, 5, 5, 5, 7]])
         canvas = make_canvas()
         ghost = Ghost((1, 0), AmbushStrategy())
-        ghost.place(canvas)
-        ghost.update(0.01, maze, canvas, (0, 0), 'E', eatable=False)
+        ghost.place_ghost(canvas)
+        ghost.update_ghost(0.01, maze, canvas, (0, 0), 'E', eatable=False)
         self.assertEqual(ghost.direction, 'E')
         self.assertEqual(ghost.movement.target_cell, (2, 0))
 
@@ -41,8 +41,8 @@ class GhostNavigationTests(unittest.TestCase):
         maze = Maze([[9, 7, 11], [12, 5, 6]])
         canvas = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy())
-        ghost.place(canvas)
-        ghost.update(0.1, maze, canvas, (2, 0), player_dir="E", eatable=False)
+        ghost.place_ghost(canvas)
+        ghost.update_ghost(0.1, maze, canvas, (2, 0), player_dir="E", eatable=False)
         self.assertEqual(ghost.direction, 'S')
         self.assertEqual(ghost.movement.target_cell, (0, 1))
         self.assertEqual(ghost.cell, (0, 0))
@@ -55,8 +55,8 @@ class GhostNavigationTests(unittest.TestCase):
         canvas = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy())
         ghost.movement.start('E', maze, canvas)
-        ghost.movement.update(1 / ghost.movement.speed, canvas)
-        ghost.update(0.1, maze, canvas, (0, 0), player_dir="E", eatable=False)
+        ghost.movement.update_movement(1 / ghost.movement.speed, canvas)
+        ghost.update_ghost(0.1, maze, canvas, (0, 0), player_dir="E", eatable=False)
         self.assertEqual(ghost.direction, 'W')
         self.assertEqual(ghost.movement.target_cell, (0, 0))
 
@@ -64,8 +64,8 @@ class GhostNavigationTests(unittest.TestCase):
         """A None direction is handled before starting movement."""
         canvas = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy())
-        ghost.place(canvas)
-        ghost.update(0.1, Maze([[15, 15]]), canvas, (1, 0), player_dir="E", eatable=False)
+        ghost.place_ghost(canvas)
+        ghost.update_ghost(0.1, Maze([[15, 15]]), canvas, (1, 0), player_dir="E", eatable=False)
         self.assertFalse(ghost.movement.moving)
         self.assertEqual(ghost.movement.center, (36.0, 36.0))
 
@@ -77,8 +77,8 @@ class GhostNavigationTests(unittest.TestCase):
         left = Ghost((0, 0), strategy)
         right = Ghost((2, 0), strategy)
         for ghost in (left, right):
-            ghost.place(canvas)
-            ghost.update(0.1, maze, canvas, (1, 0), player_dir="E", eatable=False)
+            ghost.place_ghost(canvas)
+            ghost.update_ghost(0.1, maze, canvas, (1, 0), player_dir="E", eatable=False)
         self.assertIs(left.strategy, right.strategy)
         self.assertEqual(left.direction, 'E')
         self.assertEqual(right.direction, 'W')
@@ -92,16 +92,16 @@ class GhostNavigationTests(unittest.TestCase):
         for eatable in (False, True):
             with self.subTest(eatable=eatable):
                 ghost = Ghost((0, 0), BFSStrategy())
-                ghost.reset(canvas)
+                ghost.reset_ghost(canvas)
                 ghost.respawn_remaining = 5.0
                 center = ghost.movement.center
                 for elapsed, remaining in ((0.25, 4.75), (5.0, 0.0)):
-                    ghost.update(elapsed, maze, canvas, (2, 0), player_dir="E", eatable=eatable)
+                    ghost.update_ghost(elapsed, maze, canvas, (2, 0), player_dir="E", eatable=eatable)
                     self.assertEqual(ghost.respawn_remaining, remaining)
                     self.assertEqual(ghost.cell, (0, 0))
                     self.assertEqual(ghost.movement.center, center)
                     self.assertFalse(ghost.movement.moving)
-                ghost.update(0.05, maze, canvas, (2, 0), player_dir="E", eatable=eatable)
+                ghost.update_ghost(0.05, maze, canvas, (2, 0), player_dir="E", eatable=eatable)
                 self.assertGreater(ghost.movement.center[0], center[0])
 
     def test_respawn_wait_is_hidden_then_reappears_at_corner(self) -> None:
@@ -109,13 +109,13 @@ class GhostNavigationTests(unittest.TestCase):
         maze = Maze([[13, 5, 7]])
         canvas = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy())
-        ghost.reset(canvas)
+        ghost.reset_ghost(canvas)
         ghost.respawn_remaining = 5.0
         canvas.clear_image()
         background = bytes(canvas.img_data)
         WorldRenderer().draw_ghost(ghost, canvas, eatable=False, eatable_remain=0.0)
         self.assertEqual(bytes(canvas.img_data), background)
-        ghost.update(5.0, maze, canvas, (2, 0), player_dir="E", eatable=False)
+        ghost.update_ghost(5.0, maze, canvas, (2, 0), player_dir="E", eatable=False)
         WorldRenderer().draw_ghost(ghost, canvas, eatable=False, eatable_remain=0.0)
         index = 36 * canvas.line_size + 36 * 4
         self.assertEqual(bytes(canvas.img_data[index:index+4]),
@@ -124,7 +124,7 @@ class GhostNavigationTests(unittest.TestCase):
     def test_cached_sprite_tracks_pixel_position_and_switches_flee_color(self) -> None:
         target = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy(), color=(255, 0, 0))
-        ghost.place(target)
+        ghost.place_ghost(target)
         target.clear_image()
         WorldRenderer().draw_ghost(ghost, target, eatable=False, eatable_remain=0.0)
         old_center = 36 * target.line_size + 36 * 4
@@ -143,7 +143,7 @@ class GhostNavigationTests(unittest.TestCase):
     def test_invincible_color_flashes_only_during_last_one_and_half_seconds(self) -> None:
         target = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy())
-        ghost.place(target)
+        ghost.place_ghost(target)
         for eatable, remaining, expected in (
             (False, 0.0, ghost.color),
             (True, 4.9, (0, 0, 128)),
@@ -162,7 +162,7 @@ class GhostNavigationTests(unittest.TestCase):
     def test_respawn_flashes_during_last_one_and_half_seconds(self) -> None:
         target = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy())
-        ghost.place(target)
+        ghost.place_ghost(target)
         for remaining, visible in ((1.51, False), (1.1, True),
                                    (1.3, False), (0.3, True), (0.1, False)):
             with self.subTest(remaining=remaining):
@@ -177,10 +177,10 @@ class GhostNavigationTests(unittest.TestCase):
     def test_reset_cancels_respawn_wait_and_active_movement(self) -> None:
         canvas = make_canvas()
         ghost = Ghost((0, 0), BFSStrategy())
-        ghost.place(canvas)
-        ghost.update(0.1, Maze([[13, 5, 7]]), canvas, (2, 0), player_dir="E", eatable=False)
+        ghost.place_ghost(canvas)
+        ghost.update_ghost(0.1, Maze([[13, 5, 7]]), canvas, (2, 0), player_dir="E", eatable=False)
         ghost.respawn_remaining = 3.0
-        ghost.reset(canvas)
+        ghost.reset_ghost(canvas)
         self.assertEqual(ghost.respawn_remaining, 0.0)
         self.assertEqual(ghost.movement.center, canvas.cell_center(0, 0))
         self.assertFalse(ghost.movement.moving)

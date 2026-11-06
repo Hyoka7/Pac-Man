@@ -13,8 +13,9 @@ from pacman.game.game import Game
 from pacman.game.pacgums import PacgumEatenEnum
 from pacman.game.player import Player
 from pacman.models import Config
+from pacman.visualize.canvas import Canvas
 from pacman.visualize.gui import GUI, GameState
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.mlx_events import MlxEvent, MlxEventMask
 from pacman.visualize.world_renderer import WorldRenderer
 
 if TYPE_CHECKING:
@@ -24,15 +25,15 @@ if TYPE_CHECKING:
 class GameVisualizer:
     """Own MLX resources, screen layout and presentation of the game."""
 
-    m: Mlx
-    p: int | None
-    win: int | None
-    img: int | None
+    mlx: Mlx
+    mlx_pointer: int | None
+    window_pointer: int | None
+    image_pointer: int | None
     width: int
     height: int
-    img_data: memoryview
-    line_size: int
-    img_format: int
+    image_data: memoryview
+    bytes_per_row: int
+    pixel_format: int
 
     def __init__(
         self,
@@ -44,7 +45,7 @@ class GameVisualizer:
         self.gui = GUI()
         self.world_renderer = WorldRenderer()
         self.audio = AudioManager()
-        self.cmodes = [
+        self.color_modes = [
             ((126, 249, 255), (255, 92, 138), (145, 255, 174)),
             ((89, 196, 255), (255, 204, 92), (77, 255, 218)),
             ((255, 167, 92), (255, 80, 120), (255, 231, 128)),
@@ -58,15 +59,17 @@ class GameVisualizer:
             ((165, 148, 255), (255, 196, 82), (104, 214, 255)),
             ((224, 230, 238), (255, 105, 105), (112, 224, 178)),
         ]
-        self.cm = 0
-        self.p = self.win = self.img = None
-        self.closed = True
-        self.last_time = time.monotonic()
+        self.color_mode_index = 0
+        self.mlx_pointer = None
+        self.window_pointer = None
+        self.image_pointer = None
+        self.window_closed = True
+        self.previous_frame_time = time.monotonic()
 
     def _draw(self, _param: object = None) -> None:
         """Compose the current game view into the image buffer."""
         del _param
-        if self.closed:
+        if self.window_closed:
             return
         self.canvas.clear_image()
         self.gui.draw_backdrop(self.canvas, self.game.state)
@@ -80,7 +83,9 @@ class GameVisualizer:
 
         self._draw_screen()
 
-        self.m.mlx_put_image_to_window(self.p, self.win, self.img, 0, 0)
+        self.mlx.mlx_put_image_to_window(
+            self.mlx_pointer, self.window_pointer, self.image_pointer, 0, 0
+        )
         self.game.needs_redraw = False
 
     def _draw_screen(self) -> None:
@@ -168,7 +173,7 @@ class GameVisualizer:
 
     def _draw_world(self) -> None:
         """Draw the maze, pacgums and characters into the current canvas."""
-        wall_color, landmark_color, _ = self.cmodes[self.cm]
+        wall_color, landmark_color, _ = self.color_modes[self.color_mode_index]
         self.world_renderer.draw_maze(
             self.game.maze, self.canvas, wall_color, landmark_color
         )
@@ -222,28 +227,28 @@ class GameVisualizer:
 
     def _close(self, _param: object = None) -> None:
         del _param
-        if self.closed:
+        if self.window_closed:
             return
-        self.closed = True
+        self.window_closed = True
         try:
-            if self.p is not None:
-                if self.img is not None:
-                    self.m.mlx_destroy_image(self.p, self.img)
-                if self.win is not None:
-                    self.m.mlx_destroy_window(self.p, self.win)
-                self.m.mlx_loop_exit(self.p)
+            if self.mlx_pointer is not None:
+                if self.image_pointer is not None:
+                    self.mlx.mlx_destroy_image(self.mlx_pointer, self.image_pointer)
+                if self.window_pointer is not None:
+                    self.mlx.mlx_destroy_window(self.mlx_pointer, self.window_pointer)
+                self.mlx.mlx_loop_exit(self.mlx_pointer)
         finally:
             self.audio.close()
 
     def _on_loop(self, _param: object = None) -> None:
         """Supply elapsed time to the game, then present its current state."""
-        now = time.monotonic()
-        elapsed = now - self.last_time
-        self.last_time = now
-        if self.closed:
+        if self.window_closed:
             return
+        current_time = time.monotonic()
+        elapsed_seconds = current_time - self.previous_frame_time
+        self.previous_frame_time = current_time
         self._place_pending_level()
-        gum, eaten = self.game.update(elapsed, self.canvas)
+        gum, eaten = self.game.update_game(elapsed_seconds, self.canvas)
         self._play_sound_effects(gum, eaten)
         self._update_bgm()
         if self.game.state == GameState.Playing or self.game.needs_redraw:
@@ -273,7 +278,7 @@ class GameVisualizer:
 
     def _on_key(self, key: int, _param: object = None) -> None:
         """Pass controls to the game and apply requested window actions."""
-        if self.closed:
+        if self.window_closed:
             return
         action = self.game.handle_key(key, self.canvas)
         if action == WindowAction.Close:
@@ -281,7 +286,7 @@ class GameVisualizer:
             return
         self._place_pending_level()
         if action == WindowAction.CycleColors:
-            self.cm = (self.cm + 1) % len(self.cmodes)
+            self.color_mode_index = (self.color_mode_index + 1) % len(self.color_modes)
             self._draw()
 
     def _on_key_release(self, key: int, _param: object = None) -> None:
@@ -289,20 +294,20 @@ class GameVisualizer:
 
     def _place_pending_level(self) -> None:
         """Apply screen geometry before the game places entities and pickups."""
-        if not self.game.level_needs_placement:
+        if not self.game.new_level_needs_placement:
             return
         self._update_layout()
         self.canvas.margin = self.margin
         self.canvas.cell_size = self.cell_size
         self.canvas.offset_x = self.offset_x
         self.canvas.offset_y = self.offset_y
-        self.game.place(self.canvas)
+        self.game.place_level(self.canvas)
 
-    def next_level(self) -> None:
+    def display_next_level(self) -> None:
         self.game.next_level()
         self._place_pending_level()
 
-    def restart_game(self) -> None:
+    def restart_game_view(self) -> None:
         self.game.restart_game()
         self._place_pending_level()
 
@@ -321,64 +326,89 @@ class GameVisualizer:
         self.offset_x = (self.width - (self.cell_size * self.game.maze.cols + 1)) // 2
         self.offset_y = (self.height - (self.cell_size * self.game.maze.rows + 1)) // 2
 
-    def run(self) -> None:
-        """Open the window, place the game and release resources on exit."""
-        self.p = self.win = self.img = None
-        self.closed = False
-        try:
-            self._open_window()
-            self._create_canvas()
-            self.game.place(self.canvas)
-            self._register_hooks()
-            self._draw()
-            self.last_time = time.monotonic()
-            self.m.mlx_loop(self.p)
-        finally:
-            self._close()
-
     def _open_window(self) -> None:
         """Initialize MLX and allocate the window and backing image."""
         from mlx import Mlx
 
-        self.m = Mlx()
-        self.p = self.m.mlx_init()
-        if self.p is None:
+        self.mlx = Mlx()
+        self.mlx_pointer = self.mlx.mlx_init()
+        if self.mlx_pointer is None:
             raise RuntimeError("MLX initialization failed")
-        _, screen_width, screen_height = self.m.mlx_get_screen_size(self.p)
-        window_gap = max(1, round(min(screen_width, screen_height) / 15))
-        self.width = screen_width - window_gap
-        self.height = screen_height - window_gap
+        _, screen_width, screen_height = self.mlx.mlx_get_screen_size(self.mlx_pointer)
+        window_margin = max(1, round(min(screen_width, screen_height) / 15))
+        self.width = screen_width - window_margin
+        self.height = screen_height - window_margin
         self._update_layout()
-        self.win = self.m.mlx_new_window(self.p, self.width, self.height, "Maze Viewer")
-        if self.win is None:
+        self.window_pointer = self.mlx.mlx_new_window(
+            self.mlx_pointer, self.width, self.height, "Pac-Man"
+        )
+        if self.window_pointer is None:
             raise RuntimeError("MLX window creation failed")
-        self.img = self.m.mlx_new_image(self.p, self.width, self.height)
-        if self.img is None:
+        self.image_pointer = self.mlx.mlx_new_image(
+            self.mlx_pointer, self.width, self.height
+        )
+        if self.image_pointer is None:
             raise RuntimeError("MLX image creation failed")
 
     def _create_canvas(self) -> None:
         """Validate the backing image and expose it to drawing helpers."""
-        self.img_data, bpp, self.line_size, self.img_format = self.m.mlx_get_data_addr(
-            self.img
-        )
-        if bpp != 32 or self.img_format not in (0, 1):
+        (
+            self.image_data,
+            bits_per_pixel,
+            self.bytes_per_row,
+            self.pixel_format,
+        ) = self.mlx.mlx_get_data_addr(self.image_pointer)
+        if bits_per_pixel != 32 or self.pixel_format not in (0, 1):
             raise RuntimeError("Unsupported MLX image format")
-        self.canvas = VisualizerUtils(
+        self.canvas = Canvas(
             self.width,
             self.height,
             self.cell_size,
             self.margin,
-            self.img_data,
-            self.line_size,
-            self.img_format,
+            self.image_data,
+            self.bytes_per_row,
+            self.pixel_format,
             self.offset_x,
             self.offset_y,
         )
 
     def _register_hooks(self) -> None:
         """Connect window events to this visualizer's callbacks."""
-        self.m.mlx_loop_hook(self.p, self._on_loop, None)
-        self.m.mlx_hook(self.win, 2, 1, self._on_key, None)
-        self.m.mlx_hook(self.win, 3, 2, self._on_key_release, None)
-        self.m.mlx_expose_hook(self.win, self._draw, None)
-        self.m.mlx_hook(self.win, 33, 0, self._close, None)
+        self.mlx.mlx_loop_hook(self.mlx_pointer, self._on_loop, None)
+        self.mlx.mlx_hook(
+            self.window_pointer,
+            MlxEvent.KEY_PRESS,
+            MlxEventMask.KEY_PRESS,
+            self._on_key,
+            None,
+        )
+        self.mlx.mlx_hook(
+            self.window_pointer,
+            MlxEvent.KEY_RELEASE,
+            MlxEventMask.KEY_RELEASE,
+            self._on_key_release,
+            None,
+        )
+        self.mlx.mlx_expose_hook(self.window_pointer, self._draw, None)
+        self.mlx.mlx_hook(
+            self.window_pointer,
+            MlxEvent.WINDOW_CLOSE,
+            MlxEventMask.NONE,
+            self._close,
+            None,
+        )
+
+    def start_visualization(self) -> None:
+        """Open the window, place the game and release resources on exit."""
+        self.mlx_pointer = self.window_pointer = self.image_pointer = None
+        self.window_closed = False
+        try:
+            self._open_window()
+            self._create_canvas()
+            self.game.place_level(self.canvas)
+            self._register_hooks()
+            self._draw()
+            self.previous_frame_time = time.monotonic()
+            self.mlx.mlx_loop(self.mlx_pointer)
+        finally:
+            self._close()

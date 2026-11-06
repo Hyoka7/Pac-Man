@@ -23,12 +23,12 @@ class AudioTests(unittest.TestCase):
         viewer = cast(Any, GameVisualizer.__new__(GameVisualizer))
         viewer.world_renderer = Mock()
         viewer.audio = self.audio
-        viewer.closed = False
-        viewer.last_time = 0.0
+        viewer.window_closed = False
+        viewer.previous_frame_time = 0.0
         viewer.canvas = Mock()
         viewer.game = SimpleNamespace(
-            state=GameState.Home, level_needs_placement=False,
-            needs_redraw=False, update=Mock(return_value=(PacgumEatenEnum.Neither, 0)),
+            state=GameState.Home, new_level_needs_placement=False,
+            needs_redraw=False, update_game=Mock(return_value=(PacgumEatenEnum.Neither, 0)),
         )
         viewer._draw = Mock()
         return viewer
@@ -78,7 +78,7 @@ class AudioTests(unittest.TestCase):
             ('assets/audio/pacgum.mp3', 'assets/audio/eat.mp3', 'assets/audio/powerup.mp3')])
         for eaten in (PacgumEatenEnum.Neither, PacgumEatenEnum.Normal,
                       PacgumEatenEnum.Super, PacgumEatenEnum.Neither):
-            viewer.game.update.return_value = eaten, 0
+            viewer.game.update_game.return_value = eaten, 0
             viewer._on_loop()
         sound.play.assert_called_once_with()
         powerup.play.assert_called_once_with()
@@ -90,7 +90,7 @@ class AudioTests(unittest.TestCase):
             with self.subTest(gum=gum):
                 for sound in self.sounds.values():
                     sound.reset_mock()
-                viewer.game.update.return_value = gum, 1
+                viewer.game.update_game.return_value = gum, 1
                 viewer._on_loop()
                 path = 'assets/audio/pacgum.mp3' if gum == PacgumEatenEnum.Normal else 'assets/audio/powerup.mp3'
                 self.sounds[path].play.assert_called_once_with()
@@ -98,7 +98,7 @@ class AudioTests(unittest.TestCase):
 
     def test_ghost_event_plays_without_gum_and_does_not_repeat_next_frame(self) -> None:
         viewer = self.viewer()
-        viewer.game.update.side_effect = [(PacgumEatenEnum.Neither, 2),
+        viewer.game.update_game.side_effect = [(PacgumEatenEnum.Neither, 2),
                                            (PacgumEatenEnum.Neither, 0)]
         viewer._on_loop()
         viewer._on_loop()
@@ -111,14 +111,14 @@ class AudioTests(unittest.TestCase):
         def finish_level(*args: object) -> tuple[PacgumEatenEnum, int]:
             viewer.game.state = GameState.All_Clear
             return PacgumEatenEnum.Normal, 0
-        viewer.game.update.side_effect = finish_level
+        viewer.game.update_game.side_effect = finish_level
         viewer._on_loop()
         self.sounds['assets/audio/pacgum.mp3'].play.assert_called_once_with()
 
     def test_close_shuts_down_audio_once_and_closed_loops_do_not_restart_it(self) -> None:
         viewer = self.viewer()
-        viewer.m = Mock()
-        viewer.p = viewer.win = viewer.img = 1
+        viewer.mlx = Mock()
+        viewer.mlx_pointer = viewer.window_pointer = viewer.image_pointer = 1
         viewer._close()
         viewer._close()
         viewer._on_loop()

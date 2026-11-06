@@ -18,24 +18,24 @@ class CheatHandlerTests(unittest.TestCase):
     def test_only_the_last_key_completes_a_command(self) -> None:
         keys = [1, 1, 2, 2, 3, 4, 3, 4, 98, 97]
         command = CheatHandler(keys)
-        self.assertEqual([command.consume(key) for key in keys],
+        self.assertEqual([command.consume_key(key) for key in keys],
                          [False] * (len(keys)-1) + [True])
 
     def test_mistake_requires_a_fresh_complete_sequence(self) -> None:
         command = CheatHandler([1, 2, 3])
-        self.assertEqual([command.consume(key) for key in [1, 9, 2, 3]],
+        self.assertEqual([command.consume_key(key) for key in [1, 9, 2, 3]],
                          [False] * 4)
-        self.assertEqual([command.consume(key) for key in [1, 2, 3]],
+        self.assertEqual([command.consume_key(key) for key in [1, 2, 3]],
                          [False, False, True])
 
     def test_success_can_be_followed_by_another_command(self) -> None:
         command = CheatHandler([1, 2])
-        self.assertEqual([command.consume(key) for key in [1, 2, 9, 1, 2]],
+        self.assertEqual([command.consume_key(key) for key in [1, 2, 9, 1, 2]],
                          [False, True, False, False, True])
 
     def test_single_key_command_completes_and_resets(self) -> None:
         command = CheatHandler([7])
-        self.assertEqual([command.consume(key) for key in [9, 7, 7]],
+        self.assertEqual([command.consume_key(key) for key in [9, 7, 7]],
                          [False, True, True])
 
 
@@ -45,11 +45,11 @@ class CheatInputTests(unittest.TestCase):
         self.viewer.world_renderer = Mock()
         self.viewer.audio = Mock()
         self.viewer.game = cast(Any, Game.__new__(Game))
-        self.viewer.game.level_needs_placement = False
+        self.viewer.game.new_level_needs_placement = False
         self.viewer.game.no_collision = False
         self.viewer.canvas = Mock()
         v = self.viewer
-        v.closed = False
+        v.window_closed = False
         v.game.shift_keys = set()
         v.game.state = GameState.Playing
         v.game.cheat_enabled = False
@@ -152,11 +152,11 @@ class CheatInputTests(unittest.TestCase):
     def test_freeze_stops_ghost_update_but_preserves_player_and_collision(self) -> None:
         v = self.viewer
         v.game.cheat_enabled, v.game.ghost_frozen = True, True
-        v.last_time, v.game.remaining_time = 10.0, 20.0
+        v.previous_frame_time, v.game.remaining_time = 10.0, 20.0
         v.game.pacgums = MagicMock()
         v.game.pacgums.__len__.return_value = 1
         v.game.player = SimpleNamespace(
-            update=Mock(), update_mouth=Mock(), movement=SimpleNamespace(cell=(1, 0)),
+            update_player=Mock(), update_mouth=Mock(), movement=SimpleNamespace(cell=(1, 0)),
             is_alive=True, is_invincible=False, lives=1,
         )
         ghost = Mock(respawn_remaining=0.0)
@@ -168,8 +168,8 @@ class CheatInputTests(unittest.TestCase):
             'pacman.visualize.game_visualizer.time.monotonic', return_value=10.05
         ):
             v._on_loop()
-        ghost.update.assert_not_called()
-        v.game.player.update.assert_called_once()
+        ghost.update_ghost.assert_not_called()
+        v.game.player.update_player.assert_called_once()
         v.game.judge.is_collision.assert_called_once_with(v.game.player, ghost)
         self.assertEqual(v.game.state, GameState.GameOver)
         self.assertEqual(v.game.player.lives, 0)

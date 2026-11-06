@@ -11,7 +11,7 @@ from pacman.game.game import Game
 from pacman.storage.highscore import HighscoreManager, ScoreEntry
 from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.visualize.gui import GUI, GameState
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 
 
 class RankingClearTests(unittest.TestCase):
@@ -26,10 +26,10 @@ class RankingClearTests(unittest.TestCase):
         self.viewer.world_renderer = Mock()
         self.viewer.audio = Mock()
         self.viewer.game = cast(Any, Game.__new__(Game))
-        self.viewer.game.level_needs_placement = False
+        self.viewer.game.new_level_needs_placement = False
         self.viewer.game.no_collision = False
         self.viewer.canvas = Mock()
-        self.viewer.closed = False
+        self.viewer.window_closed = False
         self.viewer.game.shift_keys = set()
         self.viewer.game.state = GameState.Ranking
         self.viewer.game.needs_redraw = False
@@ -85,19 +85,19 @@ class RankingClearTests(unittest.TestCase):
         v = self.viewer
         v.game.state = GameState.Confirm_Clear
         v.width, v.height = 800, 600
-        v.canvas = VisualizerUtils(
+        v.canvas = Canvas(
             800, 600, 20, 0, memoryview(bytearray(800 * 600 * 4)),
             800 * 4, 0, 0, 0,
         )
         v.gui = GUI()
         v.gui.update_layout(v.width, v.height)
-        v.m = Mock()
-        v.p = v.win = v.img = 1
+        v.mlx = Mock()
+        v.mlx_pointer = v.window_pointer = v.image_pointer = 1
         with patch.object(v.gui, "confirm_clear", wraps=v.gui.confirm_clear) as draw:
             v._draw()
         draw.assert_called_once_with(v.canvas, v.width, v.height)
-        v.m.mlx_put_image_to_window.assert_called_once()
-        v.m.mlx_string_put.assert_not_called()
+        v.mlx.mlx_put_image_to_window.assert_called_once()
+        v.mlx.mlx_string_put.assert_not_called()
         self.assertFalse(v.game.needs_redraw)
         self.assertEqual(self.path.read_bytes(), self.before)
 

@@ -4,11 +4,11 @@ import unittest
 from unittest.mock import patch
 
 from pacman.visualize.gui import GUI
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 
 
-def canvas(width: int, height: int) -> VisualizerUtils:
-    return VisualizerUtils(width, height, 20, 0,
+def canvas(width: int, height: int) -> Canvas:
+    return Canvas(width, height, 20, 0,
         memoryview(bytearray(width * height * 4)), width * 4, 0, 0, 0)
 
 

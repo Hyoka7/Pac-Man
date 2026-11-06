@@ -13,7 +13,7 @@ from pacman.game.strategy import BFSStrategy
 from pacman.models.models import Config, LevelConfig
 from pacman.visualize.game_visualizer import GameVisualizer
 from pacman.visualize.gui import GameState
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 
 
 class ScoreCheatTests(unittest.TestCase):
@@ -28,19 +28,19 @@ class ScoreCheatTests(unittest.TestCase):
         )
         self.viewer = GameVisualizer(Mock(maze=[[13, 5, 5, 5, 7]]), config)
         v = self.viewer
-        v.canvas = VisualizerUtils(120, 60, 20, 10,
+        v.canvas = Canvas(120, 60, 20, 10,
             memoryview(bytearray(120 * 60 * 4)), 480, 0, 10, 10)
-        v.game.player.place(v.canvas)
+        v.game.player.place_player(v.canvas)
         v.game.ghosts = []
-        v.closed = False
+        v.window_closed = False
         v.game.cheat_enabled = True
         v.game.state = GameState.Playing
-        v.last_time = 10.0
+        v.previous_frame_time = 10.0
         self.enterContext(patch.object(v, '_draw'))
 
     def tick(self, now: float | None = None) -> None:
         if now is None:
-            now = self.viewer.last_time + 1 / self.viewer.game.player.movement.speed + 1e-6
+            now = self.viewer.previous_frame_time + 1 / self.viewer.game.player.movement.speed + 1e-6
         with patch('pacman.visualize.game_visualizer.time.monotonic', return_value=now):
             self.viewer._on_loop()
 
@@ -50,8 +50,8 @@ class ScoreCheatTests(unittest.TestCase):
             for super_gum, base in ((False, 11), (True, 37)):
                 with self.subTest(boosted=boosted, super_gum=super_gum):
                     v.game.state = GameState.Playing
-                    v.last_time = 10.0
-                    v.game.player.reset(v.canvas)
+                    v.previous_frame_time = 10.0
+                    v.game.player.reset_player(v.canvas)
                     v.game.player.score = 77
                     v.game.score_multiplier = 1
                     v.game.pacgums.remain_gums.clear()
@@ -70,7 +70,7 @@ class ScoreCheatTests(unittest.TestCase):
     def test_ghost_reward_is_multiplied_once_during_invincible_collision(self) -> None:
         v = self.viewer
         ghost = Ghost(v.game.player.movement.cell, BFSStrategy())
-        ghost.place(v.canvas)
+        ghost.place_ghost(v.canvas)
         v.game.ghosts = [ghost]
         v.game.ghost_frozen = True
         v.game.player.is_invincible = True
@@ -133,7 +133,7 @@ class ScoreCheatTests(unittest.TestCase):
         v._on_key(KeyEnum.K)
         self.assertTrue(v.game.no_collision)
         with patch.object(v.game, 'regenerate_maze'):
-            v.restart_game()
+            v.restart_game_view()
         self.assertEqual(v.game.score_multiplier, 1)
         self.assertFalse(v.game.player.movement.wallhack)
         self.assertFalse(v.game.no_collision)
@@ -146,6 +146,6 @@ class ScoreCheatTests(unittest.TestCase):
         self.assertTrue(v.game.ghost_frozen)
         self.assertNotEqual(v.game.player.movement.speed, normal_speed)
         with patch.object(v.game, 'regenerate_maze'):
-            v.restart_game()
+            v.restart_game_view()
         self.assertFalse(v.game.ghost_frozen)
         self.assertEqual(v.game.player.movement.speed, normal_speed)

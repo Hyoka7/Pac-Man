@@ -145,19 +145,19 @@ class GUILayoutTests(unittest.TestCase):
         v.world_renderer = Mock()
         v.audio = Mock()
         v.game = cast(Any, Game.__new__(Game))
-        v.game.level_needs_placement = False
+        v.game.new_level_needs_placement = False
         v.game.no_collision = False
         v.canvas = Mock()
-        v.closed = False
+        v.window_closed = False
         v.game.state = GameState.Pause
-        v.canvas, v.m = Mock(width=1600, height=1200), Mock()
+        v.canvas, v.mlx = Mock(width=1600, height=1200), Mock()
         v.gui = GUI()
         v.gui.update_layout(1600, 1200)
         v.gui.background = Mock(wraps=v.gui.background)
-        v.p = v.win = v.img = 1
+        v.mlx_pointer = v.window_pointer = v.image_pointer = 1
         v.width, v.height = 1600, 1200
-        v.cmodes = [((255, 255, 255), (255, 0, 0), (0, 0, 0))]
-        v.cm = 0
+        v.color_modes = [((255, 255, 255), (255, 0, 0), (0, 0, 0))]
+        v.color_mode_index = 0
         v.game.maze, v.game.pacgums = Mock(), Mock()
         v.game.ghosts = []
         v.game.player = SimpleNamespace(is_invincible=False, draw=Mock(), score=100, lives=3)

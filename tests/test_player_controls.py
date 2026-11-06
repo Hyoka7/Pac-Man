@@ -5,7 +5,7 @@ import unittest
 from pacman.game.maze import Maze
 from pacman.game.pacgums import Pacgums
 from pacman.game.player import Player
-from pacman.visualize.visualizerutils import VisualizerUtils
+from pacman.visualize.canvas import Canvas
 
 
 class PlayerControlTests(unittest.TestCase):
@@ -14,19 +14,19 @@ class PlayerControlTests(unittest.TestCase):
     def setUp(self) -> None:
         """Use a junction with a north exit and a corridor to the east."""
         self.maze = Maze([[15, 11, 15], [13, 4, 7]])
-        self.canvas = VisualizerUtils(
+        self.canvas = Canvas(
             137, 105, 32, 20, memoryview(bytearray(548 * 105)), 548, 0, 20, 20
         )
         self.player = Player((1, 1))
-        self.player.place(self.canvas)
+        self.player.place_player(self.canvas)
         self.gums = Pacgums(self.maze.rows, self.maze.cols)
-        self.gums.reset(self.maze, self.canvas, (1, 1))
+        self.gums.reset_pacgums(self.maze, self.canvas, (1, 1))
 
     def test_turn_just_after_junction_is_applied_immediately(self) -> None:
         """An input just past the center should not miss the junction."""
         p = self.player
         p.request_move('E', self.maze, self.canvas)
-        p.update(0.02, self.maze, self.canvas, self.gums)
+        p.update_player(0.02, self.maze, self.canvas, self.gums)
         p.request_move('N', self.maze, self.canvas)
         self.assertEqual(p.movement.direction, 'N')
         self.assertEqual(p.movement.center, (68.0, 68.0))
@@ -37,7 +37,7 @@ class PlayerControlTests(unittest.TestCase):
         """Turning in the middle of a cell must not cut through a wall."""
         p = self.player
         p.request_move('E', self.maze, self.canvas)
-        p.update(0.06, self.maze, self.canvas, self.gums)
+        p.update_player(0.06, self.maze, self.canvas, self.gums)
         before = p.movement.center
         p.request_move('N', self.maze, self.canvas)
         self.assertEqual(p.movement.direction, 'E')
@@ -48,7 +48,7 @@ class PlayerControlTests(unittest.TestCase):
         """A nearby center is not enough if the requested exit is blocked."""
         p = self.player
         p.request_move('E', self.maze, self.canvas)
-        p.update(0.02, self.maze, self.canvas, self.gums)
+        p.update_player(0.02, self.maze, self.canvas, self.gums)
         before = p.movement.center
         p.request_move('S', self.maze, self.canvas)
         self.assertEqual(p.movement.direction, 'E')
@@ -58,13 +58,13 @@ class PlayerControlTests(unittest.TestCase):
         """The next frame should move toward the original center."""
         p = self.player
         p.request_move('E', self.maze, self.canvas)
-        p.update(0.06, self.maze, self.canvas, self.gums)
+        p.update_player(0.06, self.maze, self.canvas, self.gums)
         before = p.movement.center
         p.request_move('W', self.maze, self.canvas)
         self.assertEqual(p.movement.center, before)
         self.assertEqual(p.movement.direction, 'W')
         self.assertEqual(p.movement.target_cell, (1, 1))
-        p.update(0.01, self.maze, self.canvas, self.gums)
+        p.update_player(0.01, self.maze, self.canvas, self.gums)
         self.assertLess(p.movement.center[0], before[0])
         self.assertEqual(p.movement.cell, (1, 1))
 
@@ -72,7 +72,7 @@ class PlayerControlTests(unittest.TestCase):
         """Quick opposite inputs can alternate without a snap to a cell."""
         p = self.player
         p.request_move('E', self.maze, self.canvas)
-        p.update(0.06, self.maze, self.canvas, self.gums)
+        p.update_player(0.06, self.maze, self.canvas, self.gums)
         before = p.movement.center
         p.request_move('W', self.maze, self.canvas)
         p.request_move('E', self.maze, self.canvas)
@@ -84,7 +84,7 @@ class PlayerControlTests(unittest.TestCase):
         """Key repeat in the current direction must not reset progress."""
         p = self.player
         p.request_move('E', self.maze, self.canvas)
-        p.update(0.02, self.maze, self.canvas, self.gums)
+        p.update_player(0.02, self.maze, self.canvas, self.gums)
         before = p.movement.center
         p.request_move('E', self.maze, self.canvas)
         self.assertEqual(p.movement.center, before)

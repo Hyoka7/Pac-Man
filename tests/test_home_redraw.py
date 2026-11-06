@@ -40,11 +40,11 @@ class HomeRedrawTests(unittest.TestCase):
         self.viewer.world_renderer = Mock()
         self.viewer.audio = Mock()
         self.viewer.game = cast(Any, Game.__new__(Game))
-        self.viewer.game.level_needs_placement = False
+        self.viewer.game.new_level_needs_placement = False
         self.viewer.game.no_collision = False
         self.viewer.canvas = Mock()
         v = self.viewer
-        v.closed = False
+        v.window_closed = False
         v.game.shift_keys = set()
         v.game.cheathandler = CheatHandler(list(map(ord, '3111696')))
         v.game.cheat_enabled = False
@@ -54,22 +54,22 @@ class HomeRedrawTests(unittest.TestCase):
         v.game.state = GameState.Home
         v.game.home_focusing = 0
         v.game.needs_redraw = True
-        v.last_time = monotonic()
+        v.previous_frame_time = monotonic()
         v.canvas = Mock(width=600, height=600)
-        v.m = Mock()
+        v.mlx = Mock()
         v.gui = Mock(bar_width=200, bar_height=10, bar_y=570, hud_x=20, hud_y=15)
-        v.p = v.win = v.img = 1
+        v.mlx_pointer = v.window_pointer = v.image_pointer = 1
         v.width = v.height = 600
         v.game.player = SimpleNamespace(
             is_invincible=False, score=120, lives=3,
-            draw=Mock(), update=Mock(), update_mouth=Mock(),
+            draw=Mock(), update_player=Mock(), update_mouth=Mock(),
         )
         v.game.maze = Mock()
         v.game.pacgums = MagicMock()
         v.game.pacgums.__len__.return_value = 1
         v.game.ghosts = []
-        v.cmodes = [((255, 255, 255), (255, 0, 0), (0, 0, 0))]
-        v.cm = 0
+        v.color_modes = [((255, 255, 255), (255, 0, 0), (0, 0, 0))]
+        v.color_mode_index = 0
         v.game.level = 1
         v.game.remaining_time = 42.0
         v.game.player_name = "Alice"
@@ -132,10 +132,10 @@ class HomeRedrawTests(unittest.TestCase):
         v._draw()
         for _ in range(3):
             v._on_loop()
-        v.m.mlx_put_image_to_window.assert_called_once()
+        v.mlx.mlx_put_image_to_window.assert_called_once()
         v.gui.home.assert_called_once()
         self.assertFalse(v.game.needs_redraw)
-        self.assertGreater(v.last_time, 0.0)
+        self.assertGreater(v.previous_frame_time, 0.0)
 
     def test_home_arrows_cycle_selection_and_request_redraw(self) -> None:
         v = self.viewer
@@ -181,7 +181,7 @@ class HomeRedrawTests(unittest.TestCase):
         v.game.needs_redraw = True
         v._on_loop()
         v._on_loop()
-        v.m.mlx_put_image_to_window.assert_called_once()
+        v.mlx.mlx_put_image_to_window.assert_called_once()
         v.gui.stage_clear.assert_called_once()
 
     def test_enter_activates_the_focused_home_option(self) -> None:
@@ -209,15 +209,15 @@ class HomeRedrawTests(unittest.TestCase):
         v = self.viewer
         v.game.home_focusing = 3
         v._on_key(KeyEnum.ENTER)
-        self.assertTrue(v.closed)
+        self.assertTrue(v.window_closed)
         v._close()
         v._on_loop()
         v._draw()
-        v.m.mlx_destroy_image.assert_called_once_with(v.p, v.img)
-        v.m.mlx_destroy_window.assert_called_once_with(v.p, v.win)
-        v.m.mlx_loop_exit.assert_called_once_with(v.p)
-        v.m.mlx_put_image_to_window.assert_not_called()
-        v.game.player.update.assert_not_called()
+        v.mlx.mlx_destroy_image.assert_called_once_with(v.mlx_pointer, v.image_pointer)
+        v.mlx.mlx_destroy_window.assert_called_once_with(v.mlx_pointer, v.window_pointer)
+        v.mlx.mlx_loop_exit.assert_called_once_with(v.mlx_pointer)
+        v.mlx.mlx_put_image_to_window.assert_not_called()
+        v.game.player.update_player.assert_not_called()
 
     def test_home_focus_change_rebuilds_complete_frame(self) -> None:
         v = self.viewer
@@ -229,7 +229,7 @@ class HomeRedrawTests(unittest.TestCase):
             ScoreEntry(name=f'player{i}', score=100-i) for i in range(5)
         ]
         v._draw()
-        v.m.reset_mock()
+        v.mlx.reset_mock()
         self.draw_text.reset_mock()
         v.gui.reset_mock()
         v.canvas.reset_mock()
@@ -249,7 +249,7 @@ class HomeRedrawTests(unittest.TestCase):
         self.assertEqual(selected[2], marker[2])
         self.assertEqual(selected[4], gui.ACCENT_COLOR)
         v._on_loop()
-        v.m.mlx_put_image_to_window.assert_called_once()
+        v.mlx.mlx_put_image_to_window.assert_called_once()
 
     def test_home_arrow_before_first_draw_still_paints_the_whole_screen(self) -> None:
         v = self.viewer
@@ -293,8 +293,8 @@ class HomeRedrawTests(unittest.TestCase):
         for _ in range(3):
             v._on_loop()
         v.gui.pause.assert_called_once()
-        v.m.mlx_put_image_to_window.assert_called_once()
-        v.game.player.update.assert_not_called()
+        v.mlx.mlx_put_image_to_window.assert_called_once()
+        v.game.player.update_player.assert_not_called()
         self.assertEqual(v.game.remaining_time, 42.0)
 
     def test_expose_can_redraw_pause(self) -> None:
@@ -322,8 +322,8 @@ class HomeRedrawTests(unittest.TestCase):
         v._on_key(KeyEnum.P)
         v._on_loop()
         v._on_loop()
-        self.assertEqual(v.game.player.update.call_count, 2)
-        self.assertEqual(v.m.mlx_put_image_to_window.call_count, 2)
+        self.assertEqual(v.game.player.update_player.call_count, 2)
+        self.assertEqual(v.mlx.mlx_put_image_to_window.call_count, 2)
 
     def test_instructions_draw_once_and_enter_returns_home(self) -> None:
         v = self.viewer
@@ -334,7 +334,7 @@ class HomeRedrawTests(unittest.TestCase):
         v._on_loop()
         v._on_loop()
         v.gui.instruction.assert_called_once()
-        v.game.player.update.assert_not_called()
+        v.game.player.update_player.assert_not_called()
         self.assertEqual(v.game.remaining_time, 42.0)
         v._on_key(KeyEnum.RIGHT)
         self.assertFalse(v.game.needs_redraw)
@@ -363,7 +363,7 @@ class HomeRedrawTests(unittest.TestCase):
         v.gui.ranking.assert_called_once_with(
             v.canvas, v.width, v.height, v.game.score_manager.scores.scores,
         )
-        v.game.player.update.assert_not_called()
+        v.game.player.update_player.assert_not_called()
         self.assertEqual(v.game.remaining_time, 42.0)
         v._on_key(KeyEnum.ENTER)
         self.assertEqual(v.game.state, GameState.Home)
@@ -432,7 +432,7 @@ class HomeRedrawTests(unittest.TestCase):
                             v.game.player_name = name
                             v.game.player.score = score
                             v.game.player.is_invincible = invincible
-                            v.m.reset_mock()
+                            v.mlx.reset_mock()
                             self.draw_text.reset_mock()
                             v.canvas.reset_mock()
                             v._draw()
@@ -444,9 +444,9 @@ class HomeRedrawTests(unittest.TestCase):
                             self.assertTrue(any('name' in text.lower() for text in strings))
                             if name:
                                 self.assertTrue(any(name in text for text in strings))
-                            v.m.mlx_put_image_to_window.assert_called_once()
-                            v.m.mlx_string_put.assert_not_called()
-                            v.m.mlx_sync.assert_not_called()
+                            v.mlx.mlx_put_image_to_window.assert_called_once()
+                            v.mlx.mlx_string_put.assert_not_called()
+                            v.mlx.mlx_sync.assert_not_called()
 
     def test_name_edits_redraw_once_then_remain_idle(self) -> None:
         v = self.viewer
@@ -460,7 +460,7 @@ class HomeRedrawTests(unittest.TestCase):
                     v.game.state = state
                     v.game.player_name = 'Alice'
                     v.game.needs_redraw = False
-                    v.m.reset_mock()
+                    v.mlx.reset_mock()
                     self.draw_text.reset_mock()
                     v._on_key(key)
                     self.assertEqual(v.game.player_name, expected_name)
@@ -474,7 +474,7 @@ class HomeRedrawTests(unittest.TestCase):
                     self.assertFalse(v.game.needs_redraw)
                     for _ in range(2):
                         v._on_loop()
-                    v.m.mlx_put_image_to_window.assert_called_once()
+                    v.mlx.mlx_put_image_to_window.assert_called_once()
 
     def test_power_bar_and_timer_only_appear_on_gameplay_screens(self) -> None:
         v = self.viewer
@@ -488,7 +488,7 @@ class HomeRedrawTests(unittest.TestCase):
                 with self.subTest(state=state, invincible=invincible):
                     v.game.state = state
                     v.game.player.is_invincible = invincible
-                    v.m.reset_mock()
+                    v.mlx.reset_mock()
                     self.draw_text.reset_mock()
                     v.gui.reset_mock()
                     v.canvas.reset_mock()

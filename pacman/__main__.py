@@ -17,9 +17,9 @@ def main() -> int:
         parser = ConfigParser(input_path)
         config = parser.parse_config()
         first_level = config.levels[0]
-        m = MazeGenerator(size=(first_level.width, first_level.height))
-        m.generate(seed=config.seed)
-        GameVisualizer(m, config).run()
+        generator = MazeGenerator(size=(first_level.width, first_level.height))
+        generator.generate(seed=config.seed)
+        GameVisualizer(generator, config).start_visualization()
         return 0
     except (OSError, ValueError, TypeError) as e:
         print(f"Error: {e}", file=sys.stderr)
