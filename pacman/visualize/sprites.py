@@ -5,7 +5,7 @@ from math import ceil, hypot, radians, tan
 
 from PIL import Image
 
-from pacman.types import RGBColor
+from pacman.types import RGBAColor, RGBColor
 
 
 @cache
@@ -55,12 +55,7 @@ def ghost_image(
     color: RGBColor,
     direction: str,
 ) -> Image.Image:
-    side = ceil(radius * 2) + 2
-    img = Image.new(
-        "RGBA",
-        (side, side),
-        (0, 0, 0, 0),
-    )
+    side = ceil(radius * 2)
     palette = Image.new(
         "RGBA",
         (16, 16),
@@ -98,50 +93,46 @@ def ghost_image(
         end_x: int,
         end_y: int,
         img: Image.Image,
-        color: tuple[
-            int,
-            int,
-            int,
-            int,
-        ],
+        color: RGBAColor,
     ) -> None:
         for y in range(start_y, end_y + 1):
             for x in range(start_x, end_x + 1):
                 img.putpixel((x, y), color)
 
-    blackeye_start = {
-        "E": (2, 1),
-        "W": (0, 1),
-        "N": (1, 0),
-        "S": (1, 2),
+    eye_size = 4
+    eye_top_y = 5
+    left_eye_x = 3
+    right_eye_x = 9
+    pupil_size = 2
+    pupil_right_x = eye_size - pupil_size
+    pupil_bottom_y = eye_size - pupil_size
+    pupil_center_x = pupil_right_x // 2
+    pupil_center_y = pupil_bottom_y // 2
+    pupil_offsets = {
+        "E": (pupil_right_x, pupil_center_y),
+        "W": (0, pupil_center_y),
+        "N": (pupil_center_x, 0),
+        "S": (pupil_center_x, pupil_bottom_y),
     }
-    range_putpixel(3, 5, 6, 8, palette, (255, 255, 255, 255))
-    range_putpixel(9, 5, 12, 8, palette, (255, 255, 255, 255))
-    left_blackeye_start_x, left_blackeye_start_y = (
-        3 + blackeye_start[direction][0],
-        5 + blackeye_start[direction][1],
-    )
-    range_putpixel(
-        left_blackeye_start_x,
-        left_blackeye_start_y,
-        left_blackeye_start_x + 1,
-        left_blackeye_start_y + 1,
-        palette,
-        (0, 0, 0, 255),
-    )
-    right_blackeye_start_x, right_blackeye_start_y = (
-        9 + blackeye_start[direction][0],
-        5 + blackeye_start[direction][1],
-    )
-    range_putpixel(
-        right_blackeye_start_x,
-        right_blackeye_start_y,
-        right_blackeye_start_x + 1,
-        right_blackeye_start_y + 1,
-        palette,
-        (0, 0, 0, 255),
-    )
+    pupil_offset_x, pupil_offset_y = pupil_offsets[direction]
+    for eye_left in (left_eye_x, right_eye_x):
+        range_putpixel(
+            eye_left,
+            eye_top_y,
+            eye_left + eye_size - 1,
+            eye_top_y + eye_size - 1,
+            palette,
+            (255, 255, 255, 255),
+        )
+        pupil_left = eye_left + pupil_offset_x
+        pupil_top = eye_top_y + pupil_offset_y
+        range_putpixel(
+            pupil_left,
+            pupil_top,
+            pupil_left + pupil_size - 1,
+            pupil_top + pupil_size - 1,
+            palette,
+            (0, 0, 0, 255),
+        )
 
-    zoomed = palette.resize((side - 2, side - 2), resample=Image.Resampling.NEAREST)
-    img.alpha_composite(zoomed, (1, 1))
-    return img
+    return palette.resize((side, side), resample=Image.Resampling.NEAREST)

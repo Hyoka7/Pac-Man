@@ -12,6 +12,9 @@ type PixelPosition = tuple[float, float]
 type RGBColor = tuple[int, int, int]
 """Red, green and blue channel values, each from 0 to 255."""
 
+type RGBAColor = tuple[int, int, int, int]
+"""Red, green, blue and alpha values, each from 0 to 255; alpha 255 is opaque."""
+
 type MazeGrid = list[list[int]]
 """Rows of wall bitmasks, indexed as grid[y][x]."""
 
