@@ -1,6 +1,22 @@
 # Pac-Man 開発メモ
 
-最終更新：2026-11-06。
+最終更新：2026-11-07。
+
+## Ghostと戦略の理解（2026-11-07）
+
+- WorldRendererのgum・迷路・Player描画を読み進め、Canvasのdraw_pixel()/color_bytes()/fill_cell()とPillow画像生成の役割を確認。_fill_cell()はfill_cell()へ改名。draw_player()の不要な中心座標のorフォールバックを削除。
+- player_image()は透明な外周1pxと最終画像への合成を除去。16×16の下絵を直径ceil(radius*2)へNEARESTで拡大し、その画像を直接返す。Ghostの外周余白は維持。全218テスト成功。プレイヤーの変更後の実プレイでの見た目確認は未実施。
+- Ghostは上半分の円内ピクセルを先に塗り、下半分だけ切り欠きを判定。切り欠きは下絵上で幅2px・深さ2pxの矩形3か所とし、楕円・gradient等の計算を削除。元の楕円と同じ描画になる範囲を選び、24種類の画像が元画像とバイト単位で一致。全219テスト成功。
+- gumの管理をピクセル中心座標からセル座標へ変更。remain_gums・super_gumsはset[CellPosition]とし、reset_pacgums()からCanvas引数・依存を削除。取得判定はMovement.cellをそのまま渡し、WorldRenderer.draw_pacgums()だけが描画時に中心座標へ変換する。
+- 全218テスト成功。セルによる通常/スーパーgumの消費・二重取得防止・壁/開始地点の除外・レベル変更時のリセットを追加検証。既存の描画ピクセル・色形式・画面外の切り取り・行末余白の検証も維持。
+- Ghost.update_ghost()の復帰待ち・方向選択・共通Movementによる移動を確認。FleeBFSStrategyはGhost.__init__()で一度だけ作り、self.flee_strategyとして再利用するよう変更。
+- BFS・Ambush・Inky・FleeBFSを読んだ。追跡は事前計算したBFS距離表から距離が1減る方向を選択し、同距離候補からランダム選択。Ambushは前方最大3マス。ReverseAmbushは同じ構造のため説明を省略。Inkyは2マス前を中心に赤Ghostを反転した目標を計算し、到達可能な最寄りマスへ補正する。
+- Maze._build_distances()を読了。deque・popleft()で近いマスから探索し、distancesを訪問記録にも使う。Maze.__init__()の二重ループによる全通路からの距離表生成、central_cell()の開始位置選択も確認。
+- 型ヒントの深いネストはpacman/types.pyへ整理。CellPosition・CellOffset・PixelPosition・RGBColor・MazeGrid・CellDistances・MazeDistancesの型エイリアスを追加。画像キャッシュもNumericTextCacheEntryへ命名し、各エイリアスへdocstringを追加。処理やデータ形式は維持。
+- ImageRenderer.draw_image()を読了。Canvas内に収まる範囲をcropし、背景を行ごとに取り出して連結、Pillowへ変換してalpha_compositeし、Canvas形式のbytesへ戻して行ごとに書き戻す。貼り付け引数はdest_x・dest_yに改名し、固定値4はcanvas.bytes_per_pixel参照へ変更。
+- 現在の理解地点はghost_image()の切り欠き判定まで。上半分は半円、下半分は胴体と幅2px・深さ2pxの切り欠き3か所。1つのピクセルごとにnotch_x=-4・0・4を順に調べ、どれかの範囲内なら塗らない。Ghostの点滅は残り時間を0.2秒ごとの区間へ分けて表示/色を交互に変える仕組みも確認。
+- 次回はghost_image()内のrange_putpixel()から、白目・向きに応じた黒目の描画、最後の拡大と合成を読む。その後、GUIのレイアウトや画面別描画・未読のキー処理へ進む。機能追加よりコード理解を優先し、32ビット以外の画像対応とitch.io配布は引き続き保留。
+- 最終検証は全219テスト成功。ユーザーの依頼で今回の型整理・セル座標でのgum管理・描画整理と進捗をcommit・pushする。scores.jsonとdocs/は対象外。
 
 ## 起動から終了までの理解（2026-11-06）
 

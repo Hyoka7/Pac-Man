@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from mazegenerator import MazeGenerator
 
+from pacman.types import CellPosition
 from pacman.controls.cheating import CheatHandler
 from pacman.controls.game_input import dispatch_key
 from pacman.controls.game_input import release_key as release_game_key
@@ -72,7 +73,7 @@ class Game:
     def place_level(self, canvas: Canvas) -> None:
         """Place a new level after the renderer has updated the canvas layout."""
         self.respawn(canvas)
-        self.pacgums.reset_pacgums(self.maze, canvas, self.player.movement.cell)
+        self.pacgums.reset_pacgums(self.maze, self.player.movement.cell)
         self.new_level_needs_placement = False
 
     def respawn(self, canvas: Canvas) -> None:
@@ -221,7 +222,7 @@ class Game:
             ),
         ]
 
-    def _ghost_spawn_cells(self) -> tuple[tuple[int, int], ...]:
+    def _ghost_spawn_cells(self) -> tuple[CellPosition, ...]:
         """Return spawn corners in the same order as the ghost team."""
         return (
             (0, 0),

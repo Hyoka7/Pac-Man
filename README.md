@@ -116,6 +116,7 @@ Pydanticの`ScoreEntry`（名前と得点）と`HighscoreData`を使います。
 | `pacman/__main__.py` | 設定の読み込み、迷路生成と起動。`python -m pacman config.json` にも対応 |
 | `pacman/parser/` | コメント付きJSONの読み込みと不正な項目の既定値への補正 |
 | `pacman/models/` | 共通設定・レベル別設定のPydanticモデル |
+| `pacman/types.py` | マス座標・ピクセル座標・色・迷路・BFS距離表の型エイリアス |
 | `pacman/game/game.py` | ゲーム進行、得点・衝突、復活、レベル準備 |
 | `pacman/game/state.py` | Home・Ready・Playingなどの共通状態 |
 | `pacman/game/player.py` / `pacman/game/ghost.py` | キャラクターの状態・役割と更新 |
@@ -137,7 +138,7 @@ Pydanticの`ScoreEntry`（名前と得点）と`HighscoreData`を使います。
 
 キー入力は `Game.handle_key()` から `pacman.controls.game_input` へ渡し、ゲームの状態・得点・残機は引き続き `Game` と各キャラクターが保持します。画面遷移は `Game.set_state()` で再描画要求も更新します。
 
-ゲーム側のクラスから描画を分離し、`WorldRenderer` が迷路・gum・キャラクターを描きます。画像生成とキャッシュは `pacman.visualize.sprites` が担当します。移動とgumの配置は引き続きCanvasの座標変換を使いますが、型ヒントの参照だけなのでゲーム関連のimportでは描画・MLX・Pygameを読み込みません。
+ゲーム側のクラスから描画を分離し、`WorldRenderer` が迷路・gum・キャラクターを描きます。画像生成とキャッシュは `pacman.visualize.sprites` が担当します。gumはセル座標で配置・消費を管理し、描画時だけCanvasで中心座標へ変換します。移動は引き続きCanvasの座標変換を使いますが、型ヒントの参照だけなのでゲーム関連のimportでは描画・MLX・Pygameを読み込みません。
 
 状態は `GameState`、赤の識別は戦略の型ではなく `GhostRole.RED` を使います。Pythonのソースはすべて `pacman/` にまとめ、`pacman.py` はルートの起動用スクリプトとして残しています。音源・フォントは引き続きルートの `assets/` に置きます。
 

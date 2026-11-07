@@ -5,12 +5,13 @@ from __future__ import annotations
 from collections import deque
 
 from pacman.game.directions import DIRECTION_OFFSETS, DIRECTIONS, WALL_BITS
+from pacman.types import CellDistances, CellPosition, MazeDistances, MazeGrid
 
 
 class Maze:
     """Own a rectangular grid of wall masks."""
 
-    def __init__(self, maze: list[list[int]]) -> None:
+    def __init__(self, maze: MazeGrid) -> None:
         """Validate and copy the supplied maze."""
         if not maze or not maze[0]:
             raise ValueError("maze must not be empty")
@@ -22,15 +23,15 @@ class Maze:
             type(cell) is not int or not 0 <= cell <= 15 for row in maze for cell in row
         ):
             raise ValueError("each cell must be an integer wall mask (0..15)")
-        self.maze = [row[:] for row in maze]
-        self.distances = {
+        self.maze: MazeGrid = [row[:] for row in maze]
+        self.distances: MazeDistances = {
             (x, y): self._build_distances((x, y))
             for y, row in enumerate(self.maze)
             for x, cell in enumerate(row)
             if cell != 15
         }
 
-    def central_cell(self) -> tuple[int, int]:
+    def central_cell(self) -> CellPosition:
         """Return a passage nearest the center, breaking ties in row order."""
         center_x, center_y = self.cols // 2, self.rows // 2
         passages = [
@@ -46,11 +47,9 @@ class Maze:
             key=lambda cell: abs(cell[0] - center_x) + abs(cell[1] - center_y),
         )
 
-    def _build_distances(
-        self, start: tuple[int, int]
-    ) -> dict[tuple[int, int], int]:
+    def _build_distances(self, start: CellPosition) -> CellDistances:
         """Run BFS from one cell while preparing the level's distance table."""
-        distances = {start: 0}
+        distances: CellDistances = {start: 0}
         queue = deque([start])
         while queue:
             cell = queue.popleft()
@@ -65,7 +64,7 @@ class Maze:
                 queue.append(neighbor)
         return distances
 
-    def next_cell(self, x: int, y: int, direction: str) -> tuple[int, int]:
+    def next_cell(self, x: int, y: int, direction: str) -> CellPosition:
         """Return the adjacent cell; walls and bounds are checked separately."""
         if direction not in DIRECTION_OFFSETS:
             raise ValueError("direction must be N, E, S or W")

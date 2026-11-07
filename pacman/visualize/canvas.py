@@ -1,5 +1,7 @@
 """Shared image-buffer drawing and screen-coordinate conversion."""
 
+from pacman.types import PixelPosition, RGBColor
+
 
 class Canvas:
     """Own the image buffer and layout used by all renderers."""
@@ -28,14 +30,14 @@ class Canvas:
         self.offset_y = offset_y
         self.bytes_per_pixel = 4
 
-    def color_bytes(self, color: tuple[int, int, int]) -> bytes:
+    def color_bytes(self, color: RGBColor) -> bytes:
         """Encode an opaque RGB color in the image's byte order."""
         r, g, b = color
         if self.img_format == 0:
             return bytes([b, g, r, 255])
         return bytes([255, r, g, b])
 
-    def draw_pixel(self, x: int, y: int, color: tuple[int, int, int]) -> None:
+    def draw_pixel(self, x: int, y: int, color: RGBColor) -> None:
         """Paint one pixel with a solid color, ignoring off-screen points."""
         if not (0 <= x < self.width and 0 <= y < self.height):
             return
@@ -43,7 +45,7 @@ class Canvas:
         pixel_end = pixel_start + self.bytes_per_pixel
         self.img_data[pixel_start:pixel_end] = self.color_bytes(color)
 
-    def cell_center(self, x: int, y: int) -> tuple[float, float]:
+    def cell_center(self, x: int, y: int) -> PixelPosition:
         """Convert a maze cell to its center in screen pixels."""
         center_x = self.offset_x + (x + 0.5) * self.cell_size
         center_y = self.offset_y + (y + 0.5) * self.cell_size
@@ -63,10 +65,10 @@ class Canvas:
         y: int,
         width: int,
         height: int,
-        color: tuple[int, int, int],
+        color: RGBColor,
     ) -> None:
         """Fill a clipped rectangle using a contiguous slice per image row."""
-        self._fill_cell(x, y, x + width, y + height, color)
+        self.fill_cell(x, y, x + width, y + height, color)
 
     def is_in_circle(
         self,
@@ -81,13 +83,13 @@ class Canvas:
         dy = y_pixel - center_y
         return dx**2 + dy**2 <= radius**2
 
-    def _fill_cell(
+    def fill_cell(
         self,
         x0: int,
         y0: int,
         x1: int,
         y1: int,
-        color: tuple[int, int, int],
+        color: RGBColor,
     ) -> None:
         """Fill a clipped rectangle, excluding its right and bottom edges."""
         start_x = max(0, min(x0, self.width))

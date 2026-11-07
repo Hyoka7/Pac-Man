@@ -1,8 +1,10 @@
 """Shared grid directions; positive y points down the screen."""
 
+from pacman.types import CellOffset
+
 DIRECTIONS = ("N", "E", "S", "W")
 
-DIRECTION_OFFSETS: dict[str, tuple[int, int]] = {
+DIRECTION_OFFSETS: dict[str, CellOffset] = {
     "N": (0, -1),
     "E": (1, 0),
     "S": (0, 1),

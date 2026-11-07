@@ -5,6 +5,8 @@ from math import ceil, hypot, radians, tan
 
 from PIL import Image
 
+from pacman.types import RGBColor
+
 
 @cache
 def player_image(
@@ -12,12 +14,7 @@ def player_image(
     direction: str,
     mouth_step: int,
 ) -> Image.Image:
-    side = ceil(radius * 2) + 2
-    img = Image.new(
-        "RGBA",
-        (side, side),
-        (0, 0, 0, 0),
-    )
+    side = ceil(radius * 2)
     palette = Image.new(
         "RGBA",
         (16, 16),
@@ -49,16 +46,13 @@ def player_image(
             dy = y - 7.5
             if dx * dx + dy * dy <= 8 * 8 and not _is_in_mouth(dx, dy):
                 palette.putpixel((x, y), (255, 255, 0, 255))
-    zoomed = palette.resize((side - 2, side - 2), resample=Image.Resampling.NEAREST)
-    img.alpha_composite(zoomed, (1, 1))
-
-    return img
+    return palette.resize((side, side), resample=Image.Resampling.NEAREST)
 
 
 @cache
 def ghost_image(
     radius: float,
-    color: tuple[int, int, int],
+    color: RGBColor,
     direction: str,
 ) -> Image.Image:
     side = ceil(radius * 2) + 2
@@ -74,34 +68,28 @@ def ghost_image(
     )
     center_x, center_y = 8.0, 8.0
     sprite_radius = 8.0
-    notch_depth = sprite_radius / 3
-    notch_half_width = sprite_radius / 6
+    notch_depth = 2.0
+    notch_half_width = 1.0
     for y in range(16):
         for x in range(16):
             dx = x + 0.5 - center_x
             dy = y + 0.5 - center_y
             if dy <= 0:
-                # Distance to the head's circular outline.
-                distance = hypot(dx, dy) - sprite_radius
-            else:
-                # Distance to the sides and bottom; the head-body join
-                # is inside the shape, so it must stay fully colored.
-                distance = max(abs(dx) - sprite_radius, dy - sprite_radius)
+                if hypot(dx, dy) <= sprite_radius:
+                    palette.putpixel((x, y), (*color, 255))
+                continue
+            distance = max(abs(dx) - sprite_radius, dy - sprite_radius)
+            if distance > 0:
+                continue
+            in_notch = False
             for notch_x in (-sprite_radius / 2, 0.0, sprite_radius / 2):
-                # Center each ellipse on the bottom edge so its upper
-                # half removes a rounded notch from the body.
-                ellipse_x = (dx - notch_x) / notch_half_width
-                ellipse_y = (dy - sprite_radius) / notch_depth
-                ellipse_radius = hypot(ellipse_x, ellipse_y)
-                gradient = hypot(ellipse_x / notch_half_width, ellipse_y / notch_depth)
-                # Approximate distance in pixels, positive inside the cut.
-                cut_distance = (
-                    ellipse_radius * (1.0 - ellipse_radius) / gradient
-                    if gradient > 0
-                    else min(notch_half_width, notch_depth)
-                )
-                distance = max(distance, cut_distance)
-            if distance <= 0:
+                if (
+                    abs(dx - notch_x) <= notch_half_width
+                    and dy >= sprite_radius - notch_depth
+                ):
+                    in_notch = True
+                    break
+            if not in_notch:
                 palette.putpixel((x, y), (*color, 255))
 
     def range_putpixel(

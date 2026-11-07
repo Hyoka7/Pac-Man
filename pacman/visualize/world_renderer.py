@@ -6,9 +6,10 @@ from pacman.game.ghost import Ghost
 from pacman.game.maze import Maze
 from pacman.game.pacgums import Pacgums
 from pacman.game.player import Player
+from pacman.types import RGBColor
+from pacman.visualize.canvas import Canvas
 from pacman.visualize.image_renderer import ImageRenderer
 from pacman.visualize.sprites import ghost_image, player_image
-from pacman.visualize.canvas import Canvas
 
 
 class WorldRenderer:
@@ -21,9 +22,7 @@ class WorldRenderer:
 
     def draw_player(self, player: Player, canvas: Canvas) -> None:
         """Draw the player at its current interpolated center."""
-        center_x, center_y = player.movement.center or canvas.cell_center(
-            *player.movement.cell
-        )
+        center_x, center_y = player.movement.center
         mouth_step = round(player.mouth_half_angle / 45 * 10)
         img = player_image(player.radius, player.movement.direction, mouth_step)
         left = round(center_x - img.width / 2)
@@ -63,13 +62,13 @@ class WorldRenderer:
         self,
         maze: Maze,
         canvas: Canvas,
-        wall_color: tuple[int, int, int],
-        landmark_color: tuple[int, int, int],
+        wall_color: RGBColor,
+        landmark_color: RGBColor,
     ) -> None:
         """Draw the maze and enclosed 42 cells."""
 
-        def line(x0: int, y0: int, x1: int, y1: int) -> None:
-            canvas._fill_cell(x0, y0, x1 + 1, y1 + 1, wall_color)
+        def _draw_line(x0: int, y0: int, x1: int, y1: int) -> None:
+            canvas.fill_cell(x0, y0, x1 + 1, y1 + 1, wall_color)
 
         for y, row in enumerate(maze.maze):
             for x, cell in enumerate(row):
@@ -78,15 +77,15 @@ class WorldRenderer:
                 x1 = x0 + canvas.cell_size
                 y1 = y0 + canvas.cell_size
                 if cell == 15:
-                    canvas._fill_cell(x0, y0, x1, y1, landmark_color)
+                    canvas.fill_cell(x0, y0, x1, y1, landmark_color)
                 if cell & 1:
-                    line(x0, y0, x1, y0)
+                    _draw_line(x0, y0, x1, y0)
                 if cell & 2:
-                    line(x1, y0, x1, y1)
+                    _draw_line(x1, y0, x1, y1)
                 if cell & 4:
-                    line(x0, y1, x1, y1)
+                    _draw_line(x0, y1, x1, y1)
                 if cell & 8:
-                    line(x0, y0, x0, y1)
+                    _draw_line(x0, y0, x0, y1)
 
     def _draw_gum(
         self,
@@ -94,7 +93,7 @@ class WorldRenderer:
         center_x: float,
         center_y: float,
         radius: float,
-        color: tuple[int, int, int],
+        color: RGBColor,
     ) -> None:
         """Draw a clipped solid circle using the existing pixel-center test."""
         for y in range(
@@ -114,6 +113,12 @@ class WorldRenderer:
     def draw_pacgums(self, pacgums: Pacgums, canvas: Canvas) -> None:
         """Draw only the pacgums that have not been eaten."""
         for x, y in pacgums.remain_gums:
-            self._draw_gum(canvas, x, y, canvas.cell_size * 0.05, (255, 255, 255))
+            center_x, center_y = canvas.cell_center(x, y)
+            self._draw_gum(
+                canvas, center_x, center_y, canvas.cell_size * 0.05, (255, 255, 255)
+            )
         for x, y in pacgums.super_gums:
-            self._draw_gum(canvas, x, y, canvas.cell_size * 0.15, (255, 255, 0))
+            center_x, center_y = canvas.cell_center(x, y)
+            self._draw_gum(
+                canvas, center_x, center_y, canvas.cell_size * 0.15, (255, 255, 0)
+            )

@@ -5,7 +5,11 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from pacman.types import RGBColor
 from pacman.visualize.canvas import Canvas
+
+type NumericTextCacheEntry = tuple[str, RGBColor, int, Image.Image]
+"""Cached text, RGB color, font size and the resulting composed image."""
 
 
 @cache
@@ -20,7 +24,7 @@ def _font(size: int) -> ImageFont.FreeTypeFont:
 @cache
 def _text_image(
     text: str,
-    color: tuple[int, int, int],
+    color: RGBColor,
     size: int,
 ) -> Image.Image:
     """Keep only the glyph bounds, including antialiased transparent edges."""
@@ -36,9 +40,7 @@ class ImageRenderer:
     """Generate, measure and composite cached text images onto a canvas."""
 
     def __init__(self) -> None:
-        self.numeric_cache: dict[
-            str, tuple[str, tuple[int, int, int], int, Image.Image]
-        ] = {}
+        self.numeric_cache: dict[str, NumericTextCacheEntry] = {}
 
     def _font(self, size: int) -> ImageFont.FreeTypeFont:
         return _font(size)
@@ -46,7 +48,7 @@ class ImageRenderer:
     def _text_image(
         self,
         text: str,
-        color: tuple[int, int, int],
+        color: RGBColor,
         size: int,
     ) -> Image.Image:
         return _text_image(text, color, size)
@@ -56,30 +58,35 @@ class ImageRenderer:
         return self._text_image(text, (255, 255, 255), size).size
 
     def draw_image(
-        self, canvas: Canvas, x: int, y: int, image: Image.Image
+        self,
+        canvas: Canvas,
+        dest_x: int,
+        dest_y: int,
+        image: Image.Image,
     ) -> None:
 
         row_bytes: list[bytes] = []
+        bytes_per_pixel = canvas.bytes_per_pixel
         width, height = image.size
-        left = max(0, x)
-        top = max(0, y)
-        right = min(canvas.width, x + width)
-        bottom = min(canvas.height, y + height)
+        left = max(0, dest_x)
+        top = max(0, dest_y)
+        right = min(canvas.width, dest_x + width)
+        bottom = min(canvas.height, dest_y + height)
         if left >= right or top >= bottom:
             return
         image = image.crop(
             (
-                left - x,
-                top - y,
-                right - x,
-                bottom - y,
+                left - dest_x,
+                top - dest_y,
+                right - dest_x,
+                bottom - dest_y,
             )
         )
-        x, y = left, top
+        dest_x, dest_y = left, top
         width, height = image.size
         for row in range(height):
-            start = (y + row) * canvas.line_size + x * 4
-            end = start + width * 4
+            start = (dest_y + row) * canvas.line_size + dest_x * bytes_per_pixel
+            end = start + width * bytes_per_pixel
             background_row = bytes(canvas.img_data[start:end])
             row_bytes.append(background_row)
         background_all = b"".join(row_bytes)
@@ -98,10 +105,10 @@ class ImageRenderer:
             r, g, b, a = background.split()
             result = Image.merge("RGBA", (a, r, g, b)).tobytes()
         for row in range(height):
-            start = (y + row) * canvas.line_size + x * 4
-            source_start = row * width * 4
-            canvas.img_data[start : start + width * 4] = result[
-                source_start : source_start + width * 4
+            start = (dest_y + row) * canvas.line_size + dest_x * bytes_per_pixel
+            source_start = row * width * bytes_per_pixel
+            canvas.img_data[start : start + width * bytes_per_pixel] = result[
+                source_start : source_start + width * bytes_per_pixel
             ]
 
     def _split(self, text: str) -> list[str]:
@@ -134,7 +141,7 @@ class ImageRenderer:
         x: int,
         y: int,
         text: str,
-        color: tuple[int, int, int] = (255, 255, 255),
+        color: RGBColor = (255, 255, 255),
         size: int = 20,
     ) -> None:
         """Blend a text image at its top-left position without native text calls."""
@@ -146,7 +153,7 @@ class ImageRenderer:
     def numeric_text_image(
         self,
         text: str,
-        color: tuple[int, int, int] = (255, 255, 255),
+        color: RGBColor = (255, 255, 255),
         size: int = 20,
         *,
         slot: str = "hud",
@@ -175,7 +182,7 @@ class ImageRenderer:
         x: int,
         y: int,
         text: str,
-        color: tuple[int, int, int] = (255, 255, 255),
+        color: RGBColor = (255, 255, 255),
         size: int = 20,
         *,
         slot: str = "hud",

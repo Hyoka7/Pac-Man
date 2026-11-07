@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 
+from pacman.types import RGBColor
 from pacman.game.state import GameState
 from pacman.storage.highscore import ScoreEntry
 from pacman.visualize.image_renderer import ImageRenderer
@@ -59,7 +60,7 @@ class GUI:
         window_width: int,
         y: int,
         text: str,
-        color: tuple[int, int, int] = (255, 255, 255),
+        color: RGBColor = (255, 255, 255),
     ) -> None:
         width, _ = self.text_renderer.text_size(text, self.font_size)
         self.text_renderer.draw_text(
@@ -72,7 +73,7 @@ class GUI:
         width: int,
         height: int,
         lines: Sequence[str],
-        colors: dict[int, tuple[int, int, int]] | None = None,
+        colors: dict[int, RGBColor] | None = None,
     ) -> None:
         """Center a text block using Pillow's actual glyph dimensions."""
         if not lines:

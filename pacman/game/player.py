@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from pacman.types import CellPosition
 from pacman.game.maze import Maze
 from pacman.game.movement import Movement
 from pacman.game.pacgums import PacgumEatenEnum, Pacgums
@@ -20,7 +21,7 @@ class Player:
 
     def __init__(
         self,
-        pos: tuple[int, int] = (0, 0),
+        pos: CellPosition = (0, 0),
         initial_lives: int = 3,
     ) -> None:
         """Start stopped at a cell, facing east."""
@@ -68,7 +69,7 @@ class Player:
                 self.is_invincible = False
         if not self.movement.update_movement(elapsed, canvas):
             return PacgumEatenEnum.Neither
-        eat_status = pacgums.consume_pacgum(canvas.cell_center(*self.movement.cell))
+        eat_status = pacgums.consume_pacgum(self.movement.cell)
         if eat_status == PacgumEatenEnum.Super:
             self.is_invincible = True
             self.invincible_remain = self.INVINCIBLE_DURATION

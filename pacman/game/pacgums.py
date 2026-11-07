@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import TYPE_CHECKING
-
 from pacman.game.maze import Maze
-
-if TYPE_CHECKING:
-    from pacman.visualize.canvas import Canvas
+from pacman.types import CellPosition
 
 
 class PacgumEatenEnum(IntEnum):
@@ -18,12 +14,12 @@ class PacgumEatenEnum(IntEnum):
 
 
 class Pacgums:
-    """Own the remaining pacgum centers for one level."""
+    """Own the remaining pacgum cells for one level."""
 
     def __init__(self, rows: int, cols: int) -> None:
         """Start with no pacgums."""
-        self.remain_gums: set[tuple[float, float]] = set()
-        self.super_gums: set[tuple[float, float]] = set()
+        self.remain_gums: set[CellPosition] = set()
+        self.super_gums: set[CellPosition] = set()
         self.rows: int = rows
         self.cols: int = cols
 
@@ -34,30 +30,30 @@ class Pacgums:
         return (x == 0 or x == self.cols - 1) and (y == 0 or y == self.rows - 1)
 
     def reset_pacgums(
-        self, maze: Maze, canvas: Canvas, player_pos: tuple[int, int]
+        self, maze: Maze, player_pos: CellPosition
     ) -> None:
         """Replace the level's pacgums, excluding walls and the start cell."""
         self.rows = maze.rows
         self.cols = maze.cols
         self.remain_gums = {
-            canvas.cell_center(x, y)
+            (x, y)
             for y, row in enumerate(maze.maze)
             for x, cell in enumerate(row)
             if cell != 15 and (x, y) != player_pos and not self._is_edge(x, y)
         }
         self.super_gums = {
-            canvas.cell_center(x, y)
+            (x, y)
             for y, row in enumerate(maze.maze)
             for x, cell in enumerate(row)
             if cell != 15 and (x, y) != player_pos and self._is_edge(x, y)
         }
 
-    def consume_pacgum(self, center: tuple[float, float]) -> PacgumEatenEnum:
-        """Remove the pacgum at an arrived cell center."""
-        if center in self.remain_gums:
-            self.remain_gums.discard(center)
+    def consume_pacgum(self, cell: CellPosition) -> PacgumEatenEnum:
+        """Remove the pacgum at an arrived maze cell."""
+        if cell in self.remain_gums:
+            self.remain_gums.discard(cell)
             return PacgumEatenEnum.Normal
-        if center in self.super_gums:
-            self.super_gums.discard(center)
+        if cell in self.super_gums:
+            self.super_gums.discard(cell)
             return PacgumEatenEnum.Super
         return PacgumEatenEnum.Neither

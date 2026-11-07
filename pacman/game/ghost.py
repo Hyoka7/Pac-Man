@@ -5,6 +5,7 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Unpack
 
+from pacman.types import CellPosition, RGBColor
 from pacman.game.maze import Maze
 from pacman.game.movement import Movement
 from pacman.game.strategy import FleeBFSStrategy, Strategy, StrategyKwargs
@@ -27,9 +28,9 @@ class Ghost:
 
     def __init__(
         self,
-        cell: tuple[int, int],
+        cell: CellPosition,
         strategy: Strategy,
-        color: tuple[int, int, int] = (255, 0, 0),
+        color: RGBColor = (255, 0, 0),
         direction: str = "E",
         *,
         role: GhostRole | None = None,
@@ -40,10 +41,11 @@ class Ghost:
         self.respawn_remaining = 0.0
         self.color = color
         self.strategy = strategy
+        self.flee_strategy = FleeBFSStrategy()
         self.role = role
 
     @property
-    def cell(self) -> tuple[int, int]:
+    def cell(self) -> CellPosition:
         """Return the last cell center reached by the ghost."""
         return self.movement.cell
 
@@ -62,10 +64,10 @@ class Ghost:
         elapsed: float,
         maze: Maze,
         canvas: Canvas,
-        player_cell: tuple[int, int],
+        player_cell: CellPosition,
         player_dir: str,
         eatable: bool,
-        target: tuple[int, int] | None = None,
+        target: CellPosition | None = None,
         **kwargs: Unpack[StrategyKwargs],
     ) -> None:
         """Choose a direction at cell centers and animate the chosen move."""
@@ -84,8 +86,7 @@ class Ghost:
                     return
                 self.movement.start(direction, maze, canvas)
             else:
-                flee = FleeBFSStrategy()
-                direction = flee.choose_direction(
+                direction = self.flee_strategy.choose_direction(
                     maze, self.cell, player_cell, player_dir, **kwargs
                 )
                 if direction is None:

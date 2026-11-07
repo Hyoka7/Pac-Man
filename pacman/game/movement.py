@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from pacman.types import CellPosition, PixelPosition
 from pacman.game.directions import OPPOSITE_DIRECTIONS
 from pacman.game.maze import Maze
 
@@ -16,7 +17,7 @@ class Movement:
 
     def __init__(
         self,
-        cell: tuple[int, int],
+        cell: CellPosition,
         speed: float = 5.0,
         direction: str = "E",
     ) -> None:
@@ -24,9 +25,9 @@ class Movement:
         self.cell = cell
         self.initial_cell = cell
         # place() sets the actual pixel coordinates before drawing or movement.
-        self.center: tuple[float, float] = (0.0, 0.0)
+        self.center: PixelPosition = (0.0, 0.0)
         self.target_cell = cell
-        self.target: tuple[float, float] = self.center
+        self.target: PixelPosition = self.center
         self.direction = direction
         self.speed = speed
         self.moving = False
@@ -34,10 +35,10 @@ class Movement:
 
     @staticmethod
     def move_towards(
-        center: tuple[float, float],
-        target: tuple[float, float],
+        center: PixelPosition,
+        target: PixelPosition,
         distance: float,
-    ) -> tuple[float, float]:
+    ) -> PixelPosition:
         """Advance along one axis, stopping exactly at the target.
 
         Coordinates and distance are measured in pixels. The caller chooses a
