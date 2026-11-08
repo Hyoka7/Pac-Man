@@ -14,7 +14,9 @@ from pacman.game.pacgums import PacgumEatenEnum
 from pacman.game.player import Player
 from pacman.models import Config
 from pacman.visualize.canvas import Canvas
-from pacman.visualize.gui import GUI, GameState
+from pacman.game.state import GameState
+from pacman.visualize.gui import GUI
+from pacman.visualize.layout import centered_start
 from pacman.visualize.mlx_events import MlxEvent, MlxEventMask
 from pacman.visualize.world_renderer import WorldRenderer
 
@@ -193,7 +195,7 @@ class GameVisualizer:
             bar_y = self.gui.bar_y
             self.gui.draw_invincible_bar(
                 self.canvas,
-                (self.width - self.gui.bar_width) // 2,
+                centered_start(self.width, self.gui.bar_width),
                 bar_y,
                 self.gui.bar_width,
                 self.gui.bar_height,
@@ -323,8 +325,12 @@ class GameVisualizer:
         self.cell_size = self._calc_cell_size()
         if self.cell_size < 1:
             raise ValueError("maze is too large for the screen")
-        self.offset_x = (self.width - (self.cell_size * self.game.maze.cols + 1)) // 2
-        self.offset_y = (self.height - (self.cell_size * self.game.maze.rows + 1)) // 2
+        self.offset_x = centered_start(
+            self.width, self.cell_size * self.game.maze.cols + 1
+        )
+        self.offset_y = centered_start(
+            self.height, self.cell_size * self.game.maze.rows + 1
+        )
 
     def _open_window(self) -> None:
         """Initialize MLX and allocate the window and backing image."""

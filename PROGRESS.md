@@ -1,6 +1,20 @@
 # Pac-Man 開発メモ
 
-最終更新：2026-11-07。
+最終更新：2026-11-08。
+
+## GUIの理解と中央配置の整理（2026-11-08）
+
+- GUIを一通り読了。update_layout()の文字サイズ・余白・行間・HUD・無敵バーと迷路領域の関係、文字の中央配置、パネルの背景と枠線、各画面の描画を確認した。変数が多いレイアウト計算は、必要に応じて復習する。
+- 中央配置の共通関数centered_start(area_size, content_size)をpacman/visualize/layout.pyへ追加。文字・パネル・ランキング・迷路・無敵バーの「(配置先の大きさ - 中身の大きさ) // 2」を置き換えた。
+- パネル描画のbackground()をdraw_panel()へ改名。draw_backdrop()は静的画面の大きめのパネルを描く。画面全体はclear_image()の黒を使い、濃紺での重複した全面塗りつぶしとBACKGROUND_COLORを削除した。
+- パネルは表示内容から自動で縮める形ではなく、ユーザーが見た目を確認して選んだ、画面別の固定倍率による大きめのサイズを維持。文字サイズに合わせた拡縮と画面外へのはみ出し制限は残す。
+- HomeContent = tuple[list[str], int]をgui.pyに追加。_home_content()は文字列リストとメニュー開始行を返す。タイトルだけ通常の2倍の画像で描き、左右の透明部分をcropする。選択マークは項目の左隣へ別描画する。
+- ImageRendererの外部から使う_text_image()メソッドをtext_image()へ公開名に変更。モジュール内のキャッシュ関数_text_image()は非公開のまま。text_size()の高さは文字固有の境界ではなくascent + descentなので、測定用の文字をAgからAに変更。hud_yもfont_sizeへ揃えた。
+- ゲーム中とHomeのGhostを赤・ピンク・水色・オレンジに統一。ghost.pyのGHOST_COLORSを共有し、GhostRole.GREEN/BLUEをPINK/ORANGEへ改名。追跡戦略と配置順は維持。
+- ranking()の空行による場所取り、順位・名前・点数の列幅と左右揃え、チート説明の2列配置、無敵バーの中央への縮小と時間表示を確認した。draw_stats()のチート関連表示はCHEAT ONだけにし、倍率表示を削除。未使用になった引数はユーザーの方針により最後にまとめて整理する。
+- GameStateは定義元のpacman.game.stateから直接importするよう呼び出し元・テストを整理。パネル内への文字と画像の収まり、確認画面も含む複数解像度での描画を検証し、全219テスト成功。
+- 次回はImageRendererの文字描画処理を読む。__init__()のnumeric_cacheから、フォント取得・text_image()/text_size()・数値文字列の分割と画像再利用へ進む。draw_image()の合成とメモリ書き込みは前回読了済みなので必要時に復習する。
+- 機能追加よりコード理解を優先。32ビット以外の画像形式対応、itch.io配布、未使用引数の整理は保留。今回の変更と進捗をcommit・pushし、scores.jsonのプレイ記録とdocs/は含めない。
 
 ## Ghostと戦略の理解（2026-11-07）
 

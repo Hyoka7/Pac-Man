@@ -12,7 +12,7 @@ from pacman.controls.game_input import dispatch_key
 from pacman.controls.game_input import release_key as release_game_key
 from pacman.controls.keys import WindowAction
 from pacman.game.collision import Collision
-from pacman.game.ghost import Ghost, GhostRole
+from pacman.game.ghost import GHOST_COLORS, Ghost, GhostRole
 from pacman.game.maze import Maze
 from pacman.game.pacgums import PacgumEatenEnum, Pacgums
 from pacman.game.player import Player
@@ -209,16 +209,20 @@ class Game:
         """Create the team with its existing strategies, colors and spawn order."""
         corners = self._ghost_spawn_cells()
         return [
-            Ghost(corners[0], InkyStrategy(), color=(0, 255, 255), role=GhostRole.CYAN),
+            Ghost(
+                corners[0], InkyStrategy(),
+                color=GHOST_COLORS[GhostRole.CYAN], role=GhostRole.CYAN,
+            ),
             Ghost(corners[1], BFSStrategy(), role=GhostRole.RED),
             Ghost(
-                corners[2], AmbushStrategy(), color=(0, 255, 0), role=GhostRole.GREEN
+                corners[2], AmbushStrategy(),
+                color=GHOST_COLORS[GhostRole.PINK], role=GhostRole.PINK,
             ),
             Ghost(
                 corners[3],
                 ReverseAmbushStrategy(),
-                color=(0, 0, 255),
-                role=GhostRole.BLUE,
+                color=GHOST_COLORS[GhostRole.ORANGE],
+                role=GhostRole.ORANGE,
             ),
         ]
 

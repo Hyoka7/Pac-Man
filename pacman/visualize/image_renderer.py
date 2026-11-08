@@ -45,7 +45,7 @@ class ImageRenderer:
     def _font(self, size: int) -> ImageFont.FreeTypeFont:
         return _font(size)
 
-    def _text_image(
+    def text_image(
         self,
         text: str,
         color: RGBColor,
@@ -55,7 +55,7 @@ class ImageRenderer:
 
     def text_size(self, text: str, size: int = 20) -> tuple[int, int]:
         """Return the width and height needed for a single line of text."""
-        return self._text_image(text, (255, 255, 255), size).size
+        return self.text_image(text, (255, 255, 255), size).size
 
     def draw_image(
         self,
@@ -147,7 +147,7 @@ class ImageRenderer:
         """Blend a text image at its top-left position without native text calls."""
         if not text:
             return
-        image = self._text_image(text, color, size)
+        image = self.text_image(text, color, size)
         self.draw_image(canvas, x, y, image)
 
     def numeric_text_image(

@@ -17,8 +17,16 @@ if TYPE_CHECKING:
 class GhostRole(Enum):
     RED = auto()
     CYAN = auto()
-    GREEN = auto()
-    BLUE = auto()
+    PINK = auto()
+    ORANGE = auto()
+
+
+GHOST_COLORS: dict[GhostRole, RGBColor] = {
+    GhostRole.RED: (255, 0, 0),
+    GhostRole.PINK: (255, 184, 255),
+    GhostRole.CYAN: (0, 255, 255),
+    GhostRole.ORANGE: (255, 184, 82),
+}
 
 
 class Ghost:
@@ -30,7 +38,7 @@ class Ghost:
         self,
         cell: CellPosition,
         strategy: Strategy,
-        color: RGBColor = (255, 0, 0),
+        color: RGBColor = GHOST_COLORS[GhostRole.RED],
         direction: str = "E",
         *,
         role: GhostRole | None = None,

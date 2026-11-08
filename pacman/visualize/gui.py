@@ -1,18 +1,22 @@
 from collections.abc import Sequence
 
-from pacman.types import RGBColor
+from pacman.game.ghost import GHOST_COLORS, GhostRole
 from pacman.game.state import GameState
 from pacman.storage.highscore import ScoreEntry
-from pacman.visualize.image_renderer import ImageRenderer
-from pacman.visualize.sprites import ghost_image, player_image
+from pacman.types import RGBColor
 from pacman.visualize.canvas import Canvas
+from pacman.visualize.image_renderer import ImageRenderer
+from pacman.visualize.layout import centered_start
+from pacman.visualize.sprites import ghost_image, player_image
+
+type HomeContent = tuple[list[str], int]
+"""Home screen text lines and the index of the first menu line."""
 
 
 class GUI:
     RANKING_LIMIT = 10
     TEXT_COLOR = (255, 255, 255)
     ACCENT_COLOR = (255, 216, 74)
-    BACKGROUND_COLOR = (8, 13, 28)
     PANEL_COLOR = (16, 25, 48)
     BORDER_COLOR = (73, 194, 221)
     BAR_TRACK_COLOR = (31, 44, 67)
@@ -36,13 +40,13 @@ class GUI:
             if text_width + 4 * self.font_size <= width:
                 break
             self.font_size -= 1
-        self.text_height = self.text_renderer.text_size("Ag", self.font_size)[1]
+        self.text_height = self.text_renderer.text_size("A", self.font_size)[1]
         self.padding = self.font_size
         self.text_gap = max(1, round(self.font_size / 4))
         self.line_spacing = max(round(self.font_size * 1.4), self.text_height + 1)
         self.border_width = max(1, round(self.font_size / 10))
         self.hud_x = self.padding
-        self.hud_y = round(self.font_size * 0.75)
+        self.hud_y = self.font_size
         self.bar_width = min(self.font_size * 10, max(0, width - 2 * self.padding))
         self.bar_height = max(1, round(self.font_size / 2))
         self.bar_y = max(0, height - self.padding - self.bar_height)
@@ -64,7 +68,7 @@ class GUI:
     ) -> None:
         width, _ = self.text_renderer.text_size(text, self.font_size)
         self.text_renderer.draw_text(
-            canvas, (window_width - width) // 2, y, text, color, self.font_size
+            canvas, centered_start(window_width, width), y, text, color, self.font_size
         )
 
     def _put_lines_center(
@@ -104,27 +108,31 @@ class GUI:
         line_count: int,
         last_height: int | None = None,
     ) -> int:
-        return (height - self._block_height(line_count, last_height)) // 2
+        return centered_start(height, self._block_height(line_count, last_height))
 
     def _draw_panel_lines(
         self,
         canvas: Canvas,
         lines: Sequence[str],
     ) -> None:
-        panel_width = min(
-            self._max_text_width(lines) + 2 * self.padding,
-            max(0, canvas.width - 2 * self.padding),
+        panel_width = max(
+            0,
+            min(
+                self._max_text_width(lines) + 2 * self.padding,
+                canvas.width - 2 * self.padding,
+            ),
         )
-        panel_height = min(
-            self._block_height(len(lines)) + 2 * self.padding,
-            max(0, canvas.height - 2 * self.padding),
+        panel_height = max(
+            0,
+            min(
+                self._block_height(len(lines)) + 2 * self.padding,
+                canvas.height - 2 * self.padding,
+            ),
         )
-        panel_x = (canvas.width - panel_width) // 2
-        panel_y = (canvas.height - panel_height) // 2
-        self.background(
+        self.draw_panel(
             canvas,
-            panel_x,
-            panel_y,
+            centered_start(canvas.width, panel_width),
+            centered_start(canvas.height, panel_height),
             panel_width,
             panel_height,
         )
@@ -134,14 +142,13 @@ class GUI:
         canvas: Canvas,
         state: GameState,
     ) -> None:
-        """Draw a static screen's navy backdrop and centered bordered panel."""
+        """Draw a generously sized panel for each static screen."""
         if state in (
             GameState.Playing,
             GameState.Pause,
             GameState.Ready,
         ):
             return
-        canvas.fill_rect(0, 0, canvas.width, canvas.height, self.BACKGROUND_COLOR)
         panel_heights = {
             GameState.Home: self.line_spacing * 15,
             GameState.Ranking: self.line_spacing * 16,
@@ -159,10 +166,10 @@ class GUI:
             max(0, canvas.width - 2 * self.padding),
         )
         height = min(panel_heights[state], max(0, canvas.height - 2 * self.padding))
-        self.background(
+        self.draw_panel(
             canvas,
-            (canvas.width - width) // 2,
-            (canvas.height - height) // 2,
+            centered_start(canvas.width, width),
+            centered_start(canvas.height, height),
             width,
             height,
         )
@@ -173,7 +180,7 @@ class GUI:
             default=0,
         )
 
-    def background(
+    def draw_panel(
         self,
         canvas: Canvas,
         x: int,
@@ -200,17 +207,20 @@ class GUI:
     ) -> None:
         lines, menu_start = self._home_content()
         title_size = self.font_size * 2
-        image = self.text_renderer._text_image(
+        image = self.text_renderer.text_image(
             lines[0],
             self.ACCENT_COLOR,
             title_size,
         )
+        block_top = self._block_top(height, len(lines))
+        content_top = block_top - image.height // 2
+        focus_width = self.text_renderer.text_size(">", self.font_size)[0]
         image_range = image.getbbox()
         if image_range is not None:
             left, _, right, _ = image_range
             image = image.crop((left, 0, right, image.height))
-            x = (width - image.width) // 2
-            y = self._block_top(height, len(lines)) - image.height // 2
+            x = centered_start(width, image.width)
+            y = content_top
             self.text_renderer.draw_image(canvas, x, y, image)
         lines[0] = ""
         self._put_lines_center(
@@ -219,16 +229,13 @@ class GUI:
             height,
             lines,
             {
-                0: self.ACCENT_COLOR,
                 menu_start + focusing: self.ACCENT_COLOR,
             },
         )
-        block_top = self._block_top(height, len(lines))
         self._draw_home_characters(canvas, width, block_top + self.line_spacing)
         target_char = lines[menu_start + focusing]
         target_width, _ = self.text_renderer.text_size(target_char, self.font_size)
-        focus_width, _ = self.text_renderer.text_size(">", self.font_size)
-        x = (width - target_width) // 2 - focus_width - self.text_gap
+        x = centered_start(width, target_width) - focus_width - self.text_gap
         y = block_top + (menu_start + focusing) * self.line_spacing
         self.text_renderer.draw_text(
             canvas,
@@ -260,7 +267,7 @@ class GUI:
 
     def _home_content(
         self,
-    ) -> tuple[list[str], int]:
+    ) -> HomeContent:
         """Build the home title, menu and controls."""
         menu = [
             "Start",
@@ -343,7 +350,7 @@ class GUI:
         ]
         gap = self.font_size
         table_width = sum(column_widths) + gap * 2
-        left = (width - table_width) // 2
+        left = centered_start(width, table_width)
         top = self._block_top(
             height, len(lines), self.text_renderer.text_size(footer, self.font_size)[1]
         )
@@ -369,17 +376,19 @@ class GUI:
         y: int,
     ) -> None:
         pacman_img = player_image(self.font_size / 2, "E", 10)
-        ghost_colors = (
-            (255, 0, 0),
-            (128, 128, 128),
-            (0, 255, 255),
-            (0, 0, 255),
+        ghost_roles = (
+            GhostRole.RED,
+            GhostRole.PINK,
+            GhostRole.CYAN,
+            GhostRole.ORANGE,
         )
         imgs = [pacman_img]
         radius = self.font_size / 2
-        imgs.extend(ghost_image(radius, color, "E") for color in ghost_colors)
+        imgs.extend(
+            ghost_image(radius, GHOST_COLORS[role], "E") for role in ghost_roles
+        )
         total_width = sum(img.width for img in imgs) + self.text_gap * (len(imgs) - 1)
-        x = (width - total_width) // 2
+        x = centered_start(width, total_width)
         for img in imgs:
             self.text_renderer.draw_image(
                 canvas,
@@ -397,16 +406,17 @@ class GUI:
         score: int,
         name: str,
     ) -> None:
+        lines = [
+            "Game Over!",
+            f"Score: {score}",
+            f"Enter Name: {name}",
+            "Enter: Save",
+        ]
         self._put_lines_center(
             canvas,
             width,
             height,
-            [
-                "Game Over!",
-                f"Score: {score}",
-                f"Enter Name: {name}",
-                "Enter: Save",
-            ],
+            lines,
             {0: self.ACCENT_COLOR},
         )
 
@@ -418,16 +428,17 @@ class GUI:
         score: int,
         name: str,
     ) -> None:
+        lines = [
+            "All Clear!",
+            f"Score: {score}",
+            f"Enter Name: {name}",
+            "Enter: Save",
+        ]
         self._put_lines_center(
             canvas,
             width,
             height,
-            [
-                "All Clear!",
-                f"Score: {score}",
-                f"Enter Name: {name}",
-                "Enter: Save",
-            ],
+            lines,
             {0: self.ACCENT_COLOR},
         )
 
@@ -437,14 +448,15 @@ class GUI:
         width: int,
         height: int,
     ) -> None:
+        lines = [
+            "Stage Clear!!",
+            "Press any key to continue",
+        ]
         self._put_lines_center(
             canvas,
             width,
             height,
-            [
-                "Stage Clear!!",
-                "Press any key to continue",
-            ],
+            lines,
             {0: self.ACCENT_COLOR},
         )
 
@@ -463,8 +475,6 @@ class GUI:
         text = f"Lv:{level} Score:{score} Life:{lives} Time:{time:.1f}"
         if cheat_enabled:
             text += " CHEAT ON"
-        if score_multiplier != 1:
-            text += f" x{score_multiplier}"
         self.text_renderer.draw_numeric_text(
             canvas, x, y, text, self.TEXT_COLOR, self.font_size, slot="hud"
         )
@@ -482,7 +492,7 @@ class GUI:
         canvas.fill_rect(x, y, width, height, self.BAR_TRACK_COLOR)
         fraction = max(0.0, min(1.0, remaining / max_time)) if max_time > 0 else 0.0
         remain_width = int(width * fraction)
-        left = x + (width - remain_width) // 2
+        left = x + centered_start(width, remain_width)
         canvas.fill_rect(left, y, remain_width, height, self.BAR_COLOR)
 
     def invincible_time(
@@ -499,7 +509,7 @@ class GUI:
             self.font_size,
             slot="invincible",
         )
-        x = (width - image.width) // 2
+        x = centered_start(width, image.width)
         y = bar_y - self.text_height - self.text_gap
         self.text_renderer.draw_numeric_text(
             canvas,
@@ -544,13 +554,14 @@ class GUI:
         width: int,
         height: int,
     ) -> None:
+        lines = [
+            "Clear Rankings?",
+            "Y: Yes",
+            "N: No",
+        ]
         self._put_lines_center(
             canvas,
             width,
             height,
-            [
-                "Clear Rankings?",
-                "Y: Yes",
-                "N: No",
-            ],
+            lines,
         )
