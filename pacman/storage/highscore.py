@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field, ValidationError
 
 
 class ScoreEntry(BaseModel):
+    """One saved score with a validated player name."""
+
     name: str = Field(
         ...,
         min_length=1,
@@ -17,29 +19,59 @@ class ScoreEntry(BaseModel):
 
 
 class HighscoreData(BaseModel):
+    """Serialized contents of the highscore file."""
+
     scores: list[ScoreEntry]
 
     def __iadd__(self, item: ScoreEntry) -> Self:
+        """Append an entry and return this collection.
+
+        Args:
+            item: Entry to append.
+
+        Returns:
+            This collection.
+        """
         self.scores.append(item)
         return self
 
 
 class HighscoreManager:
+    """Load, keep and atomically save the top highscores."""
+
     def __init__(self, save_path: str = "scores.json") -> None:
+        """Load existing scores from a file.
+
+        Args:
+            save_path: JSON file used for loading and saving.
+        """
         self.scores: HighscoreData = HighscoreData(scores=[])
         self.save_path: Path = Path(save_path)
         self.load()
 
     def __iadd__(self, entry: ScoreEntry) -> Self:
+        """Add an entry, keep the top ten and save them.
+
+        Args:
+            entry: Entry to add.
+
+        Returns:
+            This manager.
+        """
         self._add_new_entry(entry)
         self.save()
         return self
 
     def clear(self) -> None:
+        """Delete every score and save the empty list."""
         self.scores.scores.clear()
         self.save()
 
     def save(self) -> None:
+        """Write scores through a temporary file, then replace the target.
+
+        Errors are reported and do not stop the game.
+        """
         temporary_path: Path | None = None
         try:
             json_data = self.scores.model_dump_json(indent=2)
@@ -64,6 +96,7 @@ class HighscoreManager:
                     print(f"Highscore temporary file cleanup failed: {err}")
 
     def load(self) -> None:
+        """Load scores, starting empty when the file is missing or invalid."""
         if not self.save_path.exists():
             return
         try:
@@ -78,6 +111,7 @@ class HighscoreManager:
             print(f"Invalid JSON File loaded: {err}")
 
     def _sort_scores(self) -> None:
+        """Sort by descending score and keep the top ten."""
         self.scores.scores.sort(
             key=lambda entry: entry.score,
             reverse=True,
@@ -85,5 +119,10 @@ class HighscoreManager:
         self.scores.scores = self.scores.scores[:10]
 
     def _add_new_entry(self, entry: ScoreEntry) -> None:
+        """Append an entry and re-sort the list.
+
+        Args:
+            entry: Entry to add.
+        """
         self.scores += entry
         self._sort_scores()

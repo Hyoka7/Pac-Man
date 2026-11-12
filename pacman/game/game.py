@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 from mazegenerator import MazeGenerator
 
-from pacman.types import CellPosition
 from pacman.controls.cheating import CheatHandler
 from pacman.controls.game_input import dispatch_key
 from pacman.controls.game_input import release_key as release_game_key
@@ -25,6 +24,7 @@ from pacman.game.strategy import (
 )
 from pacman.models import Config
 from pacman.storage.highscore import HighscoreManager, ScoreEntry
+from pacman.types import CellPosition
 
 if TYPE_CHECKING:
     from pacman.visualize.canvas import Canvas
@@ -38,7 +38,12 @@ class Game:
         generator: MazeGenerator,
         config: Config,
     ) -> None:
-        """Own game rules and state without opening a graphics window."""
+        """Own game rules and state without opening a graphics window.
+
+        Args:
+            generator: Maze generator that already produced the first maze.
+            config: Validated game settings.
+        """
         self.config = config
         self.pacgum_points = {
             PacgumEatenEnum.Normal: config.points_per_pacgum,
@@ -71,12 +76,21 @@ class Game:
         self.no_collision = False
 
     def place_level(self, canvas: Canvas) -> None:
-        """Place a new level after the renderer has updated the canvas layout."""
+        """Place a new level after the renderer has updated the canvas layout.
+
+        Args:
+            canvas: Canvas holding the current cell layout.
+        """
         self.respawn(canvas)
         self.pacgums.reset_pacgums(self.maze, self.player.movement.cell)
         self.new_level_needs_placement = False
 
     def respawn(self, canvas: Canvas) -> None:
+        """Return the player and every ghost to their spawn cells.
+
+        Args:
+            canvas: Layout used to convert cells to pixel centers.
+        """
         self.player.reset_player(canvas)
         for ghost in self.ghosts:
             ghost.reset_ghost(canvas)
@@ -86,7 +100,15 @@ class Game:
         elapsed: float,
         canvas: Canvas,
     ) -> tuple[PacgumEatenEnum, int]:
-        """Advance gameplay and return pacgum and ghost-eating events."""
+        """Advance gameplay and return pacgum and ghost-eating events.
+
+        Args:
+            elapsed: Seconds since the previous frame.
+            canvas: Canvas holding the current cell layout.
+
+        Returns:
+            The kind of pacgum eaten and the number of ghosts eaten.
+        """
         if self.state != GameState.Playing:
             return PacgumEatenEnum.Neither, 0
         self.remaining_time = max(self.remaining_time - elapsed, 0.0)
@@ -102,7 +124,15 @@ class Game:
         elapsed: float,
         canvas: Canvas,
     ) -> PacgumEatenEnum:
-        """Move the player and award points for consumed pacgums."""
+        """Move the player and award points for consumed pacgums.
+
+        Args:
+            elapsed: Seconds since the previous frame.
+            canvas: Canvas holding the current cell layout.
+
+        Returns:
+            The kind of pacgum eaten this frame.
+        """
         eaten = self.player.update_player(elapsed, self.maze, canvas, self.pacgums)
         points = self.pacgum_points.get(eaten, 0)
         if points:
@@ -110,7 +140,11 @@ class Game:
         return eaten
 
     def _check_level_end(self) -> bool:
-        """Resolve clear before timeout; return whether gameplay has ended."""
+        """Resolve clear before timeout; return whether gameplay has ended.
+
+        Returns:
+            True when the level was cleared or the time ran out.
+        """
         if len(self.pacgums) == 0:
             state = (
                 GameState.Stage_Clear
@@ -127,7 +161,15 @@ class Game:
         return True
 
     def _update_ghosts(self, elapsed: float, canvas: Canvas) -> int:
-        """Move ghosts, resolve contacts and return the number eaten."""
+        """Move ghosts, resolve contacts and return the number eaten.
+
+        Args:
+            elapsed: Seconds since the previous frame.
+            canvas: Canvas holding the current cell layout.
+
+        Returns:
+            The number of ghosts eaten this frame.
+        """
         ghost_eaten = 0
         red_pos = next(
             (ghost.cell for ghost in self.ghosts if ghost.role == GhostRole.RED),
@@ -157,13 +199,22 @@ class Game:
         return ghost_eaten
 
     def _eat_ghost(self, ghost: Ghost, canvas: Canvas) -> None:
-        """Award ghost points and begin its respawn wait."""
+        """Award ghost points and begin its respawn wait.
+
+        Args:
+            ghost: Ghost that was eaten.
+            canvas: Canvas holding the current cell layout.
+        """
         self.player.score += self.ghost_points * self.score_multiplier
         ghost.reset_ghost(canvas)
         ghost.respawn_remaining = Ghost.RESPAWN_DELAY
 
     def _handle_player_hit(self, canvas: Canvas) -> None:
-        """Lose one life, then enter GameOver or wait at the spawn positions."""
+        """Lose one life, then enter GameOver or wait at the spawn positions.
+
+        Args:
+            canvas: Canvas holding the current cell layout.
+        """
         self.player.lives -= 1
         if self.player.lives == 0:
             self.player.is_alive = False
@@ -173,12 +224,24 @@ class Game:
             self.set_state(GameState.Ready)
 
     def set_state(self, state: GameState) -> None:
-        """Change the active screen and request its next redraw."""
+        """Change the active screen and request its next redraw.
+
+        Args:
+            state: Screen to switch to.
+        """
         self.state = state
         self.needs_redraw = True
 
     def handle_key(self, key: int, canvas: Canvas) -> WindowAction | None:
-        """Delegate keyboard interpretation to the input module."""
+        """Delegate keyboard interpretation to the input module.
+
+        Args:
+            key: Pressed key code.
+            canvas: Canvas holding the current cell layout.
+
+        Returns:
+            The window action to perform, or None.
+        """
         return dispatch_key(self, key, canvas)
 
     def submit_score(self) -> None:
@@ -191,6 +254,11 @@ class Game:
         self.set_state(GameState.Home)
 
     def release_key(self, key: int) -> None:
+        """Delegate a key release to the input module.
+
+        Args:
+            key: Released key code.
+        """
         release_game_key(self, key)
 
     def regenerate_maze(self) -> None:
@@ -206,7 +274,11 @@ class Game:
             ghost.movement.initial_cell = corner
 
     def _create_ghosts(self) -> list[Ghost]:
-        """Create the team with its existing strategies, colors and spawn order."""
+        """Create the four ghosts with their strategies, colors and corners.
+
+        Returns:
+            Four ghosts placed in the maze corners.
+        """
         corners = self._ghost_spawn_cells()
         return [
             Ghost(
@@ -227,7 +299,11 @@ class Game:
         ]
 
     def _ghost_spawn_cells(self) -> tuple[CellPosition, ...]:
-        """Return spawn corners in the same order as the ghost team."""
+        """Return spawn corners in the same order as the ghost team.
+
+        Returns:
+            The four corner cells in ghost creation order.
+        """
         return (
             (0, 0),
             (0, self.maze.rows - 1),
@@ -236,12 +312,17 @@ class Game:
         )
 
     def _prepare_level(self, state: GameState) -> None:
-        """Generate the selected level and initialize its timer and screen state."""
+        """Generate the current level and reset its timer and screen.
+
+        Args:
+            state: Screen shown once the level is ready.
+        """
         self.regenerate_maze()
         self.remaining_time = self.config.levels[self.level - 1].max_time
         self.set_state(state)
 
     def next_level(self) -> None:
+        """Advance to the next level, or finish the game after the last."""
         if self.level >= self.max_level:
             self.set_state(GameState.All_Clear)
             return
@@ -249,6 +330,7 @@ class Game:
         self._prepare_level(GameState.Playing)
 
     def restart_game(self) -> None:
+        """Reset cheats, score, lives and level, then show Ready."""
         self.ghost_frozen = False
         self.no_collision = False
         self.score_multiplier = 1

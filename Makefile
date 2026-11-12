@@ -19,10 +19,10 @@ install: $(VENV)
 	$(UV) pip install flake8 mypy $(MLX) $(MAZEGEN)
 
 run:
-	$(UV) run pacman.py $(CONFIG)
+	$(UV) run pac-man.py $(CONFIG)
 
 debug:
-	$(UV) run -m pdb pacman.py $(CONFIG)
+	$(UV) run -m pdb pac-man.py $(CONFIG)
 
 $(VENV):
 	uv venv $(VENV)

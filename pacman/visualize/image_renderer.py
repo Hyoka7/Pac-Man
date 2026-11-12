@@ -14,6 +14,17 @@ type NumericTextCacheEntry = tuple[str, RGBColor, int, Image.Image]
 
 @cache
 def _font(size: int) -> ImageFont.FreeTypeFont:
+    """Load the bundled pixel font at a size, cached per size.
+
+    Args:
+        size: Font size in pixels.
+
+    Returns:
+        The FreeType font.
+
+    Raises:
+        OSError: If the font file cannot be loaded.
+    """
     return ImageFont.truetype(
         Path(__file__).resolve().parents[2]
         / "assets/fonts/PressStart2P-Regular.ttf",
@@ -27,7 +38,16 @@ def _text_image(
     color: RGBColor,
     size: int,
 ) -> Image.Image:
-    """Keep only the glyph bounds, including antialiased transparent edges."""
+    """Keep only the glyph bounds, including antialiased transparent edges.
+
+    Args:
+        text: Text to render.
+        color: RGB color.
+        size: Font size in pixels.
+
+    Returns:
+        A transparent RGBA image cropped to the glyphs' width.
+    """
     font = _font(size)
     ascent, descent = font.getmetrics()
     left, _, right, _ = font.getbbox(text)
@@ -40,9 +60,18 @@ class ImageRenderer:
     """Generate, measure and composite cached text images onto a canvas."""
 
     def __init__(self) -> None:
+        """Prepare the per-slot cache for numeric text images."""
         self.numeric_cache: dict[str, NumericTextCacheEntry] = {}
 
     def _font(self, size: int) -> ImageFont.FreeTypeFont:
+        """Return the cached bundled font at a size.
+
+        Args:
+            size: Font size in pixels.
+
+        Returns:
+            The FreeType font.
+        """
         return _font(size)
 
     def text_image(
@@ -51,10 +80,28 @@ class ImageRenderer:
         color: RGBColor,
         size: int,
     ) -> Image.Image:
+        """Return the cached RGBA image of a text string.
+
+        Args:
+            text: Text to render.
+            color: RGB color.
+            size: Font size in pixels.
+
+        Returns:
+            A transparent RGBA image of the text.
+        """
         return _text_image(text, color, size)
 
     def text_size(self, text: str, size: int = 20) -> tuple[int, int]:
-        """Return the width and height needed for a single line of text."""
+        """Return the width and height needed for a single line of text.
+
+        Args:
+            text: Text to render.
+            size: Font size in pixels.
+
+        Returns:
+            The width and height in pixels.
+        """
         return self.text_image(text, (255, 255, 255), size).size
 
     def draw_image(
@@ -65,6 +112,17 @@ class ImageRenderer:
         image: Image.Image,
     ) -> None:
 
+        """Alpha-composite an RGBA image onto the canvas buffer.
+
+        The visible area is cropped, blended with the existing pixels
+        and written back row by row in the buffer's byte order.
+
+        Args:
+            canvas: Destination canvas.
+            dest_x: Left edge in pixels; may be off-screen.
+            dest_y: Top edge in pixels; may be off-screen.
+            image: RGBA image to draw.
+        """
         row_bytes: list[bytes] = []
         bytes_per_pixel = canvas.bytes_per_pixel
         width, height = image.size
@@ -112,6 +170,14 @@ class ImageRenderer:
             ]
 
     def _split(self, text: str) -> list[str]:
+        """Split text into digit or dot characters and other runs.
+
+        Returns:
+            Parts such as ["Score:", "1", "2"] so digit images are reused.
+
+        Args:
+            text: Text to split.
+        """
         num_state = False
         splitted = []
         s = ""
@@ -144,7 +210,16 @@ class ImageRenderer:
         color: RGBColor = (255, 255, 255),
         size: int = 20,
     ) -> None:
-        """Blend a text image at its top-left position without native text calls."""
+        """Blend a text image with its top-left corner at (x, y).
+
+        Args:
+            canvas: Destination canvas.
+            x: Left edge in pixels.
+            y: Top edge in pixels.
+            text: Text to render.
+            color: RGB color.
+            size: Font size in pixels.
+        """
         if not text:
             return
         image = self.text_image(text, color, size)
@@ -157,7 +232,17 @@ class ImageRenderer:
         size: int = 20,
         slot: str = "hud",
     ) -> Image.Image:
-        """Get the latest composed image for measurement and drawing."""
+        """Get the latest composed image for measurement and drawing.
+
+        Args:
+            text: Text to render.
+            color: RGB color.
+            size: Font size in pixels.
+            slot: Cache slot for this text, such as "hud" or "invincible".
+
+        Returns:
+            The composed RGBA image, reused while the text is unchanged.
+        """
         cached = self.numeric_cache.get(slot)
         if cached is not None and (text, color, size) == cached[:3]:
             return cached[3]
@@ -186,6 +271,17 @@ class ImageRenderer:
         *,
         slot: str = "hud",
     ) -> None:
+        """Draw text whose digits change often, reusing cached images.
+
+        Args:
+            canvas: Destination canvas.
+            x: Left edge in pixels.
+            y: Top edge in pixels.
+            text: Text to render.
+            color: RGB color.
+            size: Font size in pixels.
+            slot: Cache slot for this text, such as "hud" or "invincible".
+        """
         if not text:
             return
         image = self.numeric_text_image(text, color, size, slot=slot)

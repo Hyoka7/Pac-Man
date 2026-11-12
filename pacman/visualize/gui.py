@@ -14,6 +14,8 @@ type HomeContent = tuple[list[str], int]
 
 
 class GUI:
+    """Draw menus, result screens and the in-game HUD."""
+
     RANKING_LIMIT = 10
     TEXT_COLOR = (255, 255, 255)
     ACCENT_COLOR = (255, 216, 74)
@@ -30,9 +32,16 @@ class GUI:
     )
 
     def __init__(self) -> None:
+        """Create the text renderer used by every screen."""
         self.text_renderer = ImageRenderer()
 
     def update_layout(self, width: int, height: int) -> None:
+        """Derive font size, spacing, HUD and maze margin from the window.
+
+        Args:
+            width: Window width in pixels.
+            height: Window height in pixels.
+        """
         side = min(width, height)
         self.font_size = max(1, round(side / 30))
         while self.font_size > 1:
@@ -66,6 +75,15 @@ class GUI:
         text: str,
         color: RGBColor = (255, 255, 255),
     ) -> None:
+        """Draw one line of text centered horizontally at y.
+
+        Args:
+            canvas: Destination canvas.
+            window_width: Window width in pixels.
+            y: Top of the line in pixels.
+            text: Line to draw.
+            color: RGB color.
+        """
         width, _ = self.text_renderer.text_size(text, self.font_size)
         self.text_renderer.draw_text(
             canvas, centered_start(window_width, width), y, text, color, self.font_size
@@ -79,7 +97,15 @@ class GUI:
         lines: Sequence[str],
         colors: dict[int, RGBColor] | None = None,
     ) -> None:
-        """Center a text block using Pillow's actual glyph dimensions."""
+        """Center a text block using Pillow's actual glyph dimensions.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+            lines: Text lines to measure or draw.
+            colors: Optional colors by line index; others use TEXT_COLOR.
+        """
         if not lines:
             return
         last_height = self.text_renderer.text_size(lines[-1], self.font_size)[1]
@@ -96,6 +122,15 @@ class GUI:
                 )
 
     def _block_height(self, line_count: int, last_height: int | None = None) -> int:
+        """Return the pixel height of a block of text lines.
+
+        Args:
+            line_count: Number of lines in the block.
+            last_height: Height of the last line; text_height when None.
+
+        Returns:
+            The block height in pixels.
+        """
         if line_count <= 0:
             return 0
         return (line_count - 1) * self.line_spacing + (
@@ -108,6 +143,16 @@ class GUI:
         line_count: int,
         last_height: int | None = None,
     ) -> int:
+        """Return the top y that centers a text block vertically.
+
+        Args:
+            height: Window height in pixels.
+            line_count: Number of lines in the block.
+            last_height: Height of the last line; text_height when None.
+
+        Returns:
+            The top y coordinate of the block.
+        """
         return centered_start(height, self._block_height(line_count, last_height))
 
     def _draw_panel_lines(
@@ -115,6 +160,12 @@ class GUI:
         canvas: Canvas,
         lines: Sequence[str],
     ) -> None:
+        """Draw a centered panel sized to fit the given lines.
+
+        Args:
+            canvas: Destination canvas.
+            lines: Lines the panel must fit.
+        """
         panel_width = max(
             0,
             min(
@@ -142,7 +193,12 @@ class GUI:
         canvas: Canvas,
         state: GameState,
     ) -> None:
-        """Draw a generously sized panel for each static screen."""
+        """Draw a generously sized panel for each static screen.
+
+        Args:
+            canvas: Destination canvas.
+            state: Current screen; gameplay screens draw no backdrop.
+        """
         if state in (
             GameState.Playing,
             GameState.Pause,
@@ -175,6 +231,14 @@ class GUI:
         )
 
     def _max_text_width(self, lines: Sequence[str]) -> int:
+        """Return the width of the widest line.
+
+        Args:
+            lines: Text lines to measure or draw.
+
+        Returns:
+            The widest line's width in pixels, or 0 for no lines.
+        """
         return max(
             (self.text_renderer.text_size(line, self.font_size)[0] for line in lines),
             default=0,
@@ -188,6 +252,15 @@ class GUI:
         width: int,
         height: int,
     ) -> None:
+        """Draw a filled panel with a border.
+
+        Args:
+            canvas: Destination canvas.
+            x: Left edge in pixels.
+            y: Top edge in pixels.
+            width: Panel width in pixels.
+            height: Panel height in pixels.
+        """
         if width <= 0 or height <= 0:
             return
         border = min(self.border_width, width, height)
@@ -205,6 +278,15 @@ class GUI:
         scores: list[ScoreEntry],
         focusing: int,
     ) -> None:
+        """Draw the title, characters, menu and selection cursor.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+            scores: Saved highscores.
+            focusing: Index of the selected menu entry.
+        """
         lines, menu_start = self._home_content()
         title_size = self.font_size * 2
         image = self.text_renderer.text_image(
@@ -252,6 +334,13 @@ class GUI:
         width: int,
         height: int,
     ) -> None:
+        """Draw the Ready prompt in a small panel.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+        """
         ready_lines = ["READY?", "Press any key to start"]
         self._draw_panel_lines(
             canvas,
@@ -268,7 +357,11 @@ class GUI:
     def _home_content(
         self,
     ) -> HomeContent:
-        """Build the home title, menu and controls."""
+        """Build the home title, menu and controls.
+
+        Returns:
+            The Home lines and the index of the first menu entry.
+        """
         menu = [
             "Start",
             "Instruction",
@@ -286,6 +379,13 @@ class GUI:
         width: int,
         height: int,
     ) -> None:
+        """Draw the cheat key list in two columns near the bottom.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+        """
         cheat_lines = [
             "N: Next Level",
             "F: Ghost Freeze",
@@ -318,6 +418,14 @@ class GUI:
         height: int,
         scores: list[ScoreEntry],
     ) -> None:
+        """Draw the top scores as aligned rank, name and score columns.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+            scores: Scores sorted from highest to lowest.
+        """
         entries = scores[: self.RANKING_LIMIT]
         footer = "C: Clear  Enter: Home"
         lines = [
@@ -375,6 +483,13 @@ class GUI:
         width: int,
         y: int,
     ) -> None:
+        """Draw the player and the four ghosts in a centered row.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            y: Top of the character row in pixels.
+        """
         pacman_img = player_image(self.font_size / 2, "E", 10)
         ghost_roles = (
             GhostRole.RED,
@@ -406,6 +521,15 @@ class GUI:
         score: int,
         name: str,
     ) -> None:
+        """Draw the final score and the name being entered after losing.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+            score: Final score to display.
+            name: Player name being entered.
+        """
         lines = [
             "Game Over!",
             f"Score: {score}",
@@ -428,6 +552,15 @@ class GUI:
         score: int,
         name: str,
     ) -> None:
+        """Draw the final score and the name being entered after winning.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+            score: Final score to display.
+            name: Player name being entered.
+        """
         lines = [
             "All Clear!",
             f"Score: {score}",
@@ -448,6 +581,13 @@ class GUI:
         width: int,
         height: int,
     ) -> None:
+        """Draw the stage clear message.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+        """
         lines = [
             "Stage Clear!!",
             "Press any key to continue",
@@ -472,6 +612,19 @@ class GUI:
         cheat_enabled: bool,
         score_multiplier: int = 1,
     ) -> None:
+        """Draw level, score, lives and remaining time on one HUD line.
+
+        Args:
+            canvas: Destination canvas.
+            x: Left edge in pixels.
+            y: Top edge in pixels.
+            level: Current level number.
+            score: Current score.
+            lives: Remaining lives.
+            time: Remaining seconds in the level.
+            cheat_enabled: Append CHEAT ON when True.
+            score_multiplier: Unused; kept for compatibility.
+        """
         text = f"Lv:{level} Score:{score} Life:{lives} Time:{time:.1f}"
         if cheat_enabled:
             text += " CHEAT ON"
@@ -489,6 +642,17 @@ class GUI:
         remaining: float,
         max_time: float,
     ) -> None:
+        """Draw a bar that shrinks toward its center as time runs out.
+
+        Args:
+            canvas: Destination canvas.
+            x: Left edge of the track.
+            y: Top edge of the track.
+            width: Track width in pixels.
+            height: Track height in pixels.
+            remaining: Seconds of invincibility left.
+            max_time: Full invincibility duration.
+        """
         canvas.fill_rect(x, y, width, height, self.BAR_TRACK_COLOR)
         fraction = max(0.0, min(1.0, remaining / max_time)) if max_time > 0 else 0.0
         remain_width = int(width * fraction)
@@ -502,6 +666,14 @@ class GUI:
         bar_y: int,
         time: float,
     ) -> None:
+        """Draw the remaining invincibility seconds above the bar.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            bar_y: Top of the invincibility bar.
+            time: Seconds of invincibility left.
+        """
         text = f"Invincible {time:.1f}"
         image = self.text_renderer.numeric_text_image(
             text,
@@ -527,6 +699,13 @@ class GUI:
         width: int,
         height: int,
     ) -> None:
+        """Draw the pause menu in a small panel.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+        """
         pause_lines = ("PAUSED", "P: Resume", "H: Back to home")
         self._draw_panel_lines(
             canvas,
@@ -546,6 +725,13 @@ class GUI:
         width: int,
         height: int,
     ) -> None:
+        """Draw the controls and rules.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+        """
         self._put_lines_center(canvas, width, height, self.INSTRUCTION_LINES)
 
     def confirm_clear(
@@ -554,6 +740,13 @@ class GUI:
         width: int,
         height: int,
     ) -> None:
+        """Ask whether to clear the rankings.
+
+        Args:
+            canvas: Destination canvas.
+            width: Window width in pixels.
+            height: Window height in pixels.
+        """
         lines = [
             "Clear Rankings?",
             "Y: Yes",

@@ -2,6 +2,16 @@
 
 最終更新：2026-11-12。
 
+## subject要件への対応：10レベル・起動名・docstring（2026-11-12）
+
+- subject（PACMAN.pdf v1.5）とコードを照合。lint・itch.io・READMEを除く未対応点を洗い出し、レベル数・起動ファイル名・docstringを優先対応。
+- 最低10レベル：models.pyにDEFAULT_LEVEL_SIZESとdefault_levels()を追加。levelsが無い・空・不正でも15×15〜30×27の10レベル（制限時間90〜180秒）になる。config.jsonも同じ10レベルにし、先頭にコメント行を追加。30×27でもセル55pxで画面に収まることを確認。
+- 起動ファイル：subjectの`python3 pac-man.py config.json`に合わせ、pacman.pyをpac-man.pyへ改名。Makefileのrun/debugと起動テストを更新。READMEの記述はREADME改訂時に直す。
+- docstring：全224個の関数・クラスに付け、引数のある関数はArgs、戻り値のある関数はReturns、例外を投げる関数はRaisesを持つGoogle形式に統一（astで機械的に確認）。未使用の引数はUnusedと明記。長すぎた要約文5か所を短縮。
+- 作業中のlint修正も同じcommitに含める。全224テスト成功、mypyのエラー数は変更前と同じ。
+- 残りの候補：README（英語・必須セクション）、プロジェクト管理用ディレクトリ、ReadyでのHUD表示、ホームへのハイスコア表示、勝利画面のお祝いメッセージ、迷路生成失敗時の扱い。
+- Obsidian VaultのPacmanノート（00〜16）を作成し、default_levels()とpac-man.pyへの改名を追記。
+
 ## 起動時のクラッシュ対策（2026-11-12）
 
 - 全体を洗い出し、起動時に落ちる箇所を修正。設定・スコアファイルの不正値、名前入力、戦略の距離参照、迷路生成の再帰は安全と確認済み。

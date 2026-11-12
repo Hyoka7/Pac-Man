@@ -4,6 +4,8 @@ from enum import IntEnum, auto
 
 
 class GameState(IntEnum):
+    """Screens and phases of the game."""
+
     Home = auto()
     Instruction = auto()
     Ranking = auto()

@@ -5,16 +5,18 @@ from __future__ import annotations
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Unpack
 
-from pacman.types import CellPosition, RGBColor
 from pacman.game.maze import Maze
 from pacman.game.movement import Movement
 from pacman.game.strategy import FleeBFSStrategy, Strategy, StrategyKwargs
+from pacman.types import CellPosition, RGBColor
 
 if TYPE_CHECKING:
     from pacman.visualize.canvas import Canvas
 
 
 class GhostRole(Enum):
+    """Identity of each ghost, used for its color and strategy."""
+
     RED = auto()
     CYAN = auto()
     PINK = auto()
@@ -43,7 +45,15 @@ class Ghost:
         *,
         role: GhostRole | None = None,
     ) -> None:
-        """Create a ghost with shared animation state and its own strategy."""
+        """Create a ghost with shared animation state and its own strategy.
+
+        Args:
+            cell: Spawn cell.
+            strategy: Chase strategy used while not edible.
+            color: Body color.
+            direction: Initial facing direction.
+            role: Ghost identity, used to find the red ghost.
+        """
         self.movement = Movement(cell, speed=4.0, direction=direction)
         self.radius: float = 0.0
         self.respawn_remaining = 0.0
@@ -54,16 +64,28 @@ class Ghost:
 
     @property
     def cell(self) -> CellPosition:
-        """Return the last cell center reached by the ghost."""
+        """Return the last cell center reached by the ghost.
+
+        Returns:
+            The ghost's current cell.
+        """
         return self.movement.cell
 
     @property
     def direction(self) -> str:
-        """Return the direction of the current animation."""
+        """Return the direction of the current animation.
+
+        Returns:
+            The ghost's facing direction.
+        """
         return self.movement.direction
 
     def place_ghost(self, canvas: Canvas) -> None:
-        """Initialize the shared movement's drawing position."""
+        """Initialize the shared movement's drawing position.
+
+        Args:
+            canvas: Canvas holding the current cell layout.
+        """
         self.movement.place_movement(canvas)
         self.radius = canvas.cell_size * 0.375
 
@@ -78,7 +100,18 @@ class Ghost:
         target: CellPosition | None = None,
         **kwargs: Unpack[StrategyKwargs],
     ) -> None:
-        """Choose a direction at cell centers and animate the chosen move."""
+        """Choose a direction at cell centers and animate the chosen move.
+
+        Args:
+            elapsed: Seconds since the previous frame.
+            maze: Maze used for wall checks.
+            canvas: Canvas holding the current cell layout.
+            player_cell: Cell the player last reached.
+            player_dir: Direction the player is facing.
+            eatable: Whether the player is invincible, making the ghost flee.
+            target: Optional target cell passed to the strategy.
+            **kwargs: Extra inputs such as red_pos (see StrategyKwargs).
+        """
         if self.respawn_remaining > 0.0:
             self.respawn_remaining = max(0.0, self.respawn_remaining - elapsed)
             return
@@ -104,6 +137,11 @@ class Ghost:
 
 
     def reset_ghost(self, canvas: Canvas) -> None:
+        """Return the ghost to its spawn cell and cancel respawn waiting.
+
+        Args:
+            canvas: Layout used for the radius and pixel center.
+        """
         self.radius = canvas.cell_size * 0.375
         self.respawn_remaining = 0.0
         return self.movement.reset_movement(canvas)

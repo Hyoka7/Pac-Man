@@ -16,7 +16,16 @@ if TYPE_CHECKING:
 
 
 def dispatch_key(game: Game, key: int, canvas: Canvas) -> WindowAction | None:
-    """Handle common controls, then dispatch to the current state's handler."""
+    """Handle common controls, then dispatch to the current state's handler.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        canvas: Canvas holding the current cell layout.
+
+    Returns:
+        The window action to perform, or None.
+    """
     if key in (KeyEnum.SHIFT_L, KeyEnum.SHIFT_R):
         game.shift_keys.add(key)
         return
@@ -44,6 +53,16 @@ def _handle_home_key(
     key: int,
     _canvas: Canvas,
 ) -> WindowAction | None:
+    """Move the menu cursor or open the selected Home entry.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        _canvas: Unused; keeps every handler's signature identical.
+
+    Returns:
+        WindowAction.Close when Exit is chosen, otherwise None.
+    """
     if key == KeyEnum.ENTER:
         if game.home_focusing == 0:
             game.restart_game()
@@ -70,6 +89,16 @@ def _handle_ranking_key(
     key: int,
     _canvas: Canvas,
 ) -> WindowAction | None:
+    """Return Home with Enter or ask to clear rankings with C.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        _canvas: Unused; keeps every handler's signature identical.
+
+    Returns:
+        Always None.
+    """
     if key == KeyEnum.ENTER:
         game.set_state(GameState.Home)
     elif key == KeyEnum.C:
@@ -81,6 +110,16 @@ def _handle_instruction_key(
     key: int,
     _canvas: Canvas,
 ) -> WindowAction | None:
+    """Return Home from the instructions with Enter.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        _canvas: Unused; keeps every handler's signature identical.
+
+    Returns:
+        Always None.
+    """
     if key == KeyEnum.ENTER:
         game.set_state(GameState.Home)
 
@@ -90,6 +129,16 @@ def _handle_confirm_clear_key(
     key: int,
     _canvas: Canvas,
 ) -> WindowAction | None:
+    """Clear the rankings with Y or cancel with N.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        _canvas: Unused; keeps every handler's signature identical.
+
+    Returns:
+        Always None.
+    """
     if key == KeyEnum.Y:
         game.score_manager.clear()
         game.set_state(GameState.Ranking)
@@ -102,6 +151,16 @@ def _handle_playing_key(
     key: int,
     canvas: Canvas,
 ) -> WindowAction | None:
+    """Handle cheats, pause, color cycling and movement in play.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        canvas: Canvas holding the current cell layout.
+
+    Returns:
+        WindowAction.CycleColors for C, otherwise None.
+    """
     if _handle_cheat_sequence(game, key):
         return
     if key == KeyEnum.P:
@@ -115,7 +174,15 @@ def _handle_playing_key(
 
 
 def _handle_cheat_sequence(game: Game, key: int) -> bool:
-    """Consume activation keys before ordinary gameplay controls."""
+    """Consume activation keys before ordinary gameplay controls.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+
+    Returns:
+        True when the key belongs to the cheat command and is consumed.
+    """
     if game.cheathandler.consume_key(key):
         game.cheat_enabled = not game.cheat_enabled
         if not game.cheat_enabled:
@@ -129,7 +196,15 @@ def _handle_cheat_sequence(game: Game, key: int) -> bool:
 
 
 def _handle_cheat_key(game: Game, key: int) -> bool:
-    """Apply an enabled cheat and report whether the key was handled."""
+    """Apply an enabled cheat and report whether the key was handled.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+
+    Returns:
+        True when an enabled cheat handled the key.
+    """
     if not game.cheat_enabled:
         return False
     if key == KeyEnum.N:
@@ -154,7 +229,13 @@ def _handle_cheat_key(game: Game, key: int) -> bool:
 
 
 def _handle_movement_key(game: Game, key: int, canvas: Canvas) -> None:
-    """Translate movement keys and hand the requested direction to Player."""
+    """Translate movement keys and hand the requested direction to Player.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        canvas: Canvas holding the current cell layout.
+    """
     direction = MOVEMENT_DIRECTIONS.get(key)
     if direction is not None:
         game.player.request_move(direction, game.maze, canvas)
@@ -165,6 +246,16 @@ def _handle_ready_key(
     key: int,
     _canvas: Canvas,
 ) -> WindowAction | None:
+    """Start playing on any key.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        _canvas: Unused; keeps every handler's signature identical.
+
+    Returns:
+        Always None.
+    """
     game.set_state(GameState.Playing)
 
 
@@ -173,6 +264,16 @@ def _handle_pause_key(
     key: int,
     _canvas: Canvas,
 ) -> WindowAction | None:
+    """Resume with P or return Home with H.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        _canvas: Unused; keeps every handler's signature identical.
+
+    Returns:
+        Always None.
+    """
     if key == KeyEnum.P:
         game.set_state(GameState.Playing)
     elif key == KeyEnum.H:
@@ -184,6 +285,16 @@ def _handle_result_key(
     key: int,
     _canvas: Canvas,
 ) -> WindowAction | None:
+    """Save the score with Enter, otherwise edit the name.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        _canvas: Unused; keeps every handler's signature identical.
+
+    Returns:
+        Always None.
+    """
     if key == KeyEnum.ENTER:
         game.submit_score()
     else:
@@ -191,7 +302,12 @@ def _handle_result_key(
 
 
 def _handle_name_key(game: Game, key: int) -> None:
-    """Edit the result name with the existing length and character limits."""
+    """Edit the result name with the existing length and character limits.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+    """
     if key == KeyEnum.BACKSPACE:
         game.player_name = game.player_name[:-1]
         game.needs_redraw = True
@@ -213,9 +329,25 @@ def _handle_stage_clear_key(
     key: int,
     _canvas: Canvas,
 ) -> WindowAction | None:
+    """Continue to the next level on any key.
+
+    Args:
+        game: Game whose state the key changes.
+        key: Key code reported by MLX.
+        _canvas: Unused; keeps every handler's signature identical.
+
+    Returns:
+        Always None.
+    """
     game.next_level()
 
 
 def release_key(game: Game, key: int) -> None:
+    """Forget a released Shift key used for uppercase names.
+
+    Args:
+        game: Game whose pressed Shift keys are tracked.
+        key: Released key code.
+    """
     if key == KeyEnum.SHIFT_L or key == KeyEnum.SHIFT_R:
         game.shift_keys.discard(key)

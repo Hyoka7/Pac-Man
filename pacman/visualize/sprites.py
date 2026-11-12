@@ -14,6 +14,16 @@ def player_image(
     direction: str,
     mouth_step: int,
 ) -> Image.Image:
+    """Return the player sprite with an open mouth.
+
+    Args:
+        radius: Player radius in pixels.
+        direction: Facing direction ("N", "E", "S" or "W").
+        mouth_step: Mouth opening from 0 (closed) to 10 (45 degrees).
+
+    Returns:
+        A 16x16 pixel-art image scaled to the player's diameter.
+    """
     side = ceil(radius * 2)
     palette = Image.new(
         "RGBA",
@@ -25,7 +35,15 @@ def player_image(
     mouth_slope = tan(radians(mouth_angle_half))
 
     def _is_in_mouth(dx: float, dy: float) -> bool:
-        """Return whether a point relative to the center is inside the mouth."""
+        """Return whether a point relative to the center is inside the mouth.
+
+        Args:
+            dx: Horizontal offset from the sprite center.
+            dy: Vertical offset from the sprite center.
+
+        Returns:
+            True when the point lies in the mouth wedge.
+        """
         if direction == "E":
             forward, across = dx, dy
         elif direction == "W":
@@ -55,6 +73,16 @@ def ghost_image(
     color: RGBColor,
     direction: str,
 ) -> Image.Image:
+    """Return a ghost sprite with eyes looking in a direction.
+
+    Args:
+        radius: Ghost radius in pixels.
+        color: Body color.
+        direction: Direction the pupils look toward.
+
+    Returns:
+        A 16x16 pixel-art image scaled to the ghost's diameter.
+    """
     side = ceil(radius * 2)
     palette = Image.new(
         "RGBA",
@@ -95,6 +123,16 @@ def ghost_image(
         img: Image.Image,
         color: RGBAColor,
     ) -> None:
+        """Fill an inclusive rectangle of the sprite with one color.
+
+        Args:
+            start_x: Left column, inclusive.
+            start_y: Top row, inclusive.
+            end_x: Right column, inclusive.
+            end_y: Bottom row, inclusive.
+            img: Sprite image to modify.
+            color: RGBA color.
+        """
         for y in range(start_y, end_y + 1):
             for x in range(start_x, end_x + 1):
                 img.putpixel((x, y), color)

@@ -9,6 +9,12 @@ from pacman.visualize import GameVisualizer
 
 
 def main() -> int:
+    """Run the game from the command line.
+
+    Returns:
+        The process exit code: 0 on success, 1 on errors and 130
+        when interrupted with Ctrl+C.
+    """
     try:
         if len(sys.argv) != 2:
             print(f"Usage: {sys.argv[0]} <config_file>", file=sys.stderr)

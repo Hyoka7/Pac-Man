@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pacman.types import CellPosition, PixelPosition
 from pacman.game.directions import OPPOSITE_DIRECTIONS
 from pacman.game.maze import Maze
+from pacman.types import CellPosition, PixelPosition
 
 if TYPE_CHECKING:
     from pacman.visualize.canvas import Canvas
@@ -21,7 +21,13 @@ class Movement:
         speed: float = 5.0,
         direction: str = "E",
     ) -> None:
-        """Set the initial cell and speed in cells per second."""
+        """Set the initial cell and speed in cells per second.
+
+        Args:
+            cell: Starting cell.
+            speed: Speed in cells per second.
+            direction: Initial facing direction.
+        """
         self.cell = cell
         self.initial_cell = cell
         # place() sets the actual pixel coordinates before drawing or movement.
@@ -43,6 +49,17 @@ class Movement:
 
         Coordinates and distance are measured in pixels. The caller chooses a
         reachable neighboring cell and handles what happens on arrival.
+
+        Args:
+            center: Current pixel position.
+            target: Pixel position on the same row or column.
+            distance: Pixels to move this frame.
+
+        Returns:
+            The new position, never past the target.
+
+        Raises:
+            ValueError: If distance is negative or the target is diagonal.
         """
         if distance < 0:
             raise ValueError("movement distance must be non-negative")
@@ -61,14 +78,27 @@ class Movement:
         return x, y
 
     def place_movement(self, canvas: Canvas) -> None:
-        """Place the character at its cell center once layout is available."""
+        """Place the character at its cell center once layout is available.
+
+        Args:
+            canvas: Canvas holding the current cell layout.
+        """
         self.center = canvas.cell_center(*self.cell)
         self.target = self.center
         self.target_cell = self.cell
         self.moving = False
 
     def start(self, direction: str, maze: Maze, canvas: Canvas) -> bool:
-        """Begin an allowed neighboring-cell animation when stopped."""
+        """Begin an allowed neighboring-cell animation when stopped.
+
+        Args:
+            direction: Direction: "N", "E", "S" or "W".
+            maze: Maze used for wall checks.
+            canvas: Canvas holding the current cell layout.
+
+        Returns:
+            True when a move started.
+        """
         if self.moving or not maze.can_move(*self.cell, direction, self.wallhack):
             return False
         self.center = canvas.cell_center(*self.cell)
@@ -79,7 +109,15 @@ class Movement:
         return True
 
     def update_movement(self, elapsed: float, canvas: Canvas) -> bool:
-        """Advance one frame; return True only on arrival at the target cell."""
+        """Advance one frame; return True only on arrival at the target cell.
+
+        Args:
+            elapsed: Seconds since the previous frame.
+            canvas: Canvas holding the current cell layout.
+
+        Returns:
+            True only in the frame the target cell is reached.
+        """
         if not self.moving:
             return False
         distance = canvas.cell_size * self.speed * elapsed
@@ -91,13 +129,40 @@ class Movement:
         return True
 
     def reset_movement(self, canvas: Canvas) -> None:
+        """Move back to the initial cell and stop.
+
+        Args:
+            canvas: Layout used to place the pixel center.
+        """
         self.cell = self.initial_cell
         self.place_movement(canvas)
 
     def _cell_distance(self, p1: float, p2: float) -> float:
+        """Return the absolute distance between two coordinates.
+
+        Args:
+            p1: First coordinate in pixels.
+            p2: Second coordinate in pixels.
+
+        Returns:
+            The absolute difference.
+        """
         return abs(p1 - p2)
 
     def redirect(self, req_dir: str, maze: Maze, canvas: Canvas) -> bool:
+        """Apply a requested direction while stopped or moving.
+
+        Reversing is always allowed; a perpendicular turn is allowed
+        near the current cell center when the passage is open.
+
+        Args:
+            req_dir: Requested direction ("N", "E", "S" or "W").
+            maze: Maze used for wall checks.
+            canvas: Layout used for pixel centers.
+
+        Returns:
+            True when the direction was applied immediately.
+        """
         if not self.moving:
             return self.start(req_dir, maze, canvas)
         if req_dir == self.direction:

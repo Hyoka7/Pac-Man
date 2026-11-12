@@ -18,7 +18,19 @@ class Canvas:
         offset_x: int,
         offset_y: int,
     ) -> None:
-        """Attach a 32-bit MLX buffer to a screen layout."""
+        """Attach a 32-bit MLX buffer to a screen layout.
+
+        Args:
+            width: Image width in pixels.
+            height: Image height in pixels.
+            cell_size: Maze cell size in pixels.
+            margin: Space reserved around the maze.
+            img_data: Writable view of the MLX image buffer.
+            line_size: Bytes per image row, including padding.
+            img_format: 0 for BGRA byte order, 1 for ARGB.
+            offset_x: Left edge of the maze in pixels.
+            offset_y: Top edge of the maze in pixels.
+        """
         self.width = width
         self.height = height
         self.cell_size = cell_size
@@ -31,14 +43,27 @@ class Canvas:
         self.bytes_per_pixel = 4
 
     def color_bytes(self, color: RGBColor) -> bytes:
-        """Encode an opaque RGB color in the image's byte order."""
+        """Encode an opaque RGB color in the image's byte order.
+
+        Args:
+            color: RGB color.
+
+        Returns:
+            Four bytes in the buffer's channel order.
+        """
         r, g, b = color
         if self.img_format == 0:
             return bytes([b, g, r, 255])
         return bytes([255, r, g, b])
 
     def draw_pixel(self, x: int, y: int, color: RGBColor) -> None:
-        """Paint one pixel with a solid color, ignoring off-screen points."""
+        """Paint one pixel with a solid color, ignoring off-screen points.
+
+        Args:
+            x: Pixel column.
+            y: Pixel row.
+            color: RGB color.
+        """
         if not (0 <= x < self.width and 0 <= y < self.height):
             return
         pixel_start = y * self.line_size + x * self.bytes_per_pixel
@@ -46,13 +71,25 @@ class Canvas:
         self.img_data[pixel_start:pixel_end] = self.color_bytes(color)
 
     def cell_center(self, x: int, y: int) -> PixelPosition:
-        """Convert a maze cell to its center in screen pixels."""
+        """Convert a maze cell to its center in screen pixels.
+
+        Args:
+            x: Cell column.
+            y: Cell row.
+
+        Returns:
+            The cell center in pixels.
+        """
         center_x = self.offset_x + (x + 0.5) * self.cell_size
         center_y = self.offset_y + (y + 0.5) * self.cell_size
         return (center_x, center_y)
 
     def clear_image(self, *, transparent: bool = False) -> None:
-        """Clear visible pixels to opaque black or transparent RGBA zero."""
+        """Clear visible pixels to opaque black or transparent RGBA zero.
+
+        Args:
+            transparent: Clear to transparent zero instead of opaque black.
+        """
         pixel = bytes(4) if transparent else self.color_bytes((0, 0, 0))
         row_blank = pixel * self.width
         for y in range(self.height):
@@ -67,7 +104,15 @@ class Canvas:
         height: int,
         color: RGBColor,
     ) -> None:
-        """Fill a clipped rectangle using a contiguous slice per image row."""
+        """Fill a clipped rectangle using a contiguous slice per image row.
+
+        Args:
+            x: Left edge in pixels.
+            y: Top edge in pixels.
+            width: Width in pixels.
+            height: Height in pixels.
+            color: RGB color.
+        """
         self.fill_cell(x, y, x + width, y + height, color)
 
     def is_in_circle(
@@ -78,7 +123,18 @@ class Canvas:
         center_y: float,
         radius: float,
     ) -> bool:
-        """Return whether a point lies inside or on the circle."""
+        """Return whether a point lies inside or on the circle.
+
+        Args:
+            x_pixel: Point x in pixels.
+            y_pixel: Point y in pixels.
+            center_x: Circle center x.
+            center_y: Circle center y.
+            radius: Circle radius.
+
+        Returns:
+            True when the point is inside or on the circle.
+        """
         dx = x_pixel - center_x
         dy = y_pixel - center_y
         return dx**2 + dy**2 <= radius**2
@@ -91,7 +147,15 @@ class Canvas:
         y1: int,
         color: RGBColor,
     ) -> None:
-        """Fill a clipped rectangle, excluding its right and bottom edges."""
+        """Fill a clipped rectangle, excluding its right and bottom edges.
+
+        Args:
+            x0: Left edge, inclusive.
+            y0: Top edge, inclusive.
+            x1: Right edge, exclusive.
+            y1: Bottom edge, exclusive.
+            color: RGB color.
+        """
         start_x = max(0, min(x0, self.width))
         end_x = max(0, min(x1, self.width))
         start_y = max(0, min(y0, self.height))

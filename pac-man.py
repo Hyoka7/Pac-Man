@@ -1,4 +1,4 @@
-"""Compatibility entry point for make run and direct script execution."""
+"""Entry point: python3 pac-man.py <config_file>."""
 
 from pacman.__main__ import main
 

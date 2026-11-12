@@ -17,7 +17,15 @@ class Maze:
     """Own a rectangular grid of wall masks."""
 
     def __init__(self, maze: MazeGrid) -> None:
-        """Validate and copy the supplied maze."""
+        """Validate and copy the supplied maze.
+
+        Args:
+            maze: Rows of wall bitmasks from the generator.
+
+        Raises:
+            ValueError: If the grid is empty, not rectangular or has
+                values outside 0..15.
+        """
         if not maze or not maze[0]:
             raise ValueError("maze must not be empty")
         self.rows = len(maze)
@@ -37,7 +45,14 @@ class Maze:
         }
 
     def central_cell(self) -> CellPosition:
-        """Return a passage nearest the center, breaking ties in row order."""
+        """Return a passage nearest the center, breaking ties in row order.
+
+        Returns:
+            The open cell closest to the maze center.
+
+        Raises:
+            ValueError: If the maze has no open cell.
+        """
         center_x, center_y = self.cols // 2, self.rows // 2
         passages = [
             (x, y)
@@ -53,7 +68,14 @@ class Maze:
         )
 
     def _build_distances(self, start: CellPosition) -> CellDistances:
-        """Run BFS from one cell while preparing the level's distance table."""
+        """Run BFS from one cell while preparing the level's distance table.
+
+        Args:
+            start: Origin cell.
+
+        Returns:
+            Step counts from start to every reachable cell.
+        """
         distances: CellDistances = {start: 0}
         queue = deque([start])
         while queue:
@@ -70,7 +92,19 @@ class Maze:
         return distances
 
     def next_cell(self, x: int, y: int, direction: str) -> CellPosition:
-        """Return the adjacent cell; walls and bounds are checked separately."""
+        """Return the adjacent cell; walls and bounds are checked separately.
+
+        Args:
+            x: Column of the current cell.
+            y: Row of the current cell.
+            direction: Direction: "N", "E", "S" or "W".
+
+        Returns:
+            The neighboring cell in that direction.
+
+        Raises:
+            ValueError: If the direction is unknown.
+        """
         if direction not in DIRECTION_OFFSETS:
             raise ValueError("direction must be N, E, S or W")
         dx, dy = DIRECTION_OFFSETS[direction]
@@ -83,7 +117,17 @@ class Maze:
         direction: str,
         wallhack: bool = False,
     ) -> bool:
-        """Return whether a cell has an in-bounds passage in a direction."""
+        """Return whether a cell has an in-bounds passage in a direction.
+
+        Args:
+            x: Column of the current cell.
+            y: Row of the current cell.
+            direction: Direction: "N", "E", "S" or "W".
+            wallhack: Ignore walls but still stay inside the maze.
+
+        Returns:
+            True when the move stays in bounds and is not blocked.
+        """
         if direction not in WALL_BITS:
             return False
         if not (0 <= x < self.cols and 0 <= y < self.rows):

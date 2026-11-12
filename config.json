@@ -1,3 +1,5 @@
+# Pac-Man configuration. Lines starting with # are comments.
+# Ten levels whose mazes grow from 15x15 to 30x27.
 {
   "highscore_filename": "scores.json",
   "lives": 3,
@@ -12,13 +14,48 @@
       "max_time": 90.0
     },
     {
-      "width": 25,
+      "width": 17,
       "height": 15,
+      "max_time": 100.0
+    },
+    {
+      "width": 19,
+      "height": 17,
+      "max_time": 110.0
+    },
+    {
+      "width": 21,
+      "height": 17,
       "max_time": 120.0
     },
     {
+      "width": 21,
+      "height": 19,
+      "max_time": 130.0
+    },
+    {
+      "width": 23,
+      "height": 19,
+      "max_time": 140.0
+    },
+    {
       "width": 25,
+      "height": 21,
+      "max_time": 150.0
+    },
+    {
+      "width": 25,
+      "height": 23,
+      "max_time": 160.0
+    },
+    {
+      "width": 27,
       "height": 25,
+      "max_time": 170.0
+    },
+    {
+      "width": 30,
+      "height": 27,
       "max_time": 180.0
     }
   ]

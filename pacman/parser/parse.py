@@ -9,14 +9,30 @@ from ..models.models import LevelConfig
 
 
 class ConfigParser:
+    """Read a commented JSON configuration into a validated Config."""
+
     def __init__(self, config_path: Path | str) -> None:
+        """Remember the configuration file path.
+
+        Args:
+            config_path: Path to the JSON configuration file.
+        """
         if not isinstance(config_path, Path):
             self.config_path = Path(config_path)
         else:
             self.config_path = config_path
 
     def parse_config(self) -> Config:
-        """Read commented JSON and recover invalid settings with model defaults."""
+        """Read commented JSON, replacing invalid settings with defaults.
+
+        Returns:
+            The validated configuration.
+
+        Raises:
+            OSError: If the file cannot be read.
+            ValueError: If the file is not valid UTF-8 JSON.
+            TypeError: If the JSON root is not an object.
+        """
         config_parts = []
         with self.config_path.open("r", encoding="utf-8") as f:
             for line in f:
@@ -35,7 +51,14 @@ class ConfigParser:
 
     @staticmethod
     def _validate_config(values: dict[str, object]) -> Config:
-        """Validate game settings, replacing only missing or invalid fields."""
+        """Validate game settings, replacing only missing or invalid fields.
+
+        Args:
+            values: Parsed top-level JSON object.
+
+        Returns:
+            A Config with invalid or missing fields set to defaults.
+        """
         corrected = values.copy()
         for name, field in Config.model_fields.items():
             if name not in corrected:
@@ -62,7 +85,15 @@ class ConfigParser:
 
     @staticmethod
     def _validate_level(values: object, index: int) -> LevelConfig:
-        """Validate one level without changing settings in other levels."""
+        """Validate one level without changing settings in other levels.
+
+        Args:
+            values: Parsed level entry.
+            index: Position of the level, used in warnings.
+
+        Returns:
+            A LevelConfig with invalid or missing fields set to defaults.
+        """
         location = f"levels[{index}]"
         if not isinstance(values, dict):
             print(

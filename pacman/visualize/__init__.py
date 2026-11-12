@@ -11,6 +11,17 @@ __all__ = ["GameVisualizer"]
 
 
 def __getattr__(name: str) -> type[GameVisualizer]:
+    """Import GameVisualizer lazily on first access.
+
+    Args:
+        name: Requested attribute name.
+
+    Returns:
+        The GameVisualizer class.
+
+    Raises:
+        AttributeError: For any other name.
+    """
     if name == "GameVisualizer":
         from .game_visualizer import GameVisualizer
 

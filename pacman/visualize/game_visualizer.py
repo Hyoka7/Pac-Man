@@ -12,10 +12,10 @@ from pacman.controls.keys import WindowAction
 from pacman.game.game import Game
 from pacman.game.pacgums import PacgumEatenEnum
 from pacman.game.player import Player
+from pacman.game.state import GameState
 from pacman.models import Config
 from pacman.visualize.canvas import Canvas
 from pacman.visualize.display_check import ensure_display_available
-from pacman.game.state import GameState
 from pacman.visualize.gui import GUI
 from pacman.visualize.layout import centered_start
 from pacman.visualize.mlx_events import MlxEvent, MlxEventMask
@@ -43,7 +43,12 @@ class GameVisualizer:
         generator: MazeGenerator,
         config: Config,
     ) -> None:
-        """Connect game state to the GUI before opening a graphics window."""
+        """Connect game state to the GUI before opening a graphics window.
+
+        Args:
+            generator: Maze generator that already produced the first maze.
+            config: Validated game settings.
+        """
         self.game = Game(generator, config)
         self.gui = GUI()
         self.world_renderer = WorldRenderer()
@@ -70,7 +75,11 @@ class GameVisualizer:
         self.previous_frame_time = time.monotonic()
 
     def _draw(self, _param: object = None) -> None:
-        """Compose the current game view into the image buffer."""
+        """Compose the current game view into the image buffer.
+
+        Args:
+            _param: Unused parameter passed by MLX.
+        """
         del _param
         if self.window_closed:
             return
@@ -109,6 +118,7 @@ class GameVisualizer:
             renderer()
 
     def _draw_home(self) -> None:
+        """Draw the Home menu."""
         self.gui.home(
             self.canvas,
             self.width,
@@ -118,6 +128,7 @@ class GameVisualizer:
         )
 
     def _draw_gameover(self) -> None:
+        """Draw the Game Over screen with the name being entered."""
         self.gui.gameover(
             self.canvas,
             self.width,
@@ -127,6 +138,7 @@ class GameVisualizer:
         )
 
     def _draw_instruction(self) -> None:
+        """Draw the instructions screen."""
         self.gui.instruction(
             self.canvas,
             self.width,
@@ -134,6 +146,7 @@ class GameVisualizer:
         )
 
     def _draw_pause(self) -> None:
+        """Draw the pause menu over the game."""
         self.gui.pause(
             self.canvas,
             self.width,
@@ -141,6 +154,7 @@ class GameVisualizer:
         )
 
     def _draw_ready(self) -> None:
+        """Draw the Ready prompt over the game."""
         self.gui.ready(
             self.canvas,
             self.width,
@@ -148,6 +162,7 @@ class GameVisualizer:
         )
 
     def _draw_stage_clear(self) -> None:
+        """Draw the stage clear screen."""
         self.gui.stage_clear(
             self.canvas,
             self.width,
@@ -155,6 +170,7 @@ class GameVisualizer:
         )
 
     def _draw_ranking(self) -> None:
+        """Draw the highscore ranking."""
         self.gui.ranking(
             self.canvas,
             self.width,
@@ -163,6 +179,7 @@ class GameVisualizer:
         )
 
     def _draw_all_clear(self) -> None:
+        """Draw the victory screen with the name being entered."""
         self.gui.all_clear(
             self.canvas,
             self.width,
@@ -172,6 +189,7 @@ class GameVisualizer:
         )
 
     def _draw_confirm_clear(self) -> None:
+        """Draw the ranking clear confirmation."""
         self.gui.confirm_clear(self.canvas, self.width, self.height)
 
     def _draw_world(self) -> None:
@@ -209,7 +227,11 @@ class GameVisualizer:
                 bar_y,
                 self.game.player.invincible_remain,
             )
-        if self.game.state in (GameState.Playing, GameState.Pause):
+        if self.game.state in (
+            GameState.Playing,
+            GameState.Pause,
+            GameState.Ready,
+        ):
             self.gui.draw_stats(
                 self.canvas,
                 self.gui.hud_x,
@@ -229,6 +251,11 @@ class GameVisualizer:
             )
 
     def _close(self, _param: object = None) -> None:
+        """Release MLX resources and audio once, then stop the loop.
+
+        Args:
+            _param: Unused parameter passed by MLX.
+        """
         del _param
         if self.window_closed:
             return
@@ -244,7 +271,11 @@ class GameVisualizer:
             self.audio.close()
 
     def _on_loop(self, _param: object = None) -> None:
-        """Supply elapsed time to the game, then present its current state."""
+        """Supply elapsed time to the game, then present its current state.
+
+        Args:
+            _param: Unused parameter passed by MLX.
+        """
         if self.window_closed:
             return
         current_time = time.monotonic()
@@ -258,7 +289,12 @@ class GameVisualizer:
             self._draw()
 
     def _play_sound_effects(self, gum: PacgumEatenEnum, eaten: int) -> None:
-        """Play independent pacgum and ghost events from the current update."""
+        """Play independent pacgum and ghost events from the current update.
+
+        Args:
+            gum: Kind of pacgum eaten this frame.
+            eaten: Number of ghosts eaten this frame.
+        """
         if gum == PacgumEatenEnum.Normal:
             self.audio.pacgum_sound()
         elif gum == PacgumEatenEnum.Super:
@@ -280,7 +316,12 @@ class GameVisualizer:
             self.audio.play_gameover_bgm()
 
     def _on_key(self, key: int, _param: object = None) -> None:
-        """Pass controls to the game and apply requested window actions."""
+        """Pass controls to the game and apply requested window actions.
+
+        Args:
+            key: Pressed key code.
+            _param: Unused parameter passed by MLX.
+        """
         if self.window_closed:
             return
         action = self.game.handle_key(key, self.canvas)
@@ -293,6 +334,12 @@ class GameVisualizer:
             self._draw()
 
     def _on_key_release(self, key: int, _param: object = None) -> None:
+        """Pass a released key to the game.
+
+        Args:
+            key: Released key code.
+            _param: Unused parameter passed by MLX.
+        """
         self.game.release_key(key)
 
     def _place_pending_level(self) -> None:
@@ -307,14 +354,21 @@ class GameVisualizer:
         self.game.place_level(self.canvas)
 
     def display_next_level(self) -> None:
+        """Advance the level and place it on the canvas."""
         self.game.next_level()
         self._place_pending_level()
 
     def restart_game_view(self) -> None:
+        """Start a new game and place its first level."""
         self.game.restart_game()
         self._place_pending_level()
 
     def _calc_cell_size(self) -> int:
+        """Return the largest cell size that fits the maze in the window.
+
+        Returns:
+            The cell size in pixels; below 1 when the maze cannot fit.
+        """
         fit_x = (self.width - 2 * self.margin - 1) // self.game.maze.cols
         fit_y = (self.height - 2 * self.margin - 1) // self.game.maze.rows
         return min(fit_x, fit_y)

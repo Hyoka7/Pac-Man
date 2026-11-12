@@ -4,6 +4,8 @@ from enum import Enum, IntEnum, auto
 
 
 class KeyEnum(IntEnum):
+    """X11 key codes handled by the game."""
+
     A = 97
     C = 99
     D = 100
@@ -47,5 +49,7 @@ MOVEMENT_DIRECTIONS: dict[int, str] = {
 
 
 class WindowAction(Enum):
+    """Window operations requested by the game from its visualizer."""
+
     Close = auto()
     CycleColors = auto()

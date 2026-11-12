@@ -14,15 +14,23 @@ from pacman.visualize.sprites import ghost_image, player_image
 
 
 class WorldRenderer:
+    """Draw the maze, pacgums and characters during play."""
+
     RESPAWN_BLINK_DURATION = 1.5
     INVINCIBLE_BLINK_DURATION = 1.5
     BLINK_INTERVAL = 0.2  # Seconds per visible/color phase.
 
     def __init__(self) -> None:
+        """Create the image renderer used for sprites."""
         self.images = ImageRenderer()
 
     def draw_player(self, player: Player, canvas: Canvas) -> None:
-        """Draw the player at its current interpolated center."""
+        """Draw the player at its current interpolated center.
+
+        Args:
+            player: Player to draw.
+            canvas: Destination canvas.
+        """
         center_x, center_y = player.movement.center
         mouth_step = round(player.mouth_half_angle / 45 * 10)
         img = player_image(player.radius, player.movement.direction, mouth_step)
@@ -37,7 +45,14 @@ class WorldRenderer:
         eatable: bool,
         eatable_remain: float,
     ) -> None:
-        """Draw the ghost with its existing respawn and power-up flashes."""
+        """Draw the ghost with its existing respawn and power-up flashes.
+
+        Args:
+            ghost: Ghost to draw.
+            canvas: Destination canvas.
+            eatable: Whether the player is invincible.
+            eatable_remain: Seconds of invincibility left.
+        """
         if ghost.respawn_remaining > self.RESPAWN_BLINK_DURATION:
             return
         elif ghost.respawn_remaining > 0.0:
@@ -66,9 +81,24 @@ class WorldRenderer:
         wall_color: RGBColor,
         landmark_color: RGBColor,
     ) -> None:
-        """Draw the maze and enclosed 42 cells."""
+        """Draw the maze and enclosed 42 cells.
+
+        Args:
+            maze: Maze to draw.
+            canvas: Destination canvas.
+            wall_color: Color of wall lines.
+            landmark_color: Fill color of closed 42 cells.
+        """
 
         def _draw_line(x0: int, y0: int, x1: int, y1: int) -> None:
+            """Draw a one-pixel wall line including its end point.
+
+            Args:
+                x0: Start x in pixels.
+                y0: Start y in pixels.
+                x1: End x in pixels, inclusive.
+                y1: End y in pixels, inclusive.
+            """
             canvas.fill_cell(x0, y0, x1 + 1, y1 + 1, wall_color)
 
         for y, row in enumerate(maze.maze):
@@ -96,7 +126,15 @@ class WorldRenderer:
         radius: float,
         color: RGBColor,
     ) -> None:
-        """Draw a clipped solid circle using the existing pixel-center test."""
+        """Draw a clipped solid circle using the existing pixel-center test.
+
+        Args:
+            canvas: Destination canvas.
+            center_x: Circle center x in pixels.
+            center_y: Circle center y in pixels.
+            radius: Circle radius in pixels.
+            color: RGB color.
+        """
         for y in range(
             max(0, floor(center_y - radius - 0.5)),
             min(canvas.height, ceil(center_y + radius + 0.5)),
@@ -112,7 +150,12 @@ class WorldRenderer:
                 canvas.draw_pixel(x, y, color)
 
     def draw_pacgums(self, pacgums: Pacgums, canvas: Canvas) -> None:
-        """Draw only the pacgums that have not been eaten."""
+        """Draw only the pacgums that have not been eaten.
+
+        Args:
+            pacgums: Remaining pacgums.
+            canvas: Destination canvas.
+        """
         for x, y in pacgums.remain_gums:
             center_x, center_y = canvas.cell_center(x, y)
             self._draw_gum(
