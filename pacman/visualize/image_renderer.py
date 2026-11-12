@@ -155,7 +155,6 @@ class ImageRenderer:
         text: str,
         color: RGBColor = (255, 255, 255),
         size: int = 20,
-        *,
         slot: str = "hud",
     ) -> Image.Image:
         """Get the latest composed image for measurement and drawing."""

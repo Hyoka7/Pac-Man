@@ -24,3 +24,6 @@ WALL_BITS: dict[str, int] = {
     "S": 4,
     "W": 8,
 }
+
+ALL_WALLS = sum(WALL_BITS.values())
+"""Wall mask of a closed cell (walls on every side)."""

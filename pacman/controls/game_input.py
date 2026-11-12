@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pacman.controls.keys import MOVEMENT_DIRECTIONS, KeyEnum, WindowAction
+from pacman.game.player import Player
 from pacman.game.state import GameState
 
 if TYPE_CHECKING:
@@ -122,6 +123,7 @@ def _handle_cheat_sequence(game: Game, key: int) -> bool:
             game.no_collision = False
             game.score_multiplier = 1
             game.player.movement.wallhack = False
+            game.player.movement.speed = Player.DEFAULT_SPEED
         return True
     return game.cheathandler.index > 0
 

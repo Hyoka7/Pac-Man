@@ -35,10 +35,9 @@ class HighscoreManager:
         self.save()
         return self
 
-    def clear(self) -> Self:
+    def clear(self) -> None:
         self.scores.scores.clear()
         self.save()
-        return self
 
     def save(self) -> None:
         temporary_path: Path | None = None

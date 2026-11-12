@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from collections import deque
 
-from pacman.game.directions import DIRECTION_OFFSETS, DIRECTIONS, WALL_BITS
+from pacman.game.directions import (
+    ALL_WALLS,
+    DIRECTION_OFFSETS,
+    DIRECTIONS,
+    WALL_BITS,
+)
 from pacman.types import CellDistances, CellPosition, MazeDistances, MazeGrid
 
 
@@ -28,7 +33,7 @@ class Maze:
             (x, y): self._build_distances((x, y))
             for y, row in enumerate(self.maze)
             for x, cell in enumerate(row)
-            if cell != 15
+            if cell != ALL_WALLS
         }
 
     def central_cell(self) -> CellPosition:
@@ -38,7 +43,7 @@ class Maze:
             (x, y)
             for y, row in enumerate(self.maze)
             for x, cell in enumerate(row)
-            if cell != 15
+            if cell != ALL_WALLS
         ]
         if not passages:
             raise ValueError("maze has no passage for the player")
@@ -58,7 +63,7 @@ class Maze:
                     continue
                 neighbor = self.next_cell(*cell, direction)
                 x, y = neighbor
-                if neighbor in distances or self.maze[y][x] == 15:
+                if neighbor in distances or self.maze[y][x] == ALL_WALLS:
                     continue
                 distances[neighbor] = distances[cell] + 1
                 queue.append(neighbor)

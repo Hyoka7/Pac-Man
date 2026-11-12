@@ -2,6 +2,7 @@
 
 from math import ceil, floor
 
+from pacman.game.directions import ALL_WALLS
 from pacman.game.ghost import Ghost
 from pacman.game.maze import Maze
 from pacman.game.pacgums import Pacgums
@@ -76,7 +77,7 @@ class WorldRenderer:
                 y0 = canvas.offset_y + y * canvas.cell_size
                 x1 = x0 + canvas.cell_size
                 y1 = y0 + canvas.cell_size
-                if cell == 15:
+                if cell == ALL_WALLS:
                     canvas.fill_cell(x0, y0, x1, y1, landmark_color)
                 if cell & 1:
                     _draw_line(x0, y0, x1, y0)

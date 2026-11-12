@@ -1,6 +1,17 @@
 # Pac-Man 開発メモ
 
-最終更新：2026-11-08。
+最終更新：2026-11-12。
+
+## 残りファイルの読了とコード理解の完了（2026-11-12）
+
+- ImageRendererの文字描画処理を読了（前回分の未push変更として、text_image()のキーワード専用引数の`*`を削除）。
+- game_input.pyの画面別キー処理を読了。dispatch_key()の共通処理（Shift・Esc）→状態別ハンドラ、プレイ中のチートコマンド→P→C→チートキー→移動の優先順位、名前入力の制限を確認。CheatHandler・keys.pyも読了。
+- チート解除時にVの速度だけ戻っていなかったため、Player.DEFAULT_SPEEDへ戻すよう修正し、既存の解除テストに速度の検証を追加。
+- storage/highscore.pyを読了。pydanticでの名前・得点の検証、上位10件への並べ替え、一時ファイル＋os.replace()による原子的保存、読み込み失敗時の空データでの開始を確認。clear()の戻り値をNoneへ変更。
+- audio/manager.pyを読了。BGMはmixer.musicで状態が同じなら再生し直さず、効果音はSoundで重ねて鳴らす。Ready・Pause等では直前のBGMを継続。mixer.init()失敗・音声ファイル欠落・相対パスで起動時に落ちる可能性と、未使用のstop_bgm()は未対応のまま保留。
+- pacgums.py・collision.py・directions.py・state.pyを読了。スーパーgumは四隅のため_is_edge()を_is_corner()へ改名し、reset_pacgums()は通行可能セルを一度だけ作って四隅と残りに分ける形へ整理。四方が壁のセルを表す15はdirections.pyのALL_WALLS（WALL_BITSの合計）へ置き換え、maze.py・world_renderer.pyにも適用。
+- これでpacman/以下の全ファイルを一通り読了。全219テスト成功、mypyのエラー数は変更前と同じ。
+- 今回の変更と進捗をcommit・pushする。scores.jsonとdocs/は含めない。
 
 ## GUIの理解と中央配置の整理（2026-11-08）
 
