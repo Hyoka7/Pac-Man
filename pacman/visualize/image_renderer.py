@@ -51,7 +51,9 @@ def _text_image(
     font = _font(size)
     ascent, descent = font.getmetrics()
     left, _, right, _ = font.getbbox(text)
-    image = Image.new("RGBA", (int(right - left), ascent + descent), (0, 0, 0, 0))
+    image = Image.new(
+        "RGBA", (int(right - left), ascent + descent), (0, 0, 0, 0)
+    )
     ImageDraw.Draw(image).text((-left, 0), text, fill=(*color, 255), font=font)
     return image
 
@@ -111,7 +113,6 @@ class ImageRenderer:
         dest_y: int,
         image: Image.Image,
     ) -> None:
-
         """Alpha-composite an RGBA image onto the canvas buffer.
 
         The visible area is cropped, blended with the existing pixels
@@ -143,7 +144,9 @@ class ImageRenderer:
         dest_x, dest_y = left, top
         width, height = image.size
         for row in range(height):
-            start = (dest_y + row) * canvas.line_size + dest_x * bytes_per_pixel
+            start = (
+                dest_y + row
+            ) * canvas.line_size + dest_x * bytes_per_pixel
             end = start + width * bytes_per_pixel
             background_row = bytes(canvas.img_data[start:end])
             row_bytes.append(background_row)
@@ -163,10 +166,13 @@ class ImageRenderer:
             r, g, b, a = background.split()
             result = Image.merge("RGBA", (a, r, g, b)).tobytes()
         for row in range(height):
-            start = (dest_y + row) * canvas.line_size + dest_x * bytes_per_pixel
+            start = (
+                dest_y + row
+            ) * canvas.line_size + dest_x * bytes_per_pixel
             source_start = row * width * bytes_per_pixel
-            canvas.img_data[start : start + width * bytes_per_pixel] = result[
-                source_start : source_start + width * bytes_per_pixel
+            row_size = width * bytes_per_pixel
+            canvas.img_data[start:start + row_size] = result[
+                source_start:source_start + row_size
             ]
 
     def _split(self, text: str) -> list[str]:

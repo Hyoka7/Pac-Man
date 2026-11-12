@@ -2,6 +2,12 @@
 
 最終更新：2026-11-12。
 
+## lint整理とテストのローカル化（2026-11-12）
+
+- テスト以外（pacman/・pac-man.py）をflake8・mypy（subject指定のフラグ）とも警告ゼロにした。black -l 79で整形し、長い文字列・E203は手で修正。pygameの案内文抑止はpacman/audio/__init__.pyへ移してE402を解消。KeyEnum.IはLETTER_Iへ改名し、未使用のO・M・Rを削除。WindowAction | Noneを返すキー処理にreturn Noneを明示。
+- テストを224件から207件へ整理。完全に含まれる重複、画面ごとに同じ確認をしていたExposeテスト（4本→1本）、廃止機能（O/Auto、ランキングのページ送り、戦略共有、ネイティブ文字描画）のテストを削除し、残す側に確認項目を統合。
+- テストは提出しないため、git管理から外し.gitignoreにtests/を追加。ファイルはローカルに残す。Makefileのlint（flake8 . / mypy .）はローカルではtests/も対象になるが、提出物にはtests/が含まれない。
+
 ## subject要件への対応：10レベル・起動名・docstring（2026-11-12）
 
 - subject（PACMAN.pdf v1.5）とコードを照合。lint・itch.io・READMEを除く未対応点を洗い出し、レベル数・起動ファイル名・docstringを優先対応。

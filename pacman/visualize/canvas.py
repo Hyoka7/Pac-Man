@@ -94,7 +94,7 @@ class Canvas:
         row_blank = pixel * self.width
         for y in range(self.height):
             idx = y * self.line_size
-            self.img_data[idx : idx + len(row_blank)] = row_blank
+            self.img_data[idx:idx + len(row_blank)] = row_blank
 
     def fill_rect(
         self,
@@ -165,4 +165,4 @@ class Canvas:
         row_segment = self.color_bytes(color) * (end_x - start_x)
         for y in range(start_y, end_y):
             idx = y * self.line_size + start_x * self.bytes_per_pixel
-            self.img_data[idx : idx + len(row_segment)] = row_segment
+            self.img_data[idx:idx + len(row_segment)] = row_segment

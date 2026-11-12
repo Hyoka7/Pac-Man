@@ -1,4 +1,4 @@
-"""Window presentation and rendering, loaded without starting the application."""
+"""Window presentation and rendering, loaded without starting the game."""
 
 from __future__ import annotations
 

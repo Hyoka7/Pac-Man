@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class Movement:
-    """Own a character's cell, pixel position and active cell-to-cell motion."""
+    """Own a character's cell, pixel position and cell-to-cell motion."""
 
     def __init__(
         self,
@@ -99,7 +99,9 @@ class Movement:
         Returns:
             True when a move started.
         """
-        if self.moving or not maze.can_move(*self.cell, direction, self.wallhack):
+        if self.moving or not maze.can_move(
+            *self.cell, direction, self.wallhack
+        ):
             return False
         self.center = canvas.cell_center(*self.cell)
         self.target_cell = maze.next_cell(*self.cell, direction)

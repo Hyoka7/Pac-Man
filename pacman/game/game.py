@@ -1,4 +1,4 @@
-"""Game progression, input decisions and rules, independent of MLX lifecycle."""
+"""Game progression, input decisions and rules, independent of MLX."""
 
 from __future__ import annotations
 
@@ -133,7 +133,9 @@ class Game:
         Returns:
             The kind of pacgum eaten this frame.
         """
-        eaten = self.player.update_player(elapsed, self.maze, canvas, self.pacgums)
+        eaten = self.player.update_player(
+            elapsed, self.maze, canvas, self.pacgums
+        )
         points = self.pacgum_points.get(eaten, 0)
         if points:
             self.player.score += points * self.score_multiplier
@@ -172,7 +174,11 @@ class Game:
         """
         ghost_eaten = 0
         red_pos = next(
-            (ghost.cell for ghost in self.ghosts if ghost.role == GhostRole.RED),
+            (
+                ghost.cell
+                for ghost in self.ghosts
+                if ghost.role == GhostRole.RED
+            ),
             None,
         )
         for ghost in self.ghosts:
@@ -262,10 +268,12 @@ class Game:
         release_game_key(self, key)
 
     def regenerate_maze(self) -> None:
-        """Prepare the maze and spawn cells; place it after screen layout updates."""
+        """Prepare the maze and spawn cells; placement waits for layout."""
         new_conf = self.config.levels[self.level - 1]
         maze_seed = self.config.seed if self.level == 1 else 0
-        new_generator = MazeGenerator((new_conf.width, new_conf.height), seed=maze_seed)
+        new_generator = MazeGenerator(
+            (new_conf.width, new_conf.height), seed=maze_seed
+        )
         self.generator = new_generator
         self.maze = Maze(self.generator.maze)
         self.new_level_needs_placement = True
@@ -282,13 +290,17 @@ class Game:
         corners = self._ghost_spawn_cells()
         return [
             Ghost(
-                corners[0], InkyStrategy(),
-                color=GHOST_COLORS[GhostRole.CYAN], role=GhostRole.CYAN,
+                corners[0],
+                InkyStrategy(),
+                color=GHOST_COLORS[GhostRole.CYAN],
+                role=GhostRole.CYAN,
             ),
             Ghost(corners[1], BFSStrategy(), role=GhostRole.RED),
             Ghost(
-                corners[2], AmbushStrategy(),
-                color=GHOST_COLORS[GhostRole.PINK], role=GhostRole.PINK,
+                corners[2],
+                AmbushStrategy(),
+                color=GHOST_COLORS[GhostRole.PINK],
+                role=GhostRole.PINK,
             ),
             Ghost(
                 corners[3],

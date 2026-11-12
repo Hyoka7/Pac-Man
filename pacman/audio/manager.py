@@ -1,11 +1,9 @@
 """Background music and sound effects; silently disabled without audio."""
 
-import os
 import sys
 from enum import Enum, auto
 from pathlib import Path
 
-os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import pygame
 
 AUDIO_DIR = Path(__file__).resolve().parents[2] / "assets" / "audio"
@@ -32,7 +30,9 @@ class AudioManager:
             pygame.mixer.init()
             self.enabled = True
             for name in ("pacgum", "eat", "powerup"):
-                self.sounds[name] = pygame.mixer.Sound(str(AUDIO_DIR / f"{name}.mp3"))
+                self.sounds[name] = pygame.mixer.Sound(
+                    str(AUDIO_DIR / f"{name}.mp3")
+                )
         except (pygame.error, OSError) as err:
             self._disable(err)
 

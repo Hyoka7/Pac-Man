@@ -3,8 +3,16 @@
 from pydantic import BaseModel, Field
 
 DEFAULT_LEVEL_SIZES: tuple[tuple[int, int], ...] = (
-    (15, 15), (17, 15), (19, 17), (21, 17), (21, 19),
-    (23, 19), (25, 21), (25, 23), (27, 25), (30, 27),
+    (15, 15),
+    (17, 15),
+    (19, 17),
+    (21, 17),
+    (21, 19),
+    (23, 19),
+    (25, 21),
+    (25, 23),
+    (27, 25),
+    (30, 27),
 )
 """Maze (width, height) for each default level, growing from 15x15."""
 

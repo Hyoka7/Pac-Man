@@ -209,7 +209,7 @@ class GameVisualizer:
         self.world_renderer.draw_player(self.game.player, self.canvas)
 
     def _draw_hud(self) -> None:
-        """Draw invincibility status and the gameplay score, lives and timer."""
+        """Draw invincibility status and the score, lives and timer."""
         if self.game.player.is_invincible:
             bar_y = self.gui.bar_y
             self.gui.draw_invincible_bar(
@@ -263,9 +263,13 @@ class GameVisualizer:
         try:
             if self.mlx_pointer is not None:
                 if self.image_pointer is not None:
-                    self.mlx.mlx_destroy_image(self.mlx_pointer, self.image_pointer)
+                    self.mlx.mlx_destroy_image(
+                        self.mlx_pointer, self.image_pointer
+                    )
                 if self.window_pointer is not None:
-                    self.mlx.mlx_destroy_window(self.mlx_pointer, self.window_pointer)
+                    self.mlx.mlx_destroy_window(
+                        self.mlx_pointer, self.window_pointer
+                    )
                 self.mlx.mlx_loop_exit(self.mlx_pointer)
         finally:
             self.audio.close()
@@ -303,7 +307,7 @@ class GameVisualizer:
             self.audio.eating_sound()
 
     def _update_bgm(self) -> None:
-        """Select screen music while preserving the current track on overlays."""
+        """Select screen music, keeping the current track on overlays."""
         if self.game.state in (
             GameState.Home,
             GameState.Ranking,
@@ -330,7 +334,9 @@ class GameVisualizer:
             return
         self._place_pending_level()
         if action == WindowAction.CycleColors:
-            self.color_mode_index = (self.color_mode_index + 1) % len(self.color_modes)
+            self.color_mode_index = (self.color_mode_index + 1) % len(
+                self.color_modes
+            )
             self._draw()
 
     def _on_key_release(self, key: int, _param: object = None) -> None:
@@ -343,7 +349,7 @@ class GameVisualizer:
         self.game.release_key(key)
 
     def _place_pending_level(self) -> None:
-        """Apply screen geometry before the game places entities and pickups."""
+        """Apply screen geometry before the game places the level."""
         if not self.game.new_level_needs_placement:
             return
         self._update_layout()
@@ -396,7 +402,9 @@ class GameVisualizer:
         self.mlx_pointer = self.mlx.mlx_init()
         if self.mlx_pointer is None:
             raise RuntimeError("MLX initialization failed")
-        _, screen_width, screen_height = self.mlx.mlx_get_screen_size(self.mlx_pointer)
+        _, screen_width, screen_height = self.mlx.mlx_get_screen_size(
+            self.mlx_pointer
+        )
         window_margin = max(1, round(min(screen_width, screen_height) / 15))
         self.width = screen_width - window_margin
         self.height = screen_height - window_margin

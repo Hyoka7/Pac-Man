@@ -11,14 +11,11 @@ class KeyEnum(IntEnum):
     D = 100
     F = 102
     H = 104
-    I = 105
+    LETTER_I = 105
     K = 107
     L = 108
-    M = 109
     N = 110
-    O = 111
     P = 112
-    R = 114
     S = 115
     T = 116
     V = 118

@@ -120,7 +120,11 @@ class Ghost:
                 if self.cell == player_cell:
                     return
                 direction = self.strategy.choose_direction(
-                    maze, self.cell, player_cell, player_dir, target=target,
+                    maze,
+                    self.cell,
+                    player_cell,
+                    player_dir,
+                    target=target,
                     **kwargs,
                 )
                 if direction is None:
@@ -134,7 +138,6 @@ class Ghost:
                     return
                 self.movement.start(direction, maze, canvas)
         self.movement.update_movement(elapsed, canvas)
-
 
     def reset_ghost(self, canvas: Canvas) -> None:
         """Return the ghost to its spawn cell and cancel respawn waiting.

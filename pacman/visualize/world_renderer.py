@@ -33,7 +33,9 @@ class WorldRenderer:
         """
         center_x, center_y = player.movement.center
         mouth_step = round(player.mouth_half_angle / 45 * 10)
-        img = player_image(player.radius, player.movement.direction, mouth_step)
+        img = player_image(
+            player.radius, player.movement.direction, mouth_step
+        )
         left = round(center_x - img.width / 2)
         top = round(center_y - img.height / 2)
         self.images.draw_image(canvas, left, top, img)
@@ -159,10 +161,18 @@ class WorldRenderer:
         for x, y in pacgums.remain_gums:
             center_x, center_y = canvas.cell_center(x, y)
             self._draw_gum(
-                canvas, center_x, center_y, canvas.cell_size * 0.05, (255, 255, 255)
+                canvas,
+                center_x,
+                center_y,
+                canvas.cell_size * 0.05,
+                (255, 255, 255),
             )
         for x, y in pacgums.super_gums:
             center_x, center_y = canvas.cell_center(x, y)
             self._draw_gum(
-                canvas, center_x, center_y, canvas.cell_size * 0.15, (255, 255, 0)
+                canvas,
+                center_x,
+                center_y,
+                canvas.cell_size * 0.15,
+                (255, 255, 0),
             )

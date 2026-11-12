@@ -52,11 +52,15 @@ class GUI:
         self.text_height = self.text_renderer.text_size("A", self.font_size)[1]
         self.padding = self.font_size
         self.text_gap = max(1, round(self.font_size / 4))
-        self.line_spacing = max(round(self.font_size * 1.4), self.text_height + 1)
+        self.line_spacing = max(
+            round(self.font_size * 1.4), self.text_height + 1
+        )
         self.border_width = max(1, round(self.font_size / 10))
         self.hud_x = self.padding
         self.hud_y = self.font_size
-        self.bar_width = min(self.font_size * 10, max(0, width - 2 * self.padding))
+        self.bar_width = min(
+            self.font_size * 10, max(0, width - 2 * self.padding)
+        )
         self.bar_height = max(1, round(self.font_size / 2))
         self.bar_y = max(0, height - self.padding - self.bar_height)
         footer_height = (
@@ -86,7 +90,12 @@ class GUI:
         """
         width, _ = self.text_renderer.text_size(text, self.font_size)
         self.text_renderer.draw_text(
-            canvas, centered_start(window_width, width), y, text, color, self.font_size
+            canvas,
+            centered_start(window_width, width),
+            y,
+            text,
+            color,
+            self.font_size,
         )
 
     def _put_lines_center(
@@ -108,7 +117,9 @@ class GUI:
         """
         if not lines:
             return
-        last_height = self.text_renderer.text_size(lines[-1], self.font_size)[1]
+        last_height = self.text_renderer.text_size(lines[-1], self.font_size)[
+            1
+        ]
         top = self._block_top(height, len(lines), last_height)
         line_colors = colors if colors is not None else {}
         for row, text in enumerate(lines):
@@ -121,7 +132,9 @@ class GUI:
                     line_colors.get(row, self.TEXT_COLOR),
                 )
 
-    def _block_height(self, line_count: int, last_height: int | None = None) -> int:
+    def _block_height(
+        self, line_count: int, last_height: int | None = None
+    ) -> int:
         """Return the pixel height of a block of text lines.
 
         Args:
@@ -153,7 +166,9 @@ class GUI:
         Returns:
             The top y coordinate of the block.
         """
-        return centered_start(height, self._block_height(line_count, last_height))
+        return centered_start(
+            height, self._block_height(line_count, last_height)
+        )
 
     def _draw_panel_lines(
         self,
@@ -217,11 +232,14 @@ class GUI:
         width = min(
             max(
                 round(canvas.width * 0.8),
-                self._max_text_width(self.INSTRUCTION_LINES) + 2 * self.padding,
+                self._max_text_width(self.INSTRUCTION_LINES)
+                + 2 * self.padding,
             ),
             max(0, canvas.width - 2 * self.padding),
         )
-        height = min(panel_heights[state], max(0, canvas.height - 2 * self.padding))
+        height = min(
+            panel_heights[state], max(0, canvas.height - 2 * self.padding)
+        )
         self.draw_panel(
             canvas,
             centered_start(canvas.width, width),
@@ -240,7 +258,10 @@ class GUI:
             The widest line's width in pixels, or 0 for no lines.
         """
         return max(
-            (self.text_renderer.text_size(line, self.font_size)[0] for line in lines),
+            (
+                self.text_renderer.text_size(line, self.font_size)[0]
+                for line in lines
+            ),
             default=0,
         )
 
@@ -266,9 +287,13 @@ class GUI:
         border = min(self.border_width, width, height)
         canvas.fill_rect(x, y, width, height, self.PANEL_COLOR)
         canvas.fill_rect(x, y, width, border, self.BORDER_COLOR)
-        canvas.fill_rect(x, y + height - border, width, border, self.BORDER_COLOR)
+        canvas.fill_rect(
+            x, y + height - border, width, border, self.BORDER_COLOR
+        )
         canvas.fill_rect(x, y, border, height, self.BORDER_COLOR)
-        canvas.fill_rect(x + width - border, y, border, height, self.BORDER_COLOR)
+        canvas.fill_rect(
+            x + width - border, y, border, height, self.BORDER_COLOR
+        )
 
     def home(
         self,
@@ -314,9 +339,13 @@ class GUI:
                 menu_start + focusing: self.ACCENT_COLOR,
             },
         )
-        self._draw_home_characters(canvas, width, block_top + self.line_spacing)
+        self._draw_home_characters(
+            canvas, width, block_top + self.line_spacing
+        )
         target_char = lines[menu_start + focusing]
-        target_width, _ = self.text_renderer.text_size(target_char, self.font_size)
+        target_width, _ = self.text_renderer.text_size(
+            target_char, self.font_size
+        )
         x = centered_start(width, target_width) - focus_width - self.text_gap
         y = block_top + (menu_start + focusing) * self.line_spacing
         self.text_renderer.draw_text(
@@ -397,7 +426,9 @@ class GUI:
             "X: Score x10",
         ]
         text_size = max(1, self.font_size // 2)
-        text_height = self.text_renderer.text_size(cheat_lines[0], text_size)[1]
+        text_height = self.text_renderer.text_size(cheat_lines[0], text_size)[
+            1
+        ]
         cheat_spacing = text_height + self.text_gap
         base_y = height - self.padding - 4 * cheat_spacing
         right_width = max(
@@ -407,9 +438,15 @@ class GUI:
         for index, item in enumerate(cheat_lines):
             row = index // 2
             col = index % 2
-            text_x = self.padding if col == 0 else width - self.padding - right_width
+            text_x = (
+                self.padding
+                if col == 0
+                else width - self.padding - right_width
+            )
             text_y = base_y + row * cheat_spacing
-            self.text_renderer.draw_text(canvas, text_x, text_y, item, size=text_size)
+            self.text_renderer.draw_text(
+                canvas, text_x, text_y, item, size=text_size
+            )
 
     def ranking(
         self,
@@ -444,7 +481,8 @@ class GUI:
         )
         if not entries:
             return
-        # Spaces cannot align columns in a proportional font. Position each cell.
+        # Spaces cannot align columns in a proportional font;
+        # position each cell instead.
         rows = [
             (f"{rank}.", item.name, str(item.score))
             for rank, item in enumerate(entries, start=1)
@@ -460,7 +498,9 @@ class GUI:
         table_width = sum(column_widths) + gap * 2
         left = centered_start(width, table_width)
         top = self._block_top(
-            height, len(lines), self.text_renderer.text_size(footer, self.font_size)[1]
+            height,
+            len(lines),
+            self.text_renderer.text_size(footer, self.font_size)[1],
         )
         for index, row in enumerate(rows):
             x = left
@@ -500,9 +540,12 @@ class GUI:
         imgs = [pacman_img]
         radius = self.font_size / 2
         imgs.extend(
-            ghost_image(radius, GHOST_COLORS[role], "E") for role in ghost_roles
+            ghost_image(radius, GHOST_COLORS[role], "E")
+            for role in ghost_roles
         )
-        total_width = sum(img.width for img in imgs) + self.text_gap * (len(imgs) - 1)
+        total_width = sum(img.width for img in imgs) + self.text_gap * (
+            len(imgs) - 1
+        )
         x = centered_start(width, total_width)
         for img in imgs:
             self.text_renderer.draw_image(
@@ -654,7 +697,9 @@ class GUI:
             max_time: Full invincibility duration.
         """
         canvas.fill_rect(x, y, width, height, self.BAR_TRACK_COLOR)
-        fraction = max(0.0, min(1.0, remaining / max_time)) if max_time > 0 else 0.0
+        fraction = (
+            max(0.0, min(1.0, remaining / max_time)) if max_time > 0 else 0.0
+        )
         remain_width = int(width * fraction)
         left = x + centered_start(width, remain_width)
         canvas.fill_rect(left, y, remain_width, height, self.BAR_COLOR)

@@ -49,7 +49,9 @@ class Player:
         Args:
             elapsed: Seconds since the previous frame.
         """
-        self._mouth_elapsed = (self._mouth_elapsed + elapsed) % self.mouth_period
+        self._mouth_elapsed = (
+            self._mouth_elapsed + elapsed
+        ) % self.mouth_period
         phase = self._mouth_elapsed / self.mouth_period
         self.mouth_half_angle = 45.0 * (1.0 - abs(2.0 * phase - 1.0))
 

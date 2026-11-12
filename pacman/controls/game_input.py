@@ -28,7 +28,7 @@ def dispatch_key(game: Game, key: int, canvas: Canvas) -> WindowAction | None:
     """
     if key in (KeyEnum.SHIFT_L, KeyEnum.SHIFT_R):
         game.shift_keys.add(key)
-        return
+        return None
     if key == KeyEnum.ESC:
         return WindowAction.Close
     handlers = {
@@ -46,6 +46,7 @@ def dispatch_key(game: Game, key: int, canvas: Canvas) -> WindowAction | None:
     handler = handlers.get(game.state)
     if handler is not None:
         return handler(game, key, canvas)
+    return None
 
 
 def _handle_home_key(
@@ -72,7 +73,7 @@ def _handle_home_key(
             game.set_state(GameState.Ranking)
         elif game.home_focusing == 3:
             return WindowAction.Close
-    elif key == KeyEnum.I:
+    elif key == KeyEnum.LETTER_I:
         game.set_state(GameState.Instruction)
     elif key == KeyEnum.H:
         game.set_state(GameState.Ranking)
@@ -82,6 +83,7 @@ def _handle_home_key(
     elif key == KeyEnum.DOWN:
         game.home_focusing = (game.home_focusing + 1) % 4
         game.needs_redraw = True
+    return None
 
 
 def _handle_ranking_key(
@@ -103,6 +105,7 @@ def _handle_ranking_key(
         game.set_state(GameState.Home)
     elif key == KeyEnum.C:
         game.set_state(GameState.Confirm_Clear)
+    return None
 
 
 def _handle_instruction_key(
@@ -122,6 +125,7 @@ def _handle_instruction_key(
     """
     if key == KeyEnum.ENTER:
         game.set_state(GameState.Home)
+    return None
 
 
 def _handle_confirm_clear_key(
@@ -144,6 +148,7 @@ def _handle_confirm_clear_key(
         game.set_state(GameState.Ranking)
     elif key == KeyEnum.N:
         game.set_state(GameState.Ranking)
+    return None
 
 
 def _handle_playing_key(
@@ -162,15 +167,16 @@ def _handle_playing_key(
         WindowAction.CycleColors for C, otherwise None.
     """
     if _handle_cheat_sequence(game, key):
-        return
+        return None
     if key == KeyEnum.P:
         game.set_state(GameState.Pause)
-        return
+        return None
     if key == KeyEnum.C:
         return WindowAction.CycleColors
     if _handle_cheat_key(game, key):
-        return
+        return None
     _handle_movement_key(game, key, canvas)
+    return None
 
 
 def _handle_cheat_sequence(game: Game, key: int) -> bool:
@@ -220,7 +226,9 @@ def _handle_cheat_key(game: Game, key: int) -> bool:
     elif key == KeyEnum.H:
         game.player.movement.wallhack = not game.player.movement.wallhack
     elif key == KeyEnum.V:
-        game.player.movement.speed = 8 if game.player.movement.speed == 16 else 16
+        game.player.movement.speed = (
+            8 if game.player.movement.speed == 16 else 16
+        )
     elif key == KeyEnum.K:
         game.no_collision = not game.no_collision
     else:
@@ -257,6 +265,7 @@ def _handle_ready_key(
         Always None.
     """
     game.set_state(GameState.Playing)
+    return None
 
 
 def _handle_pause_key(
@@ -278,6 +287,7 @@ def _handle_pause_key(
         game.set_state(GameState.Playing)
     elif key == KeyEnum.H:
         game.set_state(GameState.Home)
+    return None
 
 
 def _handle_result_key(
@@ -299,6 +309,7 @@ def _handle_result_key(
         game.submit_score()
     else:
         _handle_name_key(game, key)
+    return None
 
 
 def _handle_name_key(game: Game, key: int) -> None:
@@ -340,6 +351,7 @@ def _handle_stage_clear_key(
         Always None.
     """
     game.next_level()
+    return None
 
 
 def release_key(game: Game, key: int) -> None:

@@ -33,7 +33,9 @@ class Maze:
         if any(len(row) != self.cols for row in maze):
             raise ValueError("maze must be rectangular")
         if any(
-            type(cell) is not int or not 0 <= cell <= 15 for row in maze for cell in row
+            type(cell) is not int or not 0 <= cell <= 15
+            for row in maze
+            for cell in row
         ):
             raise ValueError("each cell must be an integer wall mask (0..15)")
         self.maze: MazeGrid = [row[:] for row in maze]

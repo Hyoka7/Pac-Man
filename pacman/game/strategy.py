@@ -4,7 +4,11 @@ import random
 from abc import ABC, abstractmethod
 from typing import TypedDict, Unpack
 
-from pacman.game.directions import DIRECTION_OFFSETS, DIRECTIONS, OPPOSITE_DIRECTIONS
+from pacman.game.directions import (
+    DIRECTION_OFFSETS,
+    DIRECTIONS,
+    OPPOSITE_DIRECTIONS,
+)
 from pacman.game.maze import Maze
 from pacman.types import CellPosition
 
@@ -194,7 +198,10 @@ class ReverseAmbushStrategy(AmbushStrategy):
             The farthest open cell behind, or the player's cell.
         """
         dir = OPPOSITE_DIRECTIONS[player_dir]
-        return super().choose_target(maze, ghost_pos, player_pos, dir, **kwargs)
+        return super().choose_target(
+            maze, ghost_pos, player_pos, dir, **kwargs
+        )
+
 
 class InkyStrategy(BFSStrategy):
     """Flank the player on the opposite side from the red ghost."""
@@ -235,10 +242,12 @@ class InkyStrategy(BFSStrategy):
         reachable = maze.distances.get(ghost_pos, {})
         nearest_reachable = min(
             reachable,
-            key=lambda cell: (cell[0] - target_x) ** 2 + (cell[1] - target_y) ** 2,
+            key=lambda cell: (cell[0] - target_x) ** 2
+            + (cell[1] - target_y) ** 2,
             default=ghost_pos,
         )
         return nearest_reachable
+
 
 class FleeBFSStrategy(Strategy):
     """Choose shortest-path steps using the maze's precomputed distances."""

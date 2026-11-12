@@ -9,3 +9,5 @@ wheels/
 *.pdf
 # Virtual environments
 .venv
+# Local-only tests (not submitted)
+tests/

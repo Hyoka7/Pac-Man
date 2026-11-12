@@ -13,13 +13,13 @@ type RGBColor = tuple[int, int, int]
 """Red, green and blue channel values, each from 0 to 255."""
 
 type RGBAColor = tuple[int, int, int, int]
-"""Red, green, blue and alpha values, each from 0 to 255; alpha 255 is opaque."""
+"""Red, green, blue and alpha, each 0 to 255; alpha 255 is opaque."""
 
 type MazeGrid = list[list[int]]
 """Rows of wall bitmasks, indexed as grid[y][x]."""
 
 type CellDistances = dict[CellPosition, int]
-"""Reachable destination cells mapped to shortest step counts from one origin."""
+"""Reachable cells mapped to shortest step counts from one origin."""
 
 type MazeDistances = dict[CellPosition, CellDistances]
 """Origin cells mapped to their destination-distance dictionaries."""

@@ -37,7 +37,9 @@ class ConfigParser:
         with self.config_path.open("r", encoding="utf-8") as f:
             for line in f:
                 # Preserve line numbers for JSON syntax error messages.
-                config_parts.append("\n" if line.strip().startswith("#") else line)
+                config_parts.append(
+                    "\n" if line.strip().startswith("#") else line
+                )
         combined_config = "".join(config_parts)
         json_parsed_config = json.loads(combined_config)
         if not isinstance(json_parsed_config, dict):
@@ -45,7 +47,8 @@ class ConfigParser:
         levels = json_parsed_config.get("levels")
         if isinstance(levels, list) and levels:
             json_parsed_config["levels"] = [
-                self._validate_level(level, index) for index, level in enumerate(levels)
+                self._validate_level(level, index)
+                for index, level in enumerate(levels)
             ]
         return self._validate_config(json_parsed_config)
 
@@ -78,7 +81,8 @@ class ConfigParser:
                 )
                 corrected[name] = default
                 print(
-                    f"Warning: config.{name}: {error['msg']}; using {default!r}",
+                    f"Warning: config.{name}: {error['msg']}; "
+                    f"using {default!r}",
                     file=sys.stderr,
                 )
             return Config.model_validate(corrected)
@@ -119,7 +123,8 @@ class ConfigParser:
                 )
                 values[name] = default
                 print(
-                    f"Warning: {location}.{name}: {error['msg']}; using {default!r}",
+                    f"Warning: {location}.{name}: {error['msg']}; "
+                    f"using {default!r}",
                     file=sys.stderr,
                 )
             return LevelConfig.model_validate(values)

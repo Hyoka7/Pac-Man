@@ -52,9 +52,7 @@ class Pacgums:
         """
         return x in (0, self.cols - 1) and y in (0, self.rows - 1)
 
-    def reset_pacgums(
-        self, maze: Maze, player_pos: CellPosition
-    ) -> None:
+    def reset_pacgums(self, maze: Maze, player_pos: CellPosition) -> None:
         """Replace the level's pacgums, excluding walls and the start cell.
 
         Args:
