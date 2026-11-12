@@ -19,3 +19,7 @@ dev = [
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
+# Local stubs for mlx and mazegenerator, which ship no type information.
+mypy_path = "stubs"
+# Stubs are found through mypy_path; do not also collect them as sources.
+exclude = ["^stubs/"]

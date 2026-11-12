@@ -2,6 +2,12 @@
 
 最終更新：2026-11-12。
 
+## lint-strict対応：mlxとmazegeneratorのスタブ（2026-11-12）
+
+- `mypy --strict`はmlx・mazegeneratorに型情報（py.typed）がないためimport-untypedで失敗していた。パッケージは無改変のまま、stubs/mlx/__init__.pyi（Mlxの公開メソッド全32個とSYNC_*定数）とstubs/mazegenerator/__init__.pyi（MazeGeneratorの公開API）を追加。ポインタはctypesのc_void_pに合わせPointer = int | None。
+- pyproject.tomlの[tool.mypy]にmypy_path = "stubs"とexclude = ["^stubs/"]を追加。type: ignoreはlintの--warn-unused-ignoresと衝突するため使わない。
+- tests/を含まない提出状態のコピーでflake8 .、mypy .（lintのフラグ）、mypy . --strictがすべて成功することを確認。
+
 ## lint整理とテストのローカル化（2026-11-12）
 
 - テスト以外（pacman/・pac-man.py）をflake8・mypy（subject指定のフラグ）とも警告ゼロにした。black -l 79で整形し、長い文字列・E203は手で修正。pygameの案内文抑止はpacman/audio/__init__.pyへ移してE402を解消。KeyEnum.IはLETTER_Iへ改名し、未使用のO・M・Rを削除。WindowAction | Noneを返すキー処理にreturn Noneを明示。
