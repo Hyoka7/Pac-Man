@@ -18,10 +18,10 @@ install: $(VENV)
 	$(UV) sync
 	$(UV) pip install flake8 mypy $(MLX) $(MAZEGEN)
 
-run:
+run: install
 	$(UV) run pac-man.py $(CONFIG)
 
-debug:
+debug: install
 	$(UV) run -m pdb pac-man.py $(CONFIG)
 
 $(VENV):
