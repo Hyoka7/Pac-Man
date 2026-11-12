@@ -21,9 +21,13 @@ def main() -> int:
         generator.generate(seed=config.seed)
         GameVisualizer(generator, config).start_visualization()
         return 0
-    except (OSError, ValueError, TypeError) as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
+    except KeyboardInterrupt:
+        print("Interrupted", file=sys.stderr)
+        return 130
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

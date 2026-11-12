@@ -14,6 +14,7 @@ from pacman.game.pacgums import PacgumEatenEnum
 from pacman.game.player import Player
 from pacman.models import Config
 from pacman.visualize.canvas import Canvas
+from pacman.visualize.display_check import ensure_display_available
 from pacman.game.state import GameState
 from pacman.visualize.gui import GUI
 from pacman.visualize.layout import centered_start
@@ -336,6 +337,7 @@ class GameVisualizer:
         """Initialize MLX and allocate the window and backing image."""
         from mlx import Mlx
 
+        ensure_display_available()
         self.mlx = Mlx()
         self.mlx_pointer = self.mlx.mlx_init()
         if self.mlx_pointer is None:
