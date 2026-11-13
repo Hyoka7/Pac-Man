@@ -12,7 +12,12 @@ MYPYFLAGS = --warn-return-any --warn-unused-ignores \
 
 export UV_LINK_MODE = copy
 
-.PHONY: install run debug build package clean fclean lint lint-strict
+# itch.io upload (butler must be installed and logged in).
+BUTLER ?= butler
+ITCH_TARGET ?= hyoka7/pac-man:linux
+VERSION ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
+
+.PHONY: install run debug build package check-butler upload clean fclean lint lint-strict
 
 install: $(VENV)
 	$(UV) sync --inexact
@@ -34,6 +39,15 @@ package: build
 	chmod +x dist/pac-man/play.sh dist/pac-man/pac-man
 	rm -f dist/pac-man-linux.zip
 	cd dist/pac-man && zip -qr ../pac-man-linux.zip .
+
+check-butler:
+	@command -v $(BUTLER) >/dev/null 2>&1 || { \
+		echo "butler not found. Install it: https://itch.io/docs/butler/installing.html"; \
+		exit 1; }
+
+# Push dist/pac-man to itch.io; only changed files are sent.
+upload: check-butler package
+	$(BUTLER) push dist/pac-man $(ITCH_TARGET) --userversion $(VERSION)
 
 $(VENV):
 	uv venv $(VENV)
