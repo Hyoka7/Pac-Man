@@ -12,11 +12,11 @@ MYPYFLAGS = --warn-return-any --warn-unused-ignores \
 
 export UV_LINK_MODE = copy
 
-.PHONY: install run debug clean fclean lint lint-strict
+.PHONY: install run debug build package clean fclean lint lint-strict
 
 install: $(VENV)
-	$(UV) sync
-	$(UV) pip install flake8 mypy $(MLX) $(MAZEGEN)
+	$(UV) sync --inexact
+	$(UV) pip install $(MLX) $(MAZEGEN)
 
 run: install
 	$(UV) run pac-man.py $(CONFIG)
@@ -24,11 +24,22 @@ run: install
 debug: install
 	$(UV) run -m pdb pac-man.py $(CONFIG)
 
+build: install
+	$(UV) run pyinstaller --clean --noconfirm pac-man.spec
+	cp $(CONFIG) dist/pac-man/config.json
+
+# Linux build for itch.io: dist/pac-man-linux.zip (contents at the root).
+package: build
+	cp packaging/play.sh packaging/.itch.toml packaging/README.txt dist/pac-man/
+	chmod +x dist/pac-man/play.sh dist/pac-man/pac-man
+	rm -f dist/pac-man-linux.zip
+	cd dist/pac-man && zip -qr ../pac-man-linux.zip .
+
 $(VENV):
 	uv venv $(VENV)
 
 clean:
-	rm -rf .mypy_cache .pytest_cache .ruff_cache
+	rm -rf .mypy_cache .pytest_cache .ruff_cache build dist
 	find . -path "./$(VENV)" -prune -o -type d -name "__pycache__" -exec rm -rf {} +
 
 fclean: clean

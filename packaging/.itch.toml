@@ -1,0 +1,5 @@
+# itch app launch settings. play.sh switches to the game folder first.
+[[actions]]
+name = "play"
+path = "play.sh"
+platform = "linux"

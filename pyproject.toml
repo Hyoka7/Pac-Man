@@ -15,11 +15,12 @@ dependencies = [
 dev = [
     "flake8>=7.4.1",
     "mypy>=2.4.0",
+    "pyinstaller>=6.22.3",
 ]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
 # Local stubs for mlx and mazegenerator, which ship no type information.
 mypy_path = "stubs"
-# Stubs are found through mypy_path; do not also collect them as sources.
-exclude = ["^stubs/"]
+# Stubs come from mypy_path; skip them and PyInstaller output as sources.
+exclude = ["^stubs/", "^build/", "^dist/"]

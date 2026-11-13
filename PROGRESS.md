@@ -2,6 +2,15 @@
 
 最終更新：2026-11-12。
 
+## itch.io向けパッケージ化（2026-11-13）
+
+- PyInstaller（onedir）でLinux版をビルド。PyInstallerは開発用依存に追加し、ルートのpac-man.specはpyi-makespec --collect-binaries mlx --add-data assets:assets --exclude-module tests --noupxで生成。libmlx.soは_internal/mlx/、assetsは_internal/assets/に入り、コード変更なしで読み込める。
+- Makefile：make buildでspecからビルドしconfig.jsonを実行ファイルの隣へコピー。make packageでpackaging/のplay.sh・.itch.toml・README.txtを加え、中身をルートに置いたdist/pac-man-linux.zipを作る。run・debugはinstallを前提にし、installはuv sync --inexactでwheelを毎回入れ直さないようにした。cleanでbuild/・dist/も削除し、flake8とmypyの対象から外した。
+- play.shはゲームのフォルダへ移ってから./pac-man config.jsonを実行し、scores.jsonの保存先を固定する。.itch.tomlはLaunchでplay.shを実行する。README.txtは英語で、動作環境・操作・チート・設定・クレジット（フォントOFL、音源CC0／Pixabay）を記載。
+- config.jsonのseedは4（ユーザー変更）。README.txtにも4と記載し、未指定・不正時の既定値42を併記。
+- 解凍したzipを別ディレクトリから起動し、ディスプレイなしでは`Error:`で終了、実ディスプレイでは5秒間エラーなく動作することを確認。
+- 次はitch.ioでプロジェクトを作成し（Downloadable・無料・RestrictedかDraft）、zipをアップロードするかbutler pushする。
+
 ## lint-strict対応：mlxとmazegeneratorのスタブ（2026-11-12）
 
 - `mypy --strict`はmlx・mazegeneratorに型情報（py.typed）がないためimport-untypedで失敗していた。パッケージは無改変のまま、stubs/mlx/__init__.pyi（Mlxの公開メソッド全32個とSYNC_*定数）とstubs/mazegenerator/__init__.pyi（MazeGeneratorの公開API）を追加。ポインタはctypesのc_void_pに合わせPointer = int | None。
