@@ -253,7 +253,7 @@ class Game:
     def submit_score(self) -> None:
         """Save the result, clear the entered name and return to Home."""
         self.score_manager += ScoreEntry(
-            name=self.player_name if len(self.player_name) else "kyonaha",
+            name=self.player_name if len(self.player_name) else "Anonymous",
             score=self.player.score,
         )
         self.player_name = ""
