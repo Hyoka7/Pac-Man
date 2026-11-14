@@ -10,6 +10,8 @@ REQUIREMENTS
 ------------
 - Linux x86_64 with an X11 display
 - System libraries: libxcb, libxcb-keysyms, libvulkan, libbsd
+- A working Vulkan driver (MiniLibX draws with Vulkan; a software
+  driver such as lavapipe is enough)
 - Sound is optional; without an audio device the game runs silently.
 No Python installation is needed.
 
@@ -21,7 +23,8 @@ then run:
 
     ./play.sh
 
-With the itch app, press "Launch". To use another configuration file:
+With the itch app, press "Launch". To use another configuration file
+(the path is relative to this folder):
 
     ./play.sh path/to/other.json
 
@@ -90,6 +93,25 @@ HIGHSCORES
 The top 10 scores are saved in scores.json in this folder.
 A missing or broken file is reported and the game starts with an
 empty ranking.
+
+
+TROUBLESHOOTING
+---------------
+"Mlx init: Can't initialize gpu" (common on WSL)
+    No usable Vulkan driver was found. Install Mesa's Vulkan drivers,
+    which include lavapipe, a software driver that runs on the CPU:
+
+        sudo apt install mesa-vulkan-drivers vulkan-tools
+        vulkaninfo --summary
+
+    If the error remains, force lavapipe:
+
+        VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.x86_64.json ./play.sh
+
+    On WSL, the game window needs WSLg (GUI app support).
+
+"Error: no graphical display (DISPLAY is not set)"
+    Run the game from a desktop session, or on WSL with WSLg.
 
 
 CREDITS
